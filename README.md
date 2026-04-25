@@ -1,5 +1,10 @@
 # shell-cassette
 
+[![CI](https://github.com/slgoodrich/shell-cassette/actions/workflows/ci.yml/badge.svg)](https://github.com/slgoodrich/shell-cassette/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/shell-cassette.svg)](https://www.npmjs.com/package/shell-cassette)
+[![Node.js](https://img.shields.io/node/v/shell-cassette.svg)](https://www.npmjs.com/package/shell-cassette)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 > Polly.js, but for shell commands. Record subprocess calls once, replay them deterministically forever.
 
 ## Why
@@ -11,8 +16,15 @@ shell-cassette records subprocess calls once and replays them deterministically.
 ## Installation
 
 ```bash
-npm install --save-dev shell-cassette execa
+npm install --save-dev shell-cassette
 ```
+
+Peer dependencies:
+
+- `execa` ^9 — required
+- `vitest` ^4 — optional (only needed if you use the vitest plugin)
+
+Install whichever you don't already have.
 
 ## Quick start
 
@@ -61,6 +73,8 @@ CI:
 npm test  # CI=true forces replay-strict
 ```
 
+By default, cassettes land next to the test file at `__cassettes__/<test-file>/<test-name>.json`. Commit them — they're how replay works on the next run and in CI.
+
 ## Recording mode
 
 | Mode | Behavior |
@@ -97,7 +111,8 @@ Optional `shell-cassette.config.{js,mjs}`:
 export default {
   cassetteDir: '__cassettes__',         // default
   redactEnvKeys: ['STRIPE_KEY'],        // adds to curated list
-  matcher: (call, rec) => /* custom */, // default: command + deep-equal args
+  // Custom matcher: match on command only, ignore args (default matches command + deep-equal args).
+  matcher: (call, rec) => call.command === rec.call.command,
 }
 ```
 
