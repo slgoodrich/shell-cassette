@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "recordings": [
+    {
+      "call": {
+        "command": "git",
+        "args": ["status", "--porcelain"],
+        "cwd": "/tmp/repo",
+        "env": {},
+        "stdin": null
+      },
+      "result": {
+        "stdoutLines": ["M src/foo.ts", "?? src/bar.ts", ""],
+        "stderrLines": [""],
+        "exitCode": 0,
+        "signal": null,
+        "durationMs": 142
+      }
+    }
+  ]
+}
