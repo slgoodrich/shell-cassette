@@ -1,8 +1,10 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { execa as wrappedExeca } from '../../src/execa.js'
+import { writeCassetteFile } from '../../src/io.js'
+import { serialize } from '../../src/serialize.js'
 import { clearActiveCassette, setActiveCassette } from '../../src/state.js'
 import type { CassetteSession } from '../../src/types.js'
 
@@ -98,9 +100,6 @@ describe('wrapped execa', () => {
       expect(recordSession.newRecordings[0]?.result.allLines).not.toBeNull()
       clearActiveCassette()
 
-      // persist
-      const { writeCassetteFile } = await import('../../src/io.js')
-      const { serialize } = await import('../../src/serialize.js')
       await writeCassetteFile(
         cassettePath,
         serialize({ version: 1, recordings: recordSession.newRecordings }),
@@ -125,7 +124,6 @@ describe('wrapped execa', () => {
     const tmp = await mkdtemp(path.join(tmpdir(), 'sc-test-'))
     try {
       const cassettePath = path.join(tmp, 'cassette.json')
-      const { writeFile } = await import('node:fs/promises')
       const legacy = {
         version: 1,
         recordings: [

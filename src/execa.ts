@@ -132,7 +132,9 @@ function toLines(input: string | string[] | undefined): string[] {
 function synthesize(rec: Recording, options: Options): unknown {
   const stdout = rec.result.stdoutLines.join('\n')
   const stderr = rec.result.stderrLines.join('\n')
-  const result: Record<string, unknown> = {
+  const all =
+    options.all === true ? (rec.result.allLines?.join('\n') ?? stdout + stderr) : undefined
+  const result = {
     stdout: options.lines === true ? rec.result.stdoutLines.slice(0, -1) : stdout,
     stderr,
     exitCode: rec.result.exitCode,
@@ -144,11 +146,7 @@ function synthesize(rec: Recording, options: Options): unknown {
     killed: rec.result.signal !== null,
     command: `${rec.call.command} ${rec.call.args.join(' ')}`,
     escapedCommand: rec.call.command,
-  }
-  if (options.all === true) {
-    // Use recorded interleaved output when present; fall back to stdout+stderr concat for legacy cassettes.
-    const allLines = rec.result.allLines ?? [...rec.result.stdoutLines, ...rec.result.stderrLines]
-    result.all = allLines.join('\n')
+    ...(all !== undefined && { all }),
   }
 
   // If reject is true (default) and exit !== 0, throw an Error shaped like ExecaError

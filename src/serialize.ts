@@ -86,19 +86,19 @@ export function deserialize(text: string): CassetteFile {
     throw new CassetteCorruptError('cassette `recordings` must be an array')
   }
 
-  const recordings = (obj.recordings as Recording[]).map(normalizeLegacyRecording)
+  const recordings = (obj.recordings as LegacyRecording[]).map(normalizeLegacyRecording)
   return {
     version: SCHEMA_VERSION,
     recordings,
   }
 }
 
-// Cassettes recorded before allLines was introduced lack the field; normalize to null so callers can rely on the type.
-function normalizeLegacyRecording(rec: Recording): Recording {
-  const result = rec.result as Partial<Recording['result']>
-  if ('allLines' in result) return rec
-  return {
-    ...rec,
-    result: { ...(result as Recording['result']), allLines: null },
-  }
+// On disk, `allLines` may be absent (cassettes recorded before it existed).
+type LegacyRecording = Omit<Recording, 'result'> & {
+  result: Omit<Recording['result'], 'allLines'> & { allLines?: string[] | null }
+}
+
+function normalizeLegacyRecording(rec: LegacyRecording): Recording {
+  if (rec.result.allLines !== undefined) return rec as Recording
+  return { ...rec, result: { ...rec.result, allLines: null } }
 }

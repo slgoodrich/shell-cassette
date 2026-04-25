@@ -11,8 +11,7 @@ export type Call = {
 export type Result = {
   stdoutLines: string[]
   stderrLines: string[]
-  // Captured only when the original call passed { all: true }; null otherwise.
-  // Replay falls back to stdout+stderr concat if a caller asks for `all` but the recording is null.
+  // null when the original call did not pass { all: true }
   allLines: string[] | null
   exitCode: number
   signal: string | null
