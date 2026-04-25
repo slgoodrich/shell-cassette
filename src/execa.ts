@@ -1,5 +1,5 @@
-import { execa as realExeca } from 'execa'
 import type { Options, ResultPromise } from 'execa'
+import { execa as realExeca } from 'execa'
 import { requireAckGate } from './ack.js'
 import { type Config, getConfig } from './config.js'
 import { ReplayMissError } from './errors.js'

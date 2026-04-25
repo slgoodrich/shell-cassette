@@ -12,7 +12,6 @@ describe('log', () => {
   afterEach(() => {
     stderrSpy.mockRestore()
     if (originalEnv === undefined) {
-      // biome-ignore lint/performance/noDelete: env var must be unset, not stringified to "undefined"
       delete process.env.SHELL_CASSETTE_LOG
     } else {
       process.env.SHELL_CASSETTE_LOG = originalEnv
@@ -20,7 +19,6 @@ describe('log', () => {
   })
 
   test('writes to stderr with shell-cassette: prefix', () => {
-    // biome-ignore lint/performance/noDelete: env var must be unset, not stringified to "undefined"
     delete process.env.SHELL_CASSETTE_LOG
     log('hello world')
     expect(stderrSpy).toHaveBeenCalledOnce()

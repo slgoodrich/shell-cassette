@@ -5,13 +5,11 @@ import { AckRequiredError } from '../../src/errors.js'
 const originalEnv = process.env.SHELL_CASSETTE_ACK_REDACTION
 
 beforeEach(() => {
-  // biome-ignore lint/performance/noDelete: env var must be unset, not stringified to "undefined"
   delete process.env.SHELL_CASSETTE_ACK_REDACTION
 })
 
 afterEach(() => {
   if (originalEnv === undefined) {
-    // biome-ignore lint/performance/noDelete: env var must be unset, not stringified to "undefined"
     delete process.env.SHELL_CASSETTE_ACK_REDACTION
   } else {
     process.env.SHELL_CASSETTE_ACK_REDACTION = originalEnv
@@ -52,7 +50,6 @@ describe('requireAckGate', () => {
   test('one-shot toggle: env on then off → next call throws', () => {
     process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
     expect(() => requireAckGate()).not.toThrow()
-    // biome-ignore lint/performance/noDelete: env var must be unset, not stringified to "undefined"
     delete process.env.SHELL_CASSETTE_ACK_REDACTION
     expect(() => requireAckGate()).toThrow(AckRequiredError)
   })

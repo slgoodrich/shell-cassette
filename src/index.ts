@@ -1,11 +1,11 @@
 export { execa } from './execa.js'
-export { useCassette } from './use-cassette.js'
 export type {
   Call,
-  Recording,
-  Result,
   CassetteFile,
   CassetteSession,
-  Mode,
   MatcherFn,
+  Mode,
+  Recording,
+  Result,
 } from './types.js'
+export { useCassette } from './use-cassette.js'
