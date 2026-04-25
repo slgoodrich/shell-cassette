@@ -8,7 +8,6 @@ import { MatcherState } from './matcher.js'
 import { resolveMode } from './mode.js'
 import { validateOptions } from './options.js'
 import { record } from './recorder.js'
-import { cleanErrorStack } from './stack.js'
 import { getActiveCassette } from './state.js'
 import type { Call, CassetteSession, MatcherStateLike, Recording, Result } from './types.js'
 
@@ -50,17 +49,13 @@ async function runExeca(file: string, args: readonly string[], options: Options)
 
   if (mode === 'replay') {
     if (session.loadedFile === null) {
-      const err = new ReplayMissError(
+      throw new ReplayMissError(
         `no cassette at ${session.path}; run with SHELL_CASSETTE_MODE=record to create.`,
       )
-      cleanErrorStack(err)
-      throw err
     }
     const recording = matcher.findMatch(call)
     if (recording === null) {
-      const err = buildReplayMissError(call, session)
-      cleanErrorStack(err)
-      throw err
+      throw buildReplayMissError(call, session)
     }
     return synthesize(recording, options)
   }
