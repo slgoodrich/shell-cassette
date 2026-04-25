@@ -24,7 +24,6 @@ beforeEach(() => {
 afterEach(() => {
   clearActiveCassette()
   if (originalAck === undefined) {
-    // biome-ignore lint/performance/noDelete: env var must be unset, not stringified to "undefined"
     delete process.env.SHELL_CASSETTE_ACK_REDACTION
   } else {
     process.env.SHELL_CASSETTE_ACK_REDACTION = originalAck
@@ -52,7 +51,6 @@ describe('wrapped execa', () => {
   })
 
   test('throws AckRequiredError when recording without ack', async () => {
-    // biome-ignore lint/performance/noDelete: env var must be unset, not stringified to "undefined"
     delete process.env.SHELL_CASSETTE_ACK_REDACTION
     const tmp = await mkdtemp(path.join(tmpdir(), 'sc-test-'))
     try {

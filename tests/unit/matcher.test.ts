@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { MatcherState, defaultMatcher } from '../../src/matcher.js'
+import { defaultMatcher, MatcherState } from '../../src/matcher.js'
 import type { Call, Recording } from '../../src/types.js'
 
 const callOf = (command: string, args: string[]): Call => ({
