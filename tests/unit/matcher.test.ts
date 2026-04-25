@@ -15,6 +15,7 @@ const recordingOf = (command: string, args: string[], stdout = ''): Recording =>
   result: {
     stdoutLines: [stdout, ''],
     stderrLines: [''],
+    allLines: null,
     exitCode: 0,
     signal: null,
     durationMs: 1,

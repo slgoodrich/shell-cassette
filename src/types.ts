@@ -11,6 +11,8 @@ export type Call = {
 export type Result = {
   stdoutLines: string[]
   stderrLines: string[]
+  // null when the original call did not pass { all: true }
+  allLines: string[] | null
   exitCode: number
   signal: string | null
   durationMs: number

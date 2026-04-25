@@ -107,6 +107,7 @@ function captureRecording(
   const r = execaResult as {
     stdout?: string | string[]
     stderr?: string | string[]
+    all?: string | string[]
     exitCode?: number
     signal?: string | null
     durationMs?: number
@@ -114,6 +115,7 @@ function captureRecording(
   const result: Result = {
     stdoutLines: toLines(r.stdout),
     stderrLines: toLines(r.stderr),
+    allLines: r.all === undefined ? null : toLines(r.all),
     exitCode: r.exitCode ?? 0,
     signal: r.signal ?? null,
     durationMs: r.durationMs ?? 0,
@@ -130,6 +132,8 @@ function toLines(input: string | string[] | undefined): string[] {
 function synthesize(rec: Recording, options: Options): unknown {
   const stdout = rec.result.stdoutLines.join('\n')
   const stderr = rec.result.stderrLines.join('\n')
+  const all =
+    options.all === true ? (rec.result.allLines?.join('\n') ?? stdout + stderr) : undefined
   const result = {
     stdout: options.lines === true ? rec.result.stdoutLines.slice(0, -1) : stdout,
     stderr,
@@ -142,6 +146,7 @@ function synthesize(rec: Recording, options: Options): unknown {
     killed: rec.result.signal !== null,
     command: `${rec.call.command} ${rec.call.args.join(' ')}`,
     escapedCommand: rec.call.command,
+    ...(all !== undefined && { all }),
   }
 
   // If reject is true (default) and exit !== 0, throw an Error shaped like ExecaError

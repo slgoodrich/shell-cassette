@@ -25,6 +25,7 @@ function orderRecording(rec: Recording) {
     result: {
       stdoutLines: rec.result.stdoutLines,
       stderrLines: rec.result.stderrLines,
+      allLines: rec.result.allLines,
       exitCode: rec.result.exitCode,
       signal: rec.result.signal,
       durationMs: rec.result.durationMs,
@@ -46,6 +47,15 @@ function validateBeforeSerialize(file: CassetteFile): void {
         throw new BinaryOutputError(
           `cannot serialize non-string in stderrLines for ${rec.call.command}; v0.1 supports UTF-8 text only`,
         )
+      }
+    }
+    if (rec.result.allLines !== null) {
+      for (const line of rec.result.allLines) {
+        if (typeof line !== 'string') {
+          throw new BinaryOutputError(
+            `cannot serialize non-string in allLines for ${rec.call.command}; v0.1 supports UTF-8 text only`,
+          )
+        }
       }
     }
   }
@@ -76,8 +86,19 @@ export function deserialize(text: string): CassetteFile {
     throw new CassetteCorruptError('cassette `recordings` must be an array')
   }
 
+  const recordings = (obj.recordings as LegacyRecording[]).map(normalizeLegacyRecording)
   return {
     version: SCHEMA_VERSION,
-    recordings: obj.recordings as Recording[],
+    recordings,
   }
+}
+
+// On disk, `allLines` may be absent (cassettes recorded before it existed).
+type LegacyRecording = Omit<Recording, 'result'> & {
+  result: Omit<Recording['result'], 'allLines'> & { allLines?: string[] | null }
+}
+
+function normalizeLegacyRecording(rec: LegacyRecording): Recording {
+  if (rec.result.allLines !== undefined) return rec as Recording
+  return { ...rec, result: { ...rec.result, allLines: null } }
 }

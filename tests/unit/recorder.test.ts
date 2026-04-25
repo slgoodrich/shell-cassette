@@ -22,6 +22,7 @@ const callOf = (env: Record<string, string> = {}): Call => ({
 const resultOf = (): Result => ({
   stdoutLines: ['ok', ''],
   stderrLines: [''],
+  allLines: null,
   exitCode: 0,
   signal: null,
   durationMs: 5,
