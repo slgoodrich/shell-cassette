@@ -7,12 +7,15 @@ describe('vitest plugin lifecycle (subprocess-driven)', () => {
   test('plugin records cassettes for tests in fixture project', async () => {
     const fixtureDir = path.resolve('tests/plugin/fixtures/basic')
 
-    // Run vitest in the fixture dir
+    // Run vitest in the fixture dir.
+    // SHELL_CASSETTE_MODE=auto pins the mode so the inherited CI=true
+    // (set by GitHub Actions) doesn't force replay-strict in the child.
     await childExeca('npx', ['vitest', 'run'], {
       cwd: fixtureDir,
       env: {
         ...process.env,
         SHELL_CASSETTE_ACK_REDACTION: 'true',
+        SHELL_CASSETTE_MODE: 'auto',
       },
       reject: false,
     })

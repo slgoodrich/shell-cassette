@@ -6,18 +6,26 @@ import { execa } from '../../src/execa.js'
 import { useCassette } from '../../src/use-cassette.js'
 
 const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
+const originalMode = process.env.SHELL_CASSETTE_MODE
 
 beforeEach(() => {
   process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
+  // Pin the mode so CI=true on the runner doesn't force replay-strict.
+  process.env.SHELL_CASSETTE_MODE = 'auto'
 })
 
 afterEach(() => {
-  if (originalAck === undefined) {
-    delete process.env.SHELL_CASSETTE_ACK_REDACTION
-  } else {
-    process.env.SHELL_CASSETTE_ACK_REDACTION = originalAck
-  }
+  restoreEnv('SHELL_CASSETTE_ACK_REDACTION', originalAck)
+  restoreEnv('SHELL_CASSETTE_MODE', originalMode)
 })
+
+function restoreEnv(key: string, original: string | undefined): void {
+  if (original === undefined) {
+    delete process.env[key]
+  } else {
+    process.env[key] = original
+  }
+}
 
 describe('e2e record + replay', () => {
   test('node --version round-trips deterministically', async () => {
