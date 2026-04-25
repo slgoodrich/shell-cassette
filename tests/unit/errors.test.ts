@@ -1,15 +1,15 @@
 import { describe, expect, test } from 'vitest'
 import {
-  ShellCassetteError,
   AckRequiredError,
-  UnsupportedOptionError,
-  ReplayMissError,
-  ConcurrencyError,
   BinaryOutputError,
-  CassetteCorruptError,
   CassetteCollisionError,
-  CassetteIOError,
   CassetteConfigError,
+  CassetteCorruptError,
+  CassetteIOError,
+  ConcurrencyError,
+  ReplayMissError,
+  ShellCassetteError,
+  UnsupportedOptionError,
 } from '../../src/errors.js'
 
 describe('error classes', () => {

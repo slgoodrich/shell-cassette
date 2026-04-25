@@ -15,7 +15,7 @@ describe('cleanStack', () => {
   })
 
   test('returns input unchanged if no shell-cassette frames', () => {
-    const input = `Error: boom\n    at fn (/path/to/file.ts:5:10)`
+    const input = 'Error: boom\n    at fn (/path/to/file.ts:5:10)'
     expect(cleanStack(input)).toBe(input)
   })
 

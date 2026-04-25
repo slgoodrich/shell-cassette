@@ -5,7 +5,7 @@ export type Call = {
   args: readonly string[]
   cwd: string | null
   env: Record<string, string>
-  stdin: null  // v0.1: stdin not supported
+  stdin: null // v0.1: stdin not supported
 }
 
 export type Result = {
@@ -33,7 +33,7 @@ export type CassetteSession = {
   path: string
   scopeDefault: 'auto' | 'passthrough'
   loadedFile: CassetteFile | null
-  matcher: MatcherStateLike | null  // built lazily; defined in matcher.ts
+  matcher: MatcherStateLike | null // built lazily; defined in matcher.ts
   newRecordings: Recording[]
 }
 

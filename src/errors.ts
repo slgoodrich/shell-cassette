@@ -38,7 +38,10 @@ export class CassetteCollisionError extends ShellCassetteError {
 export class CassetteIOError extends ShellCassetteError {
   static override code = 'CASSETTE_IO'
 
-  constructor(message: string, public override readonly cause: Error) {
+  constructor(
+    message: string,
+    public override readonly cause: Error,
+  ) {
     super(message)
   }
 }
