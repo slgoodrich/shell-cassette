@@ -49,6 +49,7 @@ describe('serialize', () => {
           result: {
             stdoutLines: ['hello', ''],
             stderrLines: [''],
+            allLines: null,
             exitCode: 0,
             signal: null,
             durationMs: 5,
@@ -79,6 +80,7 @@ describe('serialize', () => {
           result: {
             stdoutLines: ['line1', 'line2', ''],
             stderrLines: [''],
+            allLines: null,
             exitCode: 0,
             signal: null,
             durationMs: 1,
@@ -90,6 +92,47 @@ describe('serialize', () => {
     expect(round.recordings[0]?.result.stdoutLines).toEqual(['line1', 'line2', ''])
   })
 
+  test('round-trip preserves allLines when populated', () => {
+    const file: CassetteFile = {
+      version: 1,
+      recordings: [
+        {
+          call: { command: 'x', args: [], cwd: null, env: {}, stdin: null },
+          result: {
+            stdoutLines: ['out', ''],
+            stderrLines: ['err', ''],
+            allLines: ['out', 'err', ''],
+            exitCode: 0,
+            signal: null,
+            durationMs: 1,
+          },
+        },
+      ],
+    }
+    const round = deserialize(serialize(file))
+    expect(round.recordings[0]?.result.allLines).toEqual(['out', 'err', ''])
+  })
+
+  test('deserialize normalizes legacy cassette (missing allLines) to null', () => {
+    const legacyJson = JSON.stringify({
+      version: 1,
+      recordings: [
+        {
+          call: { command: 'git', args: ['status'], cwd: null, env: {}, stdin: null },
+          result: {
+            stdoutLines: ['', ''],
+            stderrLines: [''],
+            exitCode: 0,
+            signal: null,
+            durationMs: 1,
+          },
+        },
+      ],
+    })
+    const round = deserialize(legacyJson)
+    expect(round.recordings[0]?.result.allLines).toBeNull()
+  })
+
   test('throws BinaryOutputError if attempting to serialize non-string in stdoutLines', () => {
     const bad = {
       version: 1,
@@ -99,6 +142,7 @@ describe('serialize', () => {
           result: {
             stdoutLines: [Buffer.from([0xff, 0xfe]) as unknown as string],
             stderrLines: [''],
+            allLines: null,
             exitCode: 0,
             signal: null,
             durationMs: 1,

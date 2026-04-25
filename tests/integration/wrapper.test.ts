@@ -78,4 +78,83 @@ describe('wrapped execa', () => {
       wrappedExeca('node', ['-v'], { ipc: true }),
     ).rejects.toThrow(/ipc/)
   })
+
+  test('captures and replays `all` when option is set', async () => {
+    const tmp = await mkdtemp(path.join(tmpdir(), 'sc-test-'))
+    try {
+      const cassettePath = path.join(tmp, 'cassette.json')
+
+      // Record
+      const recordSession = sessionAt(cassettePath)
+      setActiveCassette(recordSession)
+      const recorded = await wrappedExeca(
+        'node',
+        ['-e', 'console.log("out"); console.error("err")'],
+        { all: true },
+      )
+      expect(typeof recorded.all).toBe('string')
+      expect(recorded.all).toContain('out')
+      expect(recorded.all).toContain('err')
+      expect(recordSession.newRecordings[0]?.result.allLines).not.toBeNull()
+      clearActiveCassette()
+
+      // persist
+      const { writeCassetteFile } = await import('../../src/io.js')
+      const { serialize } = await import('../../src/serialize.js')
+      await writeCassetteFile(
+        cassettePath,
+        serialize({ version: 1, recordings: recordSession.newRecordings }),
+      )
+
+      // Replay
+      const replaySession = sessionAt(cassettePath)
+      setActiveCassette(replaySession)
+      const replayed = await wrappedExeca(
+        'node',
+        ['-e', 'console.log("out"); console.error("err")'],
+        { all: true },
+      )
+      expect(replayed.all).toContain('out')
+      expect(replayed.all).toContain('err')
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
+
+  test('legacy cassette (no allLines) still replays all via stdout+stderr concat', async () => {
+    const tmp = await mkdtemp(path.join(tmpdir(), 'sc-test-'))
+    try {
+      const cassettePath = path.join(tmp, 'cassette.json')
+      const { writeFile } = await import('node:fs/promises')
+      const legacy = {
+        version: 1,
+        recordings: [
+          {
+            call: {
+              command: 'node',
+              args: ['-v'],
+              cwd: null,
+              env: {},
+              stdin: null,
+            },
+            result: {
+              stdoutLines: ['v22.0.0', ''],
+              stderrLines: [''],
+              exitCode: 0,
+              signal: null,
+              durationMs: 1,
+            },
+          },
+        ],
+      }
+      await writeFile(cassettePath, JSON.stringify(legacy), 'utf8')
+
+      const session = sessionAt(cassettePath)
+      setActiveCassette(session)
+      const replayed = await wrappedExeca('node', ['-v'], { all: true })
+      expect(replayed.all).toContain('v22.0.0')
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
 })

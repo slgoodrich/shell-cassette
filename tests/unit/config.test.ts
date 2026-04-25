@@ -15,7 +15,14 @@ describe('DEFAULT_CONFIG', () => {
     const call = { command: 'git', args: ['status'], cwd: null, env: {}, stdin: null } as const
     const rec = {
       call,
-      result: { stdoutLines: [''], stderrLines: [''], exitCode: 0, signal: null, durationMs: 1 },
+      result: {
+        stdoutLines: [''],
+        stderrLines: [''],
+        allLines: null,
+        exitCode: 0,
+        signal: null,
+        durationMs: 1,
+      },
     }
     expect(DEFAULT_CONFIG.matcher(call, rec)).toBe(true)
   })

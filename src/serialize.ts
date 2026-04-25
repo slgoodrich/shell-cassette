@@ -25,6 +25,7 @@ function orderRecording(rec: Recording) {
     result: {
       stdoutLines: rec.result.stdoutLines,
       stderrLines: rec.result.stderrLines,
+      allLines: rec.result.allLines,
       exitCode: rec.result.exitCode,
       signal: rec.result.signal,
       durationMs: rec.result.durationMs,
@@ -46,6 +47,15 @@ function validateBeforeSerialize(file: CassetteFile): void {
         throw new BinaryOutputError(
           `cannot serialize non-string in stderrLines for ${rec.call.command}; v0.1 supports UTF-8 text only`,
         )
+      }
+    }
+    if (rec.result.allLines !== null) {
+      for (const line of rec.result.allLines) {
+        if (typeof line !== 'string') {
+          throw new BinaryOutputError(
+            `cannot serialize non-string in allLines for ${rec.call.command}; v0.1 supports UTF-8 text only`,
+          )
+        }
       }
     }
   }
@@ -76,8 +86,19 @@ export function deserialize(text: string): CassetteFile {
     throw new CassetteCorruptError('cassette `recordings` must be an array')
   }
 
+  const recordings = (obj.recordings as Recording[]).map(normalizeLegacyRecording)
   return {
     version: SCHEMA_VERSION,
-    recordings: obj.recordings as Recording[],
+    recordings,
+  }
+}
+
+// Cassettes recorded before allLines was introduced lack the field; normalize to null so callers can rely on the type.
+function normalizeLegacyRecording(rec: Recording): Recording {
+  const result = rec.result as Partial<Recording['result']>
+  if ('allLines' in result) return rec
+  return {
+    ...rec,
+    result: { ...(result as Recording['result']), allLines: null },
   }
 }
