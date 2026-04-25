@@ -4,7 +4,6 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     exclude: ['tests/dogfood/**', 'tests/plugin/fixtures/**', 'node_modules/**', 'dist/**'],
-    setupFiles: ['tests/setup.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
