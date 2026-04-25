@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+.vitest-cache/
+*.log
+
+# Allow dogfood cassettes (committed intentionally)
+!tests/dogfood/__cassettes__/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

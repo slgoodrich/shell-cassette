@@ -1,0 +1,86 @@
+{
+  "name": "shell-cassette",
+  "version": "0.1.0",
+  "description": "Polly.js, but for shell commands. Record subprocess calls once, replay them deterministically forever.",
+  "keywords": [
+    "subprocess",
+    "spawn",
+    "exec",
+    "execa",
+    "record",
+    "replay",
+    "vcr",
+    "cassette",
+    "fixture",
+    "test",
+    "testing",
+    "mock",
+    "mocking",
+    "deterministic",
+    "child_process"
+  ],
+  "homepage": "https://github.com/slgoodrich/shell-cassette#readme",
+  "bugs": "https://github.com/slgoodrich/shell-cassette/issues",
+  "license": "MIT",
+  "author": {
+    "name": "Steve Goodrich",
+    "email": "hello@stevelgoodrich.com"
+  },
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slgoodrich/shell-cassette.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./vitest": {
+      "types": "./dist/vitest.d.ts",
+      "default": "./dist/vitest.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "default": "./dist/config.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "execa": "^9.0.0",
+    "vitest": "^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "^2.1.0",
+    "execa": "^9.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  }
+}
