@@ -273,16 +273,17 @@ describe('runWrapped (envelope)', () => {
     const realCall = vi.fn(
       () =>
         new Promise<FakeResult>((resolve) => {
-          setTimeout(() => resolve({ stdout: 'slow', exitCode: 0 }), 30)
+          setTimeout(() => resolve({ stdout: 'slow', exitCode: 0 }), 50)
         }),
     )
 
     await runWrapped('sleep', [], {}, baseHooks(realCall))
     expect(session.newRecordings).toHaveLength(1)
     const measured = session.newRecordings[0]?.result.durationMs ?? 0
-    // Asserting ≥20ms with a 30ms artificial delay leaves headroom for timer
-    // imprecision on Windows CI without making the test flaky.
-    expect(measured).toBeGreaterThanOrEqual(20)
+    // Windows default timer resolution is ~15.6ms and slow CI runners can
+    // delay timer firing by another 5-10ms. 50ms timer with a 30ms threshold
+    // leaves enough cushion for that jitter without weakening the assertion.
+    expect(measured).toBeGreaterThanOrEqual(30)
     clearActiveCassette()
   })
 
@@ -295,13 +296,14 @@ describe('runWrapped (envelope)', () => {
     const realCall = vi.fn(
       () =>
         new Promise<FakeResult>((_, reject) => {
-          setTimeout(() => reject(fakeError), 25)
+          setTimeout(() => reject(fakeError), 50)
         }),
     )
 
     await expect(runWrapped('sleep', [], {}, baseHooks(realCall))).rejects.toBe(fakeError)
     expect(session.newRecordings).toHaveLength(1)
-    expect(session.newRecordings[0]?.result.durationMs).toBeGreaterThanOrEqual(15)
+    // Same Windows timer-jitter cushion as the success-path test above.
+    expect(session.newRecordings[0]?.result.durationMs).toBeGreaterThanOrEqual(30)
     clearActiveCassette()
   })
 })
