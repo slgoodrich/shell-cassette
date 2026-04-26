@@ -4,7 +4,7 @@
 
 ## Setup
 
-Three lines:
+Three pieces:
 
 ```ts
 // tests/sc-setup.ts
