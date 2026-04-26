@@ -70,7 +70,9 @@ jobs:
           cd /tmp/sc-smoke
           npm init -y > /dev/null
           # Install the tarball plus required peer deps for the adapters
-          # we exercise. tinyexec is enough for the smoke check.
+          # we exercise. tinyexec is enough for the positive smoke check.
+          # vitest is intentionally NOT installed so we can also verify
+          # MissingPeerDependencyError fires for shell-cassette/vitest.
           npm install --silent "$GITHUB_WORKSPACE"/shell-cassette-*.tgz tinyexec
           # Verify each public sub-path resolves at runtime.
           node --input-type=module -e "
@@ -83,4 +85,30 @@ jobs:
             if (typeof useCassette !== 'function') process.exit(1)
             if (typeof x !== 'function') process.exit(1)
             if (typeof ShellCassetteError !== 'function') process.exit(1)
+          "
+
+      - name: negative smoke - shell-cassette/vitest without vitest installed
+        run: |
+          set -e
+          cd /tmp/sc-smoke
+          # vitest is NOT installed in this project. Importing
+          # shell-cassette/vitest must throw MissingPeerDependencyError.
+          node --input-type=module -e "
+            try {
+              await import('shell-cassette/vitest')
+              console.error('FAIL: import did not throw')
+              process.exit(1)
+            } catch (e) {
+              if (e?.constructor?.name !== 'MissingPeerDependencyError') {
+                console.error('FAIL: wrong error class:', e?.constructor?.name)
+                console.error('message:', e?.message)
+                process.exit(1)
+              }
+              if (!String(e.message).includes('shell-cassette/vitest requires vitest')) {
+                console.error('FAIL: error message missing required text')
+                console.error('actual:', e.message)
+                process.exit(1)
+              }
+              console.log('OK: MissingPeerDependencyError thrown as expected')
+            }
           "

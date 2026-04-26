@@ -11,9 +11,8 @@
 // See docs/vitest-plugin.md for details. This is the standard vitest plugin
 // pattern and applies to vitest 3.x and 4.x.
 
-import { afterEach, beforeEach } from 'vitest'
 import { getConfig } from './config.js'
-import { ConcurrencyError } from './errors.js'
+import { ConcurrencyError, MissingPeerDependencyError } from './errors.js'
 import { writeCassetteFile } from './io.js'
 import { deriveCassettePathFromTask } from './plugin.js'
 import { serialize } from './serialize.js'
@@ -25,6 +24,28 @@ import {
 } from './state.js'
 import { summarizeSession } from './summary.js'
 import type { CassetteSession } from './types.js'
+
+// Resolve vitest via dynamic import so we can wrap "Cannot find module" with
+// an actionable error. Top-level await means consumers importing
+// shell-cassette/vitest wait for this resolution. Hooks register synchronously
+// after the await; vitest's setupFile loading awaits the entire chain, so
+// hooks are registered before any test runs.
+let beforeEach: typeof import('vitest').beforeEach
+let afterEach: typeof import('vitest').afterEach
+try {
+  const mod = await import('vitest')
+  beforeEach = mod.beforeEach
+  afterEach = mod.afterEach
+} catch (e) {
+  throw new MissingPeerDependencyError(
+    'shell-cassette/vitest requires vitest as a peer dependency.\n\n' +
+      'Install it:\n' +
+      '  npm install --save-dev vitest\n' +
+      '  pnpm add --save-dev vitest\n' +
+      '  yarn add --dev vitest\n\n' +
+      `Original error: ${(e as Error).message}`,
+  )
+}
 
 beforeEach((ctx) => {
   const task = (ctx as { task?: unknown }).task as
