@@ -57,7 +57,7 @@ function buildCall(file: string, args: readonly string[], options: Partial<Optio
   }
 }
 
-function captureResult(raw: unknown): CassetteResult {
+function captureResult(raw: unknown, durationMs: number): CassetteResult {
   const r = raw as {
     stdout?: string
     stderr?: string
@@ -78,7 +78,7 @@ function captureResult(raw: unknown): CassetteResult {
     allLines: null,
     exitCode: r.exitCode ?? 0,
     signal: r.killed === true ? 'SIGTERM' : null,
-    durationMs: 0,
+    durationMs,
     aborted: r.aborted === true,
   }
 }
