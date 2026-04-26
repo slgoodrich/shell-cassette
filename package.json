@@ -43,6 +43,10 @@
       "types": "./dist/execa.d.ts",
       "default": "./dist/execa.js"
     },
+    "./tinyexec": {
+      "types": "./dist/tinyexec.d.ts",
+      "default": "./dist/tinyexec.js"
+    },
     "./vitest": {
       "types": "./dist/vitest.d.ts",
       "default": "./dist/vitest.js"
