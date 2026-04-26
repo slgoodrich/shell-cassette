@@ -18,6 +18,7 @@ import { deriveCassettePathFromTask } from './plugin.js'
 import { serialize } from './serialize.js'
 import {
   clearActiveCassette,
+  getActiveCassette,
   registerSessionPath,
   setActiveCassette,
   unregisterSessionPath,
@@ -43,7 +44,7 @@ try {
       '  npm install --save-dev vitest\n' +
       '  pnpm add --save-dev vitest\n' +
       '  yarn add --dev vitest\n\n' +
-      `Original error: ${(e as Error).message}`,
+      `Original error: ${e instanceof Error ? e.message : String(e)}`,
   )
 }
 
@@ -80,7 +81,6 @@ beforeEach((ctx) => {
 })
 
 afterEach(async () => {
-  const { getActiveCassette } = await import('./state.js')
   const session = getActiveCassette()
   if (session && session.newRecordings.length > 0) {
     const existingRecordings = session.loadedFile?.recordings ?? []
