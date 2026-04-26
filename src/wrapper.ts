@@ -61,16 +61,31 @@ export async function runWrapped<Opts, ResultShape>(
     return hooks.synthesize(recording, options)
   }
 
+  let cameFromAutoMiss = false
   if (mode === 'auto') {
     const recording = matcher.findMatch(call)
     if (recording !== null) {
       return hooks.synthesize(recording, options)
     }
+    cameFromAutoMiss = true
     // fall through to record path (auto-additive)
   }
 
   // mode is 'record' OR auto-with-no-match
-  requireAckGate()
+  try {
+    requireAckGate()
+  } catch (e) {
+    // Default scope mode is 'auto'. When the matcher misses, the wrapper
+    // falls through to the record path, which then asks for ack. From the
+    // user's perspective they tried to replay; the ack error obscures the
+    // real cause (matcher miss). Mutate the original error's message so the
+    // actual problem path is visible. Stack and class are preserved —
+    // programmatic catches on AckRequiredError still work.
+    if (cameFromAutoMiss && e instanceof Error) {
+      e.message = `auto mode: no recording matched \`${formatCallSignature(call)}\`, attempted to record but ack gate not set.\n\n${e.message}`
+    }
+    throw e
+  }
   try {
     const result = await hooks.realCall(file, args, options)
     captureAndRecord(call, result, hooks, session, config)
@@ -101,10 +116,10 @@ function ensureMatcher(matcher: MatcherStateLike | null): MatcherStateLike {
 
 function buildReplayMissError(call: Call, session: CassetteSession): ReplayMissError {
   const recordedCalls = session.loadedFile?.recordings
-    .map((r) => `${r.call.command} ${r.call.args.join(' ')}`)
+    .map((r) => formatCallSignature(r.call))
     .join('\n  - ')
   return new ReplayMissError(
-    `no matching recording for \`${call.command} ${call.args.join(' ')}\`
+    `no matching recording for \`${formatCallSignature(call)}\`
   cassette: ${session.path}
   matcher:  default (command + deep-equal args)
 
@@ -113,4 +128,8 @@ Recorded calls in this cassette:
 
 To re-record: delete the cassette file and run tests again.`,
   )
+}
+
+function formatCallSignature(call: Call): string {
+  return `${call.command} ${call.args.join(' ')}`
 }
