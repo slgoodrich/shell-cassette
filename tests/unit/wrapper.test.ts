@@ -53,6 +53,12 @@ describe('runWrapped (envelope)', () => {
   afterEach(() => {
     _resetForTesting()
     clearActiveCassette()
+    // Symmetric with beforeEach so the last test's env state doesn't leak past
+    // this file (vitest's per-file isolation hides this today, but a future
+    // pool config without isolation would expose it).
+    delete process.env.SHELL_CASSETTE_MODE
+    delete process.env.SHELL_CASSETTE_ACK_REDACTION
+    delete process.env.CI
   })
 
   test('passthrough when no active cassette and mode is not replay', async () => {

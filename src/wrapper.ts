@@ -8,6 +8,15 @@ import { record } from './recorder.js'
 import { getActiveCassette } from './state.js'
 import type { Call, CassetteSession, MatcherStateLike, Recording, Result } from './types.js'
 
+const NO_ACTIVE_SESSION_HELP = `shell-cassette is in replay mode but no active cassette session is bound.
+
+Fix one of:
+  - Wrap the call site with useCassette(path, async () => { ... })
+  - Import 'shell-cassette/vitest' as a setupFile so the plugin auto-binds per test
+  - Set SHELL_CASSETTE_MODE=passthrough to opt out of strict replay
+
+CI=true forces replay mode by default; without a session shell-cassette refuses to run real subprocesses.`
+
 export type RunnerHooks<Opts, ResultShape> = {
   validate: (options: Opts | undefined) => void
   buildCall: (file: string, args: readonly string[], options: Opts) => Call
@@ -37,15 +46,7 @@ export async function runWrapped<Opts, ResultShape>(
       'passthrough',
     )
     if (mode === 'replay') {
-      throw new NoActiveSessionError(
-        'shell-cassette is in replay mode but no active cassette session is bound.\n\n' +
-          'Fix one of:\n' +
-          '  - Wrap the call site with `useCassette(path, async () => { ... })`\n' +
-          '  - Import `shell-cassette/vitest` as a setupFile so the plugin auto-binds per test\n' +
-          '  - Set `SHELL_CASSETTE_MODE=passthrough` to opt out of strict replay\n\n' +
-          'CI=true forces replay mode by default; without a session shell-cassette refuses ' +
-          'to run real subprocesses.',
-      )
+      throw new NoActiveSessionError(NO_ACTIVE_SESSION_HELP)
     }
     return hooks.realCall(file, args, options)
   }
