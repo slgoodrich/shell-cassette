@@ -70,7 +70,7 @@ tinyexec returns a richer object than `Promise<Result>` - it's structurally `Pro
 | `result.process` | `null` | No live `ChildProcess` to expose |
 | `result.pipe(...)` | Throws `UnsupportedOptionError` | Pipe chaining requires a live subprocess to receive stdin |
 | `result.kill()` | No-op | The subprocess never spawned; nothing to kill |
-| `for await (line of result)` | Throws `UnsupportedOptionError` | Streaming iteration over recorded output isn't faithful (interleaving order is lost in storage) |
+| `for await (line of result)` | Throws `UnsupportedOptionError` | Interleaving order between stdout and stderr is lost in storage |
 | Synchronous reads of `proc.pid`, `proc.killed`, `proc.aborted` BEFORE `await` | Returns `undefined` | Replay returns `Promise<Result>`, not the live ProcessPromise shape |
 
 **Workaround:** `await` the result first, then read fields on the resolved object. All v0.2 validation targets (varlet-release, cac, eslint-import-resolver-typescript) follow this pattern, so it's the common case.
