@@ -18,6 +18,8 @@ export function x(
 const tinyexecHooks: RunnerHooks<Partial<Options>, TinyResult> = {
   validate: (opts) => validateOptions(opts as Record<string, unknown> | undefined),
   buildCall,
+  // tinyexec's Result is structurally a PromiseLike & OutputApi, not Promise<Result>;
+  // double-cast through unknown is needed to satisfy the hook's Promise<ResultShape> signature
   realCall: (file, args, options) =>
     realX(file, [...args], options) as unknown as Promise<TinyResult>,
   captureResult,
@@ -44,6 +46,9 @@ function captureResult(raw: unknown): CassetteResult {
     killed?: boolean
     aborted?: boolean
   }
+  // tinyexec.stdout/stderr is always a string per its type contract; the [''] fallback
+  // exists only for defensive narrowing on `unknown` raw input (e.g., a thrown error
+  // shape that happens to lack stdout/stderr fields).
   return {
     stdoutLines: typeof r.stdout === 'string' ? r.stdout.split('\n') : [''],
     stderrLines: typeof r.stderr === 'string' ? r.stderr.split('\n') : [''],
@@ -91,5 +96,9 @@ function synthesize(rec: Recording, options: Partial<Options>): TinyResult {
     )
   }
 
+  // The synthesized object lacks tinyexec's full structural shape (no `then`/`spawn`
+  // fields from ExecProcess; `process` is null instead of ChildProcess | undefined).
+  // Documented replay limit: code reading these fields synchronously before await,
+  // or calling sync-only ProcessApi methods, must use real execution.
   return result as unknown as TinyResult
 }
