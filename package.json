@@ -76,6 +76,9 @@
     "vitest": "^4.0.0"
   },
   "peerDependenciesMeta": {
+    "execa": {
+      "optional": true
+    },
     "vitest": {
       "optional": true
     }
