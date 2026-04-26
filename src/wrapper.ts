@@ -1,6 +1,6 @@
 import { requireAckGate } from './ack.js'
 import { type Config, getConfig } from './config.js'
-import { ReplayMissError } from './errors.js'
+import { AckRequiredError, ReplayMissError } from './errors.js'
 import { loadCassette } from './loader.js'
 import { MatcherState } from './matcher.js'
 import { resolveMode } from './mode.js'
@@ -61,16 +61,33 @@ export async function runWrapped<Opts, ResultShape>(
     return hooks.synthesize(recording, options)
   }
 
+  let cameFromAutoMiss = false
   if (mode === 'auto') {
     const recording = matcher.findMatch(call)
     if (recording !== null) {
       return hooks.synthesize(recording, options)
     }
+    cameFromAutoMiss = true
     // fall through to record path (auto-additive)
   }
 
   // mode is 'record' OR auto-with-no-match
-  requireAckGate()
+  try {
+    requireAckGate()
+  } catch (e) {
+    // Default scope mode is 'auto'. When the matcher misses, the wrapper
+    // falls through to the record path, which then asks for ack. From the
+    // user's perspective they tried to replay; the ack error obscures the
+    // real cause (matcher miss). Augment the message so the actual problem
+    // path is visible without changing the error class — programmatic
+    // catches on AckRequiredError still work.
+    if (cameFromAutoMiss && e instanceof AckRequiredError) {
+      throw new AckRequiredError(
+        `auto mode: no recording matched \`${call.command} ${call.args.join(' ')}\`, attempted to record but ack gate not set.\n\n${e.message}`,
+      )
+    }
+    throw e
+  }
   try {
     const result = await hooks.realCall(file, args, options)
     captureAndRecord(call, result, hooks, session, config)

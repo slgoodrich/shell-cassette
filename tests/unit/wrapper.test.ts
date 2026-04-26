@@ -153,4 +153,65 @@ describe('runWrapped (envelope)', () => {
     expect(session.newRecordings[0]?.result.exitCode).toBe(1)
     clearActiveCassette()
   })
+
+  test('auto matcher miss without ack: AckRequiredError message includes matcher-miss context', async () => {
+    // Existing recording for `git status`; we'll call `git log` so the matcher misses.
+    const recording: Recording = {
+      call: { command: 'git', args: ['status'], cwd: null, env: {}, stdin: null },
+      result: {
+        stdoutLines: ['', ''],
+        stderrLines: [''],
+        allLines: null,
+        exitCode: 0,
+        signal: null,
+        durationMs: 0,
+      },
+    }
+    const session = makeSession({
+      scopeDefault: 'auto',
+      loadedFile: { version: 1, recordings: [recording] },
+    })
+    setActiveCassette(session)
+    // ack intentionally NOT set
+    const realCall = vi.fn()
+
+    try {
+      await runWrapped('git', ['log'], {}, baseHooks(realCall as never))
+      throw new Error('should not reach')
+    } catch (e) {
+      expect(e).toBeInstanceOf(AckRequiredError)
+      const msg = (e as Error).message
+      expect(msg).toContain('auto mode')
+      expect(msg).toContain('no recording matched')
+      expect(msg).toContain('git log')
+      // Original ack help text is still appended
+      expect(msg).toContain('SHELL_CASSETTE_ACK_REDACTION')
+    } finally {
+      expect(realCall).not.toHaveBeenCalled()
+      clearActiveCassette()
+    }
+  })
+
+  test('explicit record mode without ack: AckRequiredError message is NOT augmented', async () => {
+    const session = makeSession({ scopeDefault: 'auto', loadedFile: null })
+    setActiveCassette(session)
+    process.env.SHELL_CASSETTE_MODE = 'record'
+    // ack intentionally NOT set
+    const realCall = vi.fn()
+
+    try {
+      await runWrapped('git', ['log'], {}, baseHooks(realCall as never))
+      throw new Error('should not reach')
+    } catch (e) {
+      expect(e).toBeInstanceOf(AckRequiredError)
+      const msg = (e as Error).message
+      // No matcher-miss prefix on the explicit-record path
+      expect(msg).not.toContain('auto mode')
+      expect(msg).not.toContain('no recording matched')
+      expect(msg).toContain('SHELL_CASSETTE_ACK_REDACTION')
+    } finally {
+      expect(realCall).not.toHaveBeenCalled()
+      clearActiveCassette()
+    }
+  })
 })
