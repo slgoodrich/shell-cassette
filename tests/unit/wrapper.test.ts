@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { DEFAULT_CONFIG } from '../../src/config.js'
 import { AckRequiredError, ReplayMissError, UnsupportedOptionError } from '../../src/errors.js'
-import { MatcherState } from '../../src/matcher.js'
 import { _resetForTesting, clearActiveCassette, setActiveCassette } from '../../src/state.js'
-import type { CassetteSession, Recording } from '../../src/types.js'
+import type { Recording } from '../../src/types.js'
 import { type RunnerHooks, runWrapped } from '../../src/wrapper.js'
+import { makeSession } from '../helpers/session.js'
 
 type FakeOpts = { fake?: true }
 type FakeResult = { stdout: string; exitCode: number }
@@ -37,25 +36,6 @@ const baseHooks = (
     exitCode: rec.result.exitCode,
   }),
 })
-
-const makeSession = (overrides: Partial<CassetteSession> = {}): CassetteSession => {
-  const base: CassetteSession = {
-    name: 'test',
-    path: '/tmp/test.json',
-    scopeDefault: 'auto',
-    loadedFile: { version: 1, recordings: [] },
-    matcher: null,
-    newRecordings: [],
-    ...overrides,
-  }
-  // wrapper.ts only initializes the matcher when loadedFile is null on first
-  // call. When tests pre-populate loadedFile, also pre-populate the matcher
-  // to mirror what the wrapper would do on its lazy-load path.
-  if (base.loadedFile !== null && base.matcher === null) {
-    base.matcher = new MatcherState(base.loadedFile.recordings, DEFAULT_CONFIG.matcher)
-  }
-  return base
-}
 
 describe('runWrapped (envelope)', () => {
   beforeEach(() => {

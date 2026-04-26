@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { serialize } from '../../src/serialize.js'
 import { _resetForTesting, clearActiveCassette } from '../../src/state.js'
 import { useCassette } from '../../src/use-cassette.js'
 
@@ -57,7 +58,7 @@ describe('tinyexec integration', () => {
   test('replay reads cassette file and synthesizes result', async () => {
     const cassettePath = path.join(tmp, 'test.json')
 
-    const cassetteJson = JSON.stringify({
+    const cassetteJson = serialize({
       version: 1,
       recordings: [
         {
@@ -106,7 +107,7 @@ describe('tinyexec integration', () => {
   test('lazy write: cassette only written when newRecordings has entries', async () => {
     const cassettePath = path.join(tmp, 'replay-only.json')
 
-    const cassetteJson = JSON.stringify({
+    const cassetteJson = serialize({
       version: 1,
       recordings: [
         {

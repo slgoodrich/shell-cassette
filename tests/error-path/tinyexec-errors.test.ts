@@ -1,14 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { DEFAULT_CONFIG } from '../../src/config.js'
 import {
   AckRequiredError,
   ReplayMissError,
   ShellCassetteError,
   UnsupportedOptionError,
 } from '../../src/errors.js'
-import { MatcherState } from '../../src/matcher.js'
 import { _resetForTesting, clearActiveCassette, setActiveCassette } from '../../src/state.js'
-import type { CassetteSession } from '../../src/types.js'
+import { makeSession } from '../helpers/session.js'
 
 vi.mock('tinyexec', () => ({
   x: vi.fn(),
@@ -16,23 +14,6 @@ vi.mock('tinyexec', () => ({
 
 const { x: realXMock } = await import('tinyexec')
 const { x } = await import('../../src/tinyexec.js')
-
-const makeSession = (overrides: Partial<CassetteSession> = {}): CassetteSession => {
-  const base: CassetteSession = {
-    name: 'test',
-    path: '/tmp/test.json',
-    scopeDefault: 'auto',
-    loadedFile: { version: 1, recordings: [] },
-    matcher: null,
-    newRecordings: [],
-    ...overrides,
-  }
-  // Mirror wrapper.ts lazy-load invariant
-  if (base.loadedFile !== null && base.matcher === null) {
-    base.matcher = new MatcherState(base.loadedFile.recordings, DEFAULT_CONFIG.matcher)
-  }
-  return base
-}
 
 beforeEach(() => {
   _resetForTesting()
