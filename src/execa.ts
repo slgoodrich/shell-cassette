@@ -30,8 +30,8 @@ function buildCall(file: string, args: readonly string[], options: Options): Cal
   }
 }
 
-function captureResult(execaResult: unknown): Result {
-  const r = execaResult as {
+function captureResult(raw: unknown): Result {
+  const r = raw as {
     stdout?: string | string[]
     stderr?: string | string[]
     all?: string | string[]
