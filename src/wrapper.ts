@@ -1,6 +1,6 @@
 import { requireAckGate } from './ack.js'
 import { type Config, getConfig } from './config.js'
-import { ReplayMissError } from './errors.js'
+import { NoActiveSessionError, ReplayMissError } from './errors.js'
 import { loadCassette } from './loader.js'
 import { MatcherState } from './matcher.js'
 import { resolveMode } from './mode.js'
@@ -25,7 +25,28 @@ export async function runWrapped<Opts, ResultShape>(
   hooks.validate(options)
 
   const session = getActiveCassette()
+
+  // Resolve mode before the no-session passthrough check. If the user is in
+  // replay mode (env-set or CI-forced) but no session is active, falling
+  // through to realCall would silently run real subprocesses despite the
+  // user's "no real shell" intent. Refuse instead.
   if (session === null) {
+    const mode = resolveMode(
+      process.env.SHELL_CASSETTE_MODE,
+      Boolean(process.env.CI),
+      'passthrough',
+    )
+    if (mode === 'replay') {
+      throw new NoActiveSessionError(
+        'shell-cassette is in replay mode but no active cassette session is bound.\n\n' +
+          'Fix one of:\n' +
+          '  - Wrap the call site with `useCassette(path, async () => { ... })`\n' +
+          '  - Import `shell-cassette/vitest` as a setupFile so the plugin auto-binds per test\n' +
+          '  - Set `SHELL_CASSETTE_MODE=passthrough` to opt out of strict replay\n\n' +
+          'CI=true forces replay mode by default; without a session shell-cassette refuses ' +
+          'to run real subprocesses.',
+      )
+    }
     return hooks.realCall(file, args, options)
   }
 

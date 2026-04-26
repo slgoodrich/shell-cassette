@@ -53,3 +53,7 @@ export class CassetteConfigError extends ShellCassetteError {
 export class MissingPeerDependencyError extends ShellCassetteError {
   static override code = 'CASSETTE_MISSING_PEER_DEP'
 }
+
+export class NoActiveSessionError extends ShellCassetteError {
+  static override code = 'CASSETTE_NO_ACTIVE_SESSION'
+}
