@@ -28,6 +28,7 @@ const resultOf = (): Result => ({
   exitCode: 0,
   signal: null,
   durationMs: 5,
+  aborted: false,
 })
 
 describe('record', () => {

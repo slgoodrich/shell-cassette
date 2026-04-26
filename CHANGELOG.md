@@ -17,6 +17,7 @@ All notable changes to shell-cassette are documented here. The format is based o
 
 ### Added
 
+- **`aborted: boolean` field in cassette `Result` schema**: preserves AbortSignal/cancellation state end-to-end. execa records `r.isCanceled`, tinyexec records `r.aborted`. Replay synthesizes back to the runner's native field. Schema-additive: legacy cassettes without the field deserialize as `aborted: false`. No version bump. Closes [#29](https://github.com/slgoodrich/shell-cassette/issues/29).
 - **`shell-cassette/tinyexec` adapter**: drop-in replacement for tinyexec's `x` function. Same record/replay semantics as the execa adapter.
 - **End-of-run redaction summary**: vitest plugin and `useCassette` emit a grouped summary at scope end listing all redactions and warnings, with `⚠️` markers. Designed to be hard to miss in vitest's noisy output.
 - **Cassette `_warning` field**: every cassette JSON now includes a top-level `_warning` field with a "review before commit" reminder. Catches the case where users pipe stderr to `/dev/null` in CI but still commit cassettes.
@@ -40,7 +41,6 @@ All notable changes to shell-cassette are documented here. The format is based o
 - Cassette schema is unchanged at `version: 1`. Existing v0.1 cassettes load and replay correctly under v0.2's execa adapter. Cassettes recorded by v0.2 are loadable by v0.1 (additive only). The new `_warning` field is unknown to v0.1's deserializer, which ignores it.
 - **vitest 3.x and 4.x users must add `'shell-cassette'` to `test.server.deps.inline`**. See `docs/troubleshooting.md`.
 - **tinyexec adapter limitations**: `result.process` is `null` on replay, `result.pipe()` and `for await (line of result)` throw `UnsupportedOptionError`, `result.kill()` is a no-op, sync field reads before await return undefined. See `docs/tinyexec.md`.
-- **Known issue [#29](https://github.com/slgoodrich/shell-cassette/issues/29)**: AbortSignal/cancellation state (`isCanceled` for execa, `aborted` for tinyexec) is lost on replay. Cassette schema doesn't preserve it. Fix planned for v0.3+.
 - **Known issue [#33](https://github.com/slgoodrich/shell-cassette/issues/33)**: `AckRequiredError` thrown on matcher miss in auto mode is misleading; will be augmented with matcher-miss context in v0.3.
 - **Known issue [#34](https://github.com/slgoodrich/shell-cassette/issues/34)**: `durationMs` is recorded as `0` for tinyexec captures and may be `0` for execa. Will be properly measured in v0.3.
 

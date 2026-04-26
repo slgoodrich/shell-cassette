@@ -16,6 +16,10 @@ export type Result = {
   exitCode: number
   signal: string | null
   durationMs: number
+  // True when the original call was cancelled (execa: r.isCanceled,
+  // tinyexec: r.aborted). Defaults to false on legacy cassettes that
+  // predate the field; deserializer normalizes.
+  aborted: boolean
 }
 
 export type Recording = {

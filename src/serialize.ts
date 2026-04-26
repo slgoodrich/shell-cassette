@@ -39,6 +39,7 @@ function orderRecording(rec: Recording) {
       exitCode: rec.result.exitCode,
       signal: rec.result.signal,
       durationMs: rec.result.durationMs,
+      aborted: rec.result.aborted,
     },
   }
 }
@@ -103,12 +104,23 @@ export function deserialize(text: string): CassetteFile {
   }
 }
 
-// On disk, `allLines` may be absent (cassettes recorded before it existed).
+// On disk, `allLines` and `aborted` may be absent (cassettes recorded before
+// either field existed). Both default during normalization: allLines → null,
+// aborted → false. New optional fields go here, not as a schema bump.
 type LegacyRecording = Omit<Recording, 'result'> & {
-  result: Omit<Recording['result'], 'allLines'> & { allLines?: string[] | null }
+  result: Omit<Recording['result'], 'allLines' | 'aborted'> & {
+    allLines?: string[] | null
+    aborted?: boolean
+  }
 }
 
 function normalizeLegacyRecording(rec: LegacyRecording): Recording {
-  if (rec.result.allLines !== undefined) return rec as Recording
-  return { ...rec, result: { ...rec.result, allLines: null } }
+  return {
+    ...rec,
+    result: {
+      ...rec.result,
+      allLines: rec.result.allLines ?? null,
+      aborted: rec.result.aborted ?? false,
+    },
+  }
 }

@@ -57,6 +57,7 @@ function captureResult(raw: unknown): Result {
     exitCode?: number
     signal?: string | null
     durationMs?: number
+    isCanceled?: boolean
   }
   return {
     stdoutLines: toLines(r.stdout),
@@ -65,6 +66,7 @@ function captureResult(raw: unknown): Result {
     exitCode: r.exitCode ?? 0,
     signal: r.signal ?? null,
     durationMs: r.durationMs ?? 0,
+    aborted: r.isCanceled === true,
   }
 }
 
@@ -87,7 +89,7 @@ function synthesize(rec: Recording, options: Options): unknown {
     durationMs: rec.result.durationMs,
     failed: rec.result.exitCode !== 0,
     timedOut: false,
-    isCanceled: false,
+    isCanceled: rec.result.aborted,
     killed: rec.result.signal !== null,
     command: `${rec.call.command} ${rec.call.args.join(' ')}`,
     escapedCommand: rec.call.command,

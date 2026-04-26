@@ -19,6 +19,7 @@ const recordingOf = (command: string, args: string[], stdout = ''): Recording =>
     exitCode: 0,
     signal: null,
     durationMs: 1,
+    aborted: false,
   },
 })
 

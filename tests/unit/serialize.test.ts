@@ -54,6 +54,7 @@ describe('serialize', () => {
             exitCode: 0,
             signal: null,
             durationMs: 5,
+            aborted: false,
           },
         },
       ],
@@ -85,12 +86,57 @@ describe('serialize', () => {
             exitCode: 0,
             signal: null,
             durationMs: 1,
+            aborted: false,
           },
         },
       ],
     }
     const round = deserialize(serialize(file))
     expect(round.recordings[0]?.result.stdoutLines).toEqual(['line1', 'line2', ''])
+  })
+
+  test('round-trip preserves aborted: true', () => {
+    const file: CassetteFile = {
+      version: 1,
+      recordings: [
+        {
+          call: { command: 'sleep', args: ['10'], cwd: null, env: {}, stdin: null },
+          result: {
+            stdoutLines: [''],
+            stderrLines: [''],
+            allLines: null,
+            exitCode: 1,
+            signal: 'SIGTERM',
+            durationMs: 42,
+            aborted: true,
+          },
+        },
+      ],
+    }
+    const round = deserialize(serialize(file))
+    expect(round.recordings[0]?.result.aborted).toBe(true)
+  })
+
+  test('legacy cassette without aborted field deserializes to aborted: false', () => {
+    const legacyJson = JSON.stringify({
+      version: 1,
+      recordings: [
+        {
+          call: { command: 'echo', args: [], cwd: null, env: {}, stdin: null },
+          result: {
+            stdoutLines: [''],
+            stderrLines: [''],
+            allLines: null,
+            exitCode: 0,
+            signal: null,
+            durationMs: 0,
+            // aborted intentionally missing
+          },
+        },
+      ],
+    })
+    const round = deserialize(legacyJson)
+    expect(round.recordings[0]?.result.aborted).toBe(false)
   })
 
   test('round-trip preserves allLines when populated', () => {
@@ -106,6 +152,7 @@ describe('serialize', () => {
             exitCode: 0,
             signal: null,
             durationMs: 1,
+            aborted: false,
           },
         },
       ],
@@ -127,6 +174,7 @@ describe('serialize', () => {
             exitCode: 0,
             signal: null,
             durationMs: 1,
+            aborted: false,
           },
         },
       ],
