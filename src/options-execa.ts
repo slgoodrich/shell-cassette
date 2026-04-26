@@ -5,27 +5,23 @@ export function validateOptions(options: Record<string, unknown> | undefined): v
 
   if (options.buffer === false) {
     throw new UnsupportedOptionError(
-      'execa option `buffer: false` (streaming) not supported in v0.1. Planned for v1.0.',
+      'execa option `buffer: false` (streaming) not supported. Tracked in backlog.',
     )
   }
   if (options.ipc === true) {
-    throw new UnsupportedOptionError(
-      'execa option `ipc: true` not supported in v0.1. Planned for v1.0.',
-    )
+    throw new UnsupportedOptionError('execa option `ipc: true` not supported. Tracked in backlog.')
   }
   if (options.inputFile !== undefined && options.inputFile !== null) {
-    throw new UnsupportedOptionError(
-      'execa option `inputFile` not supported in v0.1. Planned for v1.0.',
-    )
+    throw new UnsupportedOptionError('execa option `inputFile` not supported. Tracked in backlog.')
   }
   if (options.input !== undefined && options.input !== null) {
     throw new UnsupportedOptionError(
-      'execa option `input` (stdin) not supported in v0.1. Buffered stdin planned for v0.2.',
+      'execa option `input` (stdin) not supported. Buffered stdin tracked in backlog.',
     )
   }
   if (options.node === true) {
     throw new UnsupportedOptionError(
-      'execa option `node: true` (execaNode) not supported in v0.1. Planned for v0.2.',
+      'execa option `node: true` (execaNode) not supported. Tracked in backlog.',
     )
   }
 }

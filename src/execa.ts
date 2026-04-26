@@ -1,6 +1,6 @@
 import type { Options, ResultPromise } from 'execa'
 import { execa as realExeca } from 'execa'
-import { validateOptions } from './options.js'
+import { validateOptions } from './options-execa.js'
 import type { Call, Recording, Result } from './types.js'
 import { type RunnerHooks, runWrapped } from './wrapper.js'
 

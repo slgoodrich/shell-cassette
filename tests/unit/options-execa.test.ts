@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { UnsupportedOptionError } from '../../src/errors.js'
-import { validateOptions } from '../../src/options.js'
+import { validateOptions } from '../../src/options-execa.js'
 
 describe('validateOptions', () => {
   test('passes for empty options', () => {
@@ -41,7 +41,7 @@ describe('validateOptions', () => {
       validateOptions({ ipc: true })
     } catch (e) {
       expect((e as Error).message).toContain('ipc')
-      expect((e as Error).message).toContain('v1.0')
+      expect((e as Error).message).toContain('Tracked in backlog')
     }
   })
 })
