@@ -14,13 +14,13 @@ export function execa(
 
 const execaHooks: RunnerHooks<Options, unknown> = {
   validate: (opts) => validateOptions(opts as Record<string, unknown> | undefined),
-  buildCall: (file, args, options) => buildCallExeca(file, args, options),
+  buildCall,
   realCall: (file, args, options) => realExeca(file, args, options) as unknown as Promise<unknown>,
-  captureResult: (raw) => captureResultExeca(raw),
-  synthesize: (rec, options) => synthesizeExeca(rec, options),
+  captureResult,
+  synthesize,
 }
 
-function buildCallExeca(file: string, args: readonly string[], options: Options): Call {
+function buildCall(file: string, args: readonly string[], options: Options): Call {
   return {
     command: file,
     args: [...args],
@@ -30,7 +30,7 @@ function buildCallExeca(file: string, args: readonly string[], options: Options)
   }
 }
 
-function captureResultExeca(execaResult: unknown): Result {
+function captureResult(execaResult: unknown): Result {
   const r = execaResult as {
     stdout?: string | string[]
     stderr?: string | string[]
@@ -55,7 +55,7 @@ function toLines(input: string | string[] | undefined): string[] {
   return input.split('\n')
 }
 
-function synthesizeExeca(rec: Recording, options: Options): unknown {
+function synthesize(rec: Recording, options: Options): unknown {
   const stdout = rec.result.stdoutLines.join('\n')
   const stderr = rec.result.stderrLines.join('\n')
   const all =

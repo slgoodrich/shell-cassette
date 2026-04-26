@@ -12,7 +12,7 @@ export type RunnerHooks<Opts, ResultShape> = {
   validate: (options: Opts | undefined) => void
   buildCall: (file: string, args: readonly string[], options: Opts) => Call
   realCall: (file: string, args: readonly string[], options: Opts) => Promise<ResultShape>
-  captureResult: (raw: ResultShape | unknown) => Result
+  captureResult: (raw: unknown) => Result
   synthesize: (rec: Recording, options: Opts) => ResultShape
 }
 
