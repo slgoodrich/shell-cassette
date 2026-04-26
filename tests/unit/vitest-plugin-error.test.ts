@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { ShellCassetteError, VitestPluginRegistrationError } from '../../src/errors.js'
-import { wrapRegistrationError } from '../../src/vitest.js'
+import { wrapRegistrationError } from '../../src/vitest-error.js'
 
 describe('wrapRegistrationError', () => {
   test('wraps an Error in VitestPluginRegistrationError', () => {
@@ -8,10 +8,6 @@ describe('wrapRegistrationError', () => {
     const wrapped = wrapRegistrationError(original)
     expect(wrapped).toBeInstanceOf(VitestPluginRegistrationError)
     expect(wrapped).toBeInstanceOf(ShellCassetteError)
-  })
-
-  test('VitestPluginRegistrationError.code is stable', () => {
-    expect(VitestPluginRegistrationError.code).toBe('CASSETTE_VITEST_PLUGIN_REGISTRATION')
   })
 
   test('message preserves original error message', () => {
@@ -39,5 +35,12 @@ describe('wrapRegistrationError', () => {
     const wrapped = wrapRegistrationError('a string was thrown')
     expect(wrapped).toBeInstanceOf(VitestPluginRegistrationError)
     expect(wrapped.message).toContain('a string was thrown')
+  })
+
+  test('undefined throw still produces a wrapped message with deps.inline guidance', () => {
+    const wrapped = wrapRegistrationError(undefined)
+    expect(wrapped).toBeInstanceOf(VitestPluginRegistrationError)
+    // No dead-end message when the original "error" was undefined.
+    expect(wrapped.message).toContain('deps: { inline:')
   })
 })

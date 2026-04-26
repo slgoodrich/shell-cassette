@@ -12,11 +12,7 @@
 // See docs/vitest-plugin.md for details.
 
 import { getConfig } from './config.js'
-import {
-  ConcurrencyError,
-  MissingPeerDependencyError,
-  VitestPluginRegistrationError,
-} from './errors.js'
+import { ConcurrencyError, MissingPeerDependencyError } from './errors.js'
 import { writeCassetteFile } from './io.js'
 import { deriveCassettePathFromTask } from './plugin.js'
 import { serialize } from './serialize.js'
@@ -29,30 +25,7 @@ import {
 } from './state.js'
 import { summarizeSession } from './summary.js'
 import type { CassetteSession } from './types.js'
-
-// Wrap any error thrown during hook registration with deps.inline guidance.
-// Exported for unit testing; consumers shouldn't import it.
-//
-// The most common failure here is vitest externalizing shell-cassette so the
-// plugin module loads in a different module graph than vitest's runner. The
-// observable symptom is a thrown Error mentioning "runner". We don't gate the
-// wrap on the message text — registration at module top should never throw
-// for any other reason, so any throw here gets the deps.inline diagnostic
-// appended (with the original error preserved verbatim).
-export function wrapRegistrationError(e: unknown): VitestPluginRegistrationError {
-  const original = e instanceof Error ? e : new Error(String(e))
-  return new VitestPluginRegistrationError(
-    'shell-cassette/vitest plugin failed to register hooks.\n\n' +
-      'Most commonly this means vitest externalized shell-cassette without your config opting in.\n' +
-      'Add this to your vitest config:\n' +
-      '  // vitest 3.x\n' +
-      '  test: { server: { deps: { inline: ["shell-cassette"] } } }\n' +
-      '  // vitest 4.x\n' +
-      '  test: { deps: { inline: ["shell-cassette"] } }\n\n' +
-      'See https://github.com/slgoodrich/shell-cassette/blob/main/docs/troubleshooting.md\n\n' +
-      `Original error: ${original.message}`,
-  )
-}
+import { wrapRegistrationError } from './vitest-error.js'
 
 // Resolve vitest via dynamic import so we can wrap "Cannot find module" with
 // an actionable error. Top-level await means consumers importing
