@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { AckRequiredError, ReplayMissError, UnsupportedOptionError } from '../../src/errors.js'
+import {
+  AckRequiredError,
+  NoActiveSessionError,
+  ReplayMissError,
+  UnsupportedOptionError,
+} from '../../src/errors.js'
 import { _resetForTesting, clearActiveCassette, setActiveCassette } from '../../src/state.js'
 import type { Recording } from '../../src/types.js'
 import { type RunnerHooks, runWrapped } from '../../src/wrapper.js'
@@ -48,13 +53,54 @@ describe('runWrapped (envelope)', () => {
   afterEach(() => {
     _resetForTesting()
     clearActiveCassette()
+    // Symmetric with beforeEach so the last test's env state doesn't leak past
+    // this file (vitest's per-file isolation hides this today, but a future
+    // pool config without isolation would expose it).
+    delete process.env.SHELL_CASSETTE_MODE
+    delete process.env.SHELL_CASSETTE_ACK_REDACTION
+    delete process.env.CI
   })
 
-  test('passthrough when no active cassette', async () => {
+  test('passthrough when no active cassette and mode is not replay', async () => {
     const realCall = vi.fn(async () => ({ stdout: 'hello', exitCode: 0 }))
     const result = await runWrapped('echo', ['hello'], {}, baseHooks(realCall))
     expect(realCall).toHaveBeenCalledOnce()
     expect(result).toEqual({ stdout: 'hello', exitCode: 0 })
+  })
+
+  test('NoActiveSessionError when CI=true forces replay and no session is bound', async () => {
+    process.env.CI = 'true'
+    const realCall = vi.fn()
+    try {
+      await runWrapped('rm', ['-rf', '/tmp/whatever'], {}, baseHooks(realCall as never))
+      throw new Error('should not reach')
+    } catch (e) {
+      expect(e).toBeInstanceOf(NoActiveSessionError)
+      const msg = (e as Error).message
+      expect(msg).toContain('replay mode')
+      expect(msg).toContain('useCassette')
+      expect(msg).toContain('shell-cassette/vitest')
+      expect(msg).toContain('SHELL_CASSETTE_MODE=passthrough')
+    }
+    expect(realCall).not.toHaveBeenCalled()
+  })
+
+  test('NoActiveSessionError when SHELL_CASSETTE_MODE=replay and no session is bound', async () => {
+    process.env.SHELL_CASSETTE_MODE = 'replay'
+    const realCall = vi.fn()
+    await expect(
+      runWrapped('echo', ['hi'], {}, baseHooks(realCall as never)),
+    ).rejects.toBeInstanceOf(NoActiveSessionError)
+    expect(realCall).not.toHaveBeenCalled()
+  })
+
+  test('explicit SHELL_CASSETTE_MODE=passthrough still passes through with no session', async () => {
+    process.env.CI = 'true'
+    process.env.SHELL_CASSETTE_MODE = 'passthrough'
+    const realCall = vi.fn(async () => ({ stdout: 'hi', exitCode: 0 }))
+    const result = await runWrapped('echo', ['hi'], {}, baseHooks(realCall))
+    expect(realCall).toHaveBeenCalledOnce()
+    expect(result.exitCode).toBe(0)
   })
 
   test('validate is called even when no active cassette', async () => {

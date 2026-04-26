@@ -14,6 +14,7 @@ All notable changes to shell-cassette are documented here. The format is based o
   + import { execa } from 'shell-cassette/execa'
   ```
 - Both `execa` and `tinyexec` peer deps are now optional. Install only the runner(s) you actually use.
+- **Replay mode now refuses to passthrough when no active cassette session is bound.** v0.1/v0.2-pre would silently fall through to the real subprocess if `CI=true` (which forces replay) but the user called `execa`/`x` outside any `useCassette` scope and without the vitest plugin loaded. v0.2 throws `NoActiveSessionError` with fix instructions. Opt out by setting `SHELL_CASSETTE_MODE=passthrough` explicitly. Closes [#32](https://github.com/slgoodrich/shell-cassette/issues/32).
 
 ### Added
 
