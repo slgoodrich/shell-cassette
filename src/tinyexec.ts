@@ -7,11 +7,15 @@ import { type RunnerHooks, runWrapped } from './wrapper.js'
 
 export type { Options, Result } from 'tinyexec'
 
-export function x(file: string, args?: readonly string[], options?: Options): Promise<TinyResult> {
-  return runWrapped(file, args ?? [], options ?? ({} as Options), tinyexecHooks)
+export function x(
+  file: string,
+  args?: readonly string[],
+  options?: Partial<Options>,
+): Promise<TinyResult> {
+  return runWrapped(file, args ?? [], options ?? {}, tinyexecHooks)
 }
 
-const tinyexecHooks: RunnerHooks<Options, TinyResult> = {
+const tinyexecHooks: RunnerHooks<Partial<Options>, TinyResult> = {
   validate: (opts) => validateOptions(opts as Record<string, unknown> | undefined),
   buildCall,
   realCall: (file, args, options) =>
@@ -20,7 +24,7 @@ const tinyexecHooks: RunnerHooks<Options, TinyResult> = {
   synthesize,
 }
 
-function buildCall(file: string, args: readonly string[], options: Options): Call {
+function buildCall(file: string, args: readonly string[], options: Partial<Options>): Call {
   const nodeOptions = (options as { nodeOptions?: { cwd?: string; env?: NodeJS.ProcessEnv } })
     .nodeOptions
   return {
@@ -50,7 +54,7 @@ function captureResult(raw: unknown): CassetteResult {
   }
 }
 
-function synthesize(rec: Recording, options: Options): TinyResult {
+function synthesize(rec: Recording, options: Partial<Options>): TinyResult {
   const stdout = rec.result.stdoutLines.join('\n')
   const stderr = rec.result.stderrLines.join('\n')
   const killed = rec.result.signal !== null
