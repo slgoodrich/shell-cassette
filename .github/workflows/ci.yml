@@ -112,3 +112,53 @@ jobs:
               console.log('OK: MissingPeerDependencyError thrown as expected')
             }
           "
+
+      # End-to-end check that the v0.2 deps.inline footgun produces an actionable error.
+      # Sets up a fresh project where vitest IS installed but the user's vitest config
+      # does NOT opt into inlining shell-cassette. Running vitest in that state must
+      # surface VitestPluginRegistrationError mentioning deps.inline, not the cryptic
+      # "Vitest failed to find the runner" upstream message.
+      - name: negative smoke - vitest without deps.inline must throw VitestPluginRegistrationError
+        run: |
+          set -e
+          mkdir -p /tmp/sc-vitest-smoke
+          cd /tmp/sc-vitest-smoke
+          npm init -y > /dev/null
+          # ESM package so vitest setup files can use top-level await.
+          node -e "const p = require('./package.json'); p.type = 'module'; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2))"
+          npm install --silent "$GITHUB_WORKSPACE"/shell-cassette-*.tgz vitest
+          cat > setup.mjs <<'EOF'
+          import 'shell-cassette/vitest'
+          EOF
+          cat > smoke.test.mjs <<'EOF'
+          import { test } from 'vitest'
+          test('placeholder', () => {})
+          EOF
+          # vitest config WITHOUT deps.inline -> shell-cassette gets externalized.
+          cat > vitest.config.mjs <<'EOF'
+          export default {
+            test: {
+              setupFiles: ['./setup.mjs'],
+            },
+          }
+          EOF
+          # Capture vitest output. Expect non-zero exit. Output must mention our class
+          # and the deps.inline fix path.
+          set +e
+          npx vitest run smoke.test.mjs > output.log 2>&1
+          rc=$?
+          set -e
+          cat output.log
+          if [ "$rc" = "0" ]; then
+            echo "FAIL: vitest exited 0 but should have failed registration"
+            exit 1
+          fi
+          if ! grep -q "VitestPluginRegistrationError" output.log; then
+            echo "FAIL: VitestPluginRegistrationError not in output"
+            exit 1
+          fi
+          if ! grep -q "deps.inline" output.log; then
+            echo "FAIL: deps.inline guidance not in output"
+            exit 1
+          fi
+          echo "OK: VitestPluginRegistrationError thrown with deps.inline guidance"

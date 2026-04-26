@@ -57,3 +57,7 @@ export class MissingPeerDependencyError extends ShellCassetteError {
 export class NoActiveSessionError extends ShellCassetteError {
   static override code = 'CASSETTE_NO_ACTIVE_SESSION'
 }
+
+export class VitestPluginRegistrationError extends ShellCassetteError {
+  static override code = 'CASSETTE_VITEST_PLUGIN_REGISTRATION'
+}

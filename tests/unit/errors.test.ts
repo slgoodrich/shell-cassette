@@ -7,9 +7,11 @@ import {
   CassetteCorruptError,
   CassetteIOError,
   ConcurrencyError,
+  MissingPeerDependencyError,
   ReplayMissError,
   ShellCassetteError,
   UnsupportedOptionError,
+  VitestPluginRegistrationError,
 } from '../../src/errors.js'
 
 describe('error classes', () => {
@@ -23,6 +25,8 @@ describe('error classes', () => {
     expect(new CassetteCollisionError('msg')).toBeInstanceOf(ShellCassetteError)
     expect(new CassetteIOError('msg', new Error('cause'))).toBeInstanceOf(ShellCassetteError)
     expect(new CassetteConfigError('msg')).toBeInstanceOf(ShellCassetteError)
+    expect(new MissingPeerDependencyError('msg')).toBeInstanceOf(ShellCassetteError)
+    expect(new VitestPluginRegistrationError('msg')).toBeInstanceOf(ShellCassetteError)
   })
 
   test('all errors have stable code strings', () => {
@@ -35,6 +39,8 @@ describe('error classes', () => {
     expect(CassetteCollisionError.code).toBe('CASSETTE_COLLISION')
     expect(CassetteIOError.code).toBe('CASSETTE_IO')
     expect(CassetteConfigError.code).toBe('CASSETTE_CONFIG')
+    expect(MissingPeerDependencyError.code).toBe('CASSETTE_MISSING_PEER_DEP')
+    expect(VitestPluginRegistrationError.code).toBe('CASSETTE_VITEST_PLUGIN_REGISTRATION')
   })
 
   test('CassetteIOError preserves cause', () => {

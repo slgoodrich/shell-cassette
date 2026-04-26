@@ -29,6 +29,7 @@ All notable changes to shell-cassette are documented here. The format is based o
   - `docs/vitest-plugin.md`
   - `docs/troubleshooting.md`
 - **JSDoc on `src/vitest.ts`** documenting the `deps.inline` requirement at module top.
+- **`VitestPluginRegistrationError`**: when vitest externalizes shell-cassette and hook registration fails, the plugin now throws this typed error with the exact `deps.inline` config snippets for vitest 3.x and 4.x instead of letting the upstream "Vitest failed to find the runner" message through. Closes [#31](https://github.com/slgoodrich/shell-cassette/issues/31).
 
 ### Changed
 
