@@ -21,17 +21,6 @@ What this unlocks:
 - **Failure-path testing.** Hand-edit a cassette to set `exitCode: 137` and watch your error handling run, every time.
 - **Speed, as a side effect.** [88x faster on cac](https://github.com/slgoodrich/shell-cassette#real-world-results), 373x on heavier suites, by replacing real subprocess spawns with cassette reads.
 
-## Migrating from v0.1
-
-If you're upgrading from v0.1, the execa adapter moved to a sub-path:
-
-```diff
-- import { execa } from 'shell-cassette'
-+ import { execa } from 'shell-cassette/execa'
-```
-
-Both `execa` and the new `tinyexec` peer dep are now optional - install only what you use.
-
 ## Install
 
 ```bash
