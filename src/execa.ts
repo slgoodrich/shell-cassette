@@ -49,14 +49,13 @@ function buildCall(file: string, args: readonly string[], options: Options): Cal
   }
 }
 
-function captureResult(raw: unknown): Result {
+function captureResult(raw: unknown, durationMs: number): Result {
   const r = raw as {
     stdout?: string | string[]
     stderr?: string | string[]
     all?: string | string[]
     exitCode?: number
     signal?: string | null
-    durationMs?: number
     isCanceled?: boolean
   }
   return {
@@ -65,7 +64,7 @@ function captureResult(raw: unknown): Result {
     allLines: r.all === undefined ? null : toLines(r.all),
     exitCode: r.exitCode ?? 0,
     signal: r.signal ?? null,
-    durationMs: r.durationMs ?? 0,
+    durationMs,
     aborted: r.isCanceled === true,
   }
 }

@@ -25,7 +25,7 @@ const baseHooks = (
     stdin: null,
   }),
   realCall,
-  captureResult: (raw) => {
+  captureResult: (raw, durationMs) => {
     const r = raw as FakeResult
     return {
       stdoutLines: r.stdout.split('\n'),
@@ -33,7 +33,7 @@ const baseHooks = (
       allLines: null,
       exitCode: r.exitCode,
       signal: null,
-      durationMs: 0,
+      durationMs,
       aborted: false,
     }
   },
@@ -213,6 +213,7 @@ describe('runWrapped (envelope)', () => {
         exitCode: 0,
         signal: null,
         durationMs: 0,
+        aborted: false,
       },
     }
     const session = makeSession({
@@ -262,5 +263,47 @@ describe('runWrapped (envelope)', () => {
       expect(realCall).not.toHaveBeenCalled()
       clearActiveCassette()
     }
+  })
+
+  test('record path captures non-zero durationMs measured around realCall', async () => {
+    const session = makeSession({ scopeDefault: 'auto', loadedFile: null })
+    setActiveCassette(session)
+    process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
+
+    const realCall = vi.fn(
+      () =>
+        new Promise<FakeResult>((resolve) => {
+          setTimeout(() => resolve({ stdout: 'slow', exitCode: 0 }), 50)
+        }),
+    )
+
+    await runWrapped('sleep', [], {}, baseHooks(realCall))
+    expect(session.newRecordings).toHaveLength(1)
+    const measured = session.newRecordings[0]?.result.durationMs ?? 0
+    // Windows default timer resolution is ~15.6ms and slow CI runners can
+    // delay timer firing by another 5-10ms. 50ms timer with a 30ms threshold
+    // leaves enough cushion for that jitter without weakening the assertion.
+    expect(measured).toBeGreaterThanOrEqual(30)
+    clearActiveCassette()
+  })
+
+  test('record path captures durationMs even when realCall throws', async () => {
+    const session = makeSession({ scopeDefault: 'auto', loadedFile: null })
+    setActiveCassette(session)
+    process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
+
+    const fakeError = Object.assign(new Error('boom'), { stdout: '', exitCode: 1 })
+    const realCall = vi.fn(
+      () =>
+        new Promise<FakeResult>((_, reject) => {
+          setTimeout(() => reject(fakeError), 50)
+        }),
+    )
+
+    await expect(runWrapped('sleep', [], {}, baseHooks(realCall))).rejects.toBe(fakeError)
+    expect(session.newRecordings).toHaveLength(1)
+    // Same Windows timer-jitter cushion as the success-path test above.
+    expect(session.newRecordings[0]?.result.durationMs).toBeGreaterThanOrEqual(30)
+    clearActiveCassette()
   })
 })

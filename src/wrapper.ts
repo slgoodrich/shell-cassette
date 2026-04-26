@@ -21,7 +21,11 @@ export type RunnerHooks<Opts, ResultShape> = {
   validate: (options: Opts | undefined) => void
   buildCall: (file: string, args: readonly string[], options: Opts) => Call
   realCall: (file: string, args: readonly string[], options: Opts) => Promise<ResultShape>
-  captureResult: (raw: unknown) => Result
+  // The wrapper measures elapsed time around realCall and passes it here.
+  // Adapters use this value rather than reading runner-provided fields so
+  // the measurement is uniform across runners (execa exposes durationMs;
+  // tinyexec does not).
+  captureResult: (raw: unknown, durationMs: number) => Result
   synthesize: (rec: Recording, options: Opts) => ResultShape
 }
 
@@ -108,12 +112,13 @@ export async function runWrapped<Opts, ResultShape>(
     }
     throw e
   }
+  const start = performance.now()
   try {
     const result = await hooks.realCall(file, args, options)
-    captureAndRecord(call, result, hooks, session, config)
+    captureAndRecord(call, result, performance.now() - start, hooks, session, config)
     return result
   } catch (err) {
-    captureAndRecord(call, err, hooks, session, config)
+    captureAndRecord(call, err, performance.now() - start, hooks, session, config)
     throw err
   }
 }
@@ -121,11 +126,12 @@ export async function runWrapped<Opts, ResultShape>(
 function captureAndRecord<Opts, ResultShape>(
   call: Call,
   raw: unknown,
+  durationMs: number,
   hooks: RunnerHooks<Opts, ResultShape>,
   session: CassetteSession,
   config: Config,
 ): void {
-  const result = hooks.captureResult(raw)
+  const result = hooks.captureResult(raw, durationMs)
   record(call, result, session, config)
 }
 

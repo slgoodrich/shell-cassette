@@ -36,6 +36,7 @@ All notable changes to shell-cassette are documented here. The format is based o
 - Core `shell-cassette` entry shrinks to `useCassette` and shared types.
 - Long-value warning text rewritten to mention the key-only-matching limitation explicitly, so users know what they're being warned about.
 - README rewrite: leads with reproducible-CI-failures framing instead of speed. Adapter content moved to `docs/` for cleaner separation.
+- **`durationMs` is now measured uniformly** around `realCall` via `performance.now()` for both adapters. Previously: tinyexec recorded `0` (no native field), execa relied on its own field which is sometimes `0`. Closes [#34](https://github.com/slgoodrich/shell-cassette/issues/34).
 
 ### Notes
 
@@ -43,8 +44,6 @@ All notable changes to shell-cassette are documented here. The format is based o
 - **vitest 3.x and 4.x users must add `'shell-cassette'` to `test.server.deps.inline`**. See `docs/troubleshooting.md`.
 - **tinyexec adapter limitations**: `result.process` is `null` on replay, `result.pipe()` and `for await (line of result)` throw `UnsupportedOptionError`, `result.kill()` is a no-op, sync field reads before await return undefined. See `docs/tinyexec.md`.
 - **Known issue [#33](https://github.com/slgoodrich/shell-cassette/issues/33)**: `AckRequiredError` thrown on matcher miss in auto mode is misleading; will be augmented with matcher-miss context in v0.3.
-- **Known issue [#34](https://github.com/slgoodrich/shell-cassette/issues/34)**: `durationMs` is recorded as `0` for tinyexec captures and may be `0` for execa. Will be properly measured in v0.3.
-
 ## [0.1.0] - 2026-04-25
 
 Initial release.
