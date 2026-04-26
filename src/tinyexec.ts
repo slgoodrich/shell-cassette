@@ -49,6 +49,10 @@ function captureResult(raw: unknown): CassetteResult {
   // tinyexec.stdout/stderr is always a string per its type contract; the [''] fallback
   // exists only for defensive narrowing on `unknown` raw input (e.g., a thrown error
   // shape that happens to lack stdout/stderr fields).
+  //
+  // tinyexec exposes only `killed: boolean`, not the actual signal name (SIGINT,
+  // SIGKILL, etc.). We unconditionally record SIGTERM on kill; the real signal is
+  // lost. Tracked in backlog: "preserve exact signal for tinyexec recording".
   return {
     stdoutLines: typeof r.stdout === 'string' ? r.stdout.split('\n') : [''],
     stderrLines: typeof r.stderr === 'string' ? r.stderr.split('\n') : [''],
