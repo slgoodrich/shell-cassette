@@ -175,4 +175,4 @@ Worth being explicit so nothing gets committed by accident:
 - **env vars with non-curated names** - anything not matching a curated keyword stays as-is. shell-cassette emits a warning if the value is over 100 chars, but doesn't redact.
 - **paths in cwd** - `/Users/yourname/projects/foo` stays in the cassette
 
-**Always review cassettes before committing.** v0.3 will ship pattern-based detection for stdout/stderr/args (GitHub PATs, AWS keys, Stripe keys, etc.), but for now: review.
+**Always review cassettes before committing.** Pattern-based detection for stdout/stderr/args (GitHub PATs, AWS keys, Stripe keys, etc.) isn't built yet - review by eye.

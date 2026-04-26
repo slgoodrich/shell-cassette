@@ -156,4 +156,4 @@ For the curious. The plugin's behavior:
 - **`beforeEach(ctx)`**: derives the cassette path from `ctx.task` (file path + describe chain + test name, sanitized). Creates a `CassetteSession` and calls `setActiveCassette` to make it visible to wrapper calls.
 - **`afterEach()`**: persists `session.newRecordings` to disk (if any), emits the end-of-run summary, clears the active cassette.
 
-If you don't want auto-cassetting for a particular test (e.g., a test that's deliberately calling real subprocess for live state), use `useCassette` explicitly with `mode: 'passthrough'` - but that requires per-call mode override, which is on the v0.3 roadmap. Today's escape hatch is to either move the test out of the auto-plugin's scope or stub manually.
+If you don't want auto-cassetting for a particular test (e.g., a test that's deliberately calling real subprocess for live state), there's no per-call mode override today. The escape hatch is to either move the test out of the auto-plugin's scope or stub manually.

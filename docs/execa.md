@@ -114,7 +114,7 @@ execa's options pass through to the wrapped call. shell-cassette validates them 
 | `input: 'string'` | **Rejected** (buffered stdin) |
 | `node: true` | **Rejected** (execaNode) |
 
-Rejected options throw `UnsupportedOptionError` at the record-mode wrapper entry. They're tracked in the [backlog](https://github.com/slgoodrich/shell-cassette).
+Rejected options throw `UnsupportedOptionError` at the record-mode wrapper entry.
 
 ## Replay fidelity
 

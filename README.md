@@ -30,7 +30,7 @@ If you're upgrading from v0.1, the execa adapter moved to a sub-path:
 + import { execa } from 'shell-cassette/execa'
 ```
 
-Both `execa` and the new `tinyexec` peer dep are now optional - install only what you use. (This callout will be removed in v0.3.)
+Both `execa` and the new `tinyexec` peer dep are now optional - install only what you use.
 
 ## Install
 
@@ -160,7 +160,7 @@ shell-cassette does **NOT** redact:
 - env vars with non-curated names (`STRIPE_KEY`, `OPENAI_KEY`, etc. - extend via `redactEnvKeys` config)
 - paths in cwd
 
-**Always review cassettes before committing.** v0.3 ships pattern-based detection for stdout/stderr/args (GitHub PATs, AWS keys, Stripe keys, etc.). Until then: review.
+**Always review cassettes before committing.** Pattern-based detection for stdout/stderr/args (GitHub PATs, AWS keys, Stripe keys, etc.) isn't built yet - review by eye.
 
 End-of-run summaries surface redaction events on every record:
 
@@ -200,18 +200,29 @@ If you hit one of these, see [docs/troubleshooting.md](docs/troubleshooting.md):
 - `__cassettes__/` showing up as a test fixture → exclude alongside `__snapshots__/`
 - `vi.mock('tinyexec')` infinite loop → redirect at the import level instead
 
-## What this doesn't do
+## What this doesn't do (yet)
 
-Tracked in the [project backlog](https://github.com/slgoodrich/shell-cassette/issues). No version pins - items get pulled when signal arrives.
+If you're evaluating shell-cassette for your project, here's what users hit. Each is something you might reasonably expect to work and currently doesn't.
 
-- Streaming output (`buffer: false`)
-- IPC channels (`ipc: true`)
-- stdin support (buffered or streaming)
-- Bun.spawn / Deno.Command / native child_process adapters
-- jest plugin (vitest is the v0.2 plugin)
-- CLI tools (`shell-cassette show`, `prune`, `review`, etc.)
-- Pattern-based stdout/stderr/args redaction (v0.3 redact track)
-- Per-call matcher override / path-normalization for ephemeral temp dirs (v0.3 matcher track)
+**Adapter feature parity.** shell-cassette doesn't wrap every option of execa or tinyexec.
+
+- execa: `buffer: false` (streaming), `ipc: true` (IPC), `inputFile` / `input: 'string'` (stdin), `node: true` (execaNode) all throw `UnsupportedOptionError` at the wrapper. See [docs/execa.md](docs/execa.md).
+- tinyexec: `result.process` is `null` on replay, `result.pipe()` and `for await (line of result)` throw, `result.kill()` is a no-op, sync field reads before `await` return undefined. The exact signal name on `kill` is lost (only `killed: boolean` preserved). See [docs/tinyexec.md](docs/tinyexec.md).
+
+**Matcher flexibility.** The default matcher is `command + deep-equal args`. There's no per-call override and no path-normalization, so ephemeral temp dirs (e.g., `/tmp/sandbox-1234`) in args break replay across runs. Configurable via `shell-cassette.config.{js,mjs}` if you want to write a custom matcher today, but the built-in is intentionally minimal.
+
+**Redaction coverage.** shell-cassette redacts env-var values when KEY matches a curated list. It does NOT redact:
+
+- stdout / stderr content
+- command args (`--token=ghp_xxx`)
+- env vars whose KEY isn't in the curated list (extend via `redactEnvKeys` config)
+- paths in cwd
+
+There's no pattern-based detection for tokens / API keys in stdout, stderr, or args. Review cassettes before committing.
+
+**Other runners and frameworks.** Only execa and tinyexec are wrapped today. No Bun.spawn, no Deno.Command, no native `child_process`, no nano-spawn. Only vitest is plumbed as a plugin - no jest, mocha, or `node:test` plugin.
+
+**Tooling.** No CLI for inspecting / pruning / reviewing cassettes (`shell-cassette show`, `shell-cassette prune`, etc.). The cassette JSON is human-readable; for now you read and edit by hand.
 
 ## Real-world results
 
@@ -224,9 +235,9 @@ Wall-time speedup is bounded by vitest startup (~300-400ms regardless of mode). 
 
 ## Status
 
-v0.2 - tinyexec adapter shipping. Stable enough for solo and small-team use. Format won't break before v1.0.
+Stable enough for solo and small-team use. Cassette schema won't break before v1.0 - new fields land additively, legacy cassettes keep replaying.
 
-v0.3 will ship matcher flexibility (per-call overrides, path-normalization for ephemeral paths) and redact infrastructure (pattern-based detection, stable rule-tagged placeholders, stdout/stderr scrubbing). Both as the "team-ready foundation."
+Direction is set by signal: when something blocks a real adoption, it gets prioritized. Open an issue if you hit a gap from the section above.
 
 ## License
 

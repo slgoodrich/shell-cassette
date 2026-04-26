@@ -79,7 +79,7 @@ tinyexec returns a richer object than `Promise<Result>` - it's structurally `Pro
 
 The cassette schema is narrower than tinyexec's runtime result. One mapping still loses information:
 
-- **`signal` (string vs boolean)**: tinyexec exposes `killed: boolean` but not the actual signal name. We unconditionally store `'SIGTERM'` on kill. The real signal name is lost. Tracked for v1.0.
+- **`signal` (string vs boolean)**: tinyexec exposes `killed: boolean` but not the actual signal name. We unconditionally store `'SIGTERM'` on kill. The real signal name is lost.
 
 `aborted` is preserved through record/replay since v0.2 (captured from tinyexec's `aborted: true` when AbortSignal triggered, synthesized back to `aborted` on replay).
 
