@@ -2,21 +2,27 @@
 
 Common errors mapped to fixes. If you hit something that's not here, [open an issue](https://github.com/slgoodrich/shell-cassette/issues/new).
 
-## "Vitest failed to find the runner"
+## `VitestPluginRegistrationError` ("Vitest failed to find the runner")
 
-Full error from vitest:
+shell-cassette/vitest catches the upstream "Vitest failed to find the runner" failure during hook registration and rethrows it as `VitestPluginRegistrationError` with the fix path inline:
 
-> Error: Vitest failed to find the runner. One of the following is possible:
-> - "vitest" is imported directly without running "vitest" command
-> - "vitest" is imported inside "globalSetup" (to fix this, use "setupFiles" instead, ...)
-> - ...
+> VitestPluginRegistrationError: shell-cassette/vitest plugin failed to register hooks.
+>
+> Most commonly this means vitest externalized shell-cassette without your config opting in.
+> Add this to your vitest config:
+>   // vitest 3.x
+>   test: { server: { deps: { inline: ["shell-cassette"] } } }
+>   // vitest 4.x
+>   test: { deps: { inline: ["shell-cassette"] } }
+> ...
+> Original error: Vitest failed to find the runner. ...
 
 **Cause:** vitest externalizes node_modules packages by default. shell-cassette/vitest registers `beforeEach` and `afterEach` at module top level, and externalized modules don't share the runner-state context with the test file.
 
-**Fix:** add `'shell-cassette'` to `test.server.deps.inline` in your vitest config:
+**Fix:** add `'shell-cassette'` to `test.server.deps.inline` (vitest 3.x) or `test.deps.inline` (vitest 4.x):
 
 ```ts
-// vitest.config.ts
+// vitest.config.ts (vitest 3.x)
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
@@ -31,7 +37,7 @@ export default defineConfig({
 })
 ```
 
-Required across vitest 3.x and 4.x. This is the standard pattern for vitest plugin packages.
+This is the standard pattern for vitest plugin packages.
 
 ## `MissingPeerDependencyError` on adapter import
 
@@ -45,15 +51,18 @@ npm install execa
 
 # For shell-cassette/tinyexec
 npm install tinyexec
+
+# For shell-cassette/vitest
+npm install --save-dev vitest
 ```
 
-Both `execa` and `tinyexec` are optional peer deps. Install whichever you import from.
-
-(`vitest` is required only if you use `shell-cassette/vitest`. Missing-vitest still surfaces as the bare "Cannot find module 'vitest'" error today; tracked as a future improvement.)
+All three are optional peer deps. Install whichever you import from. The error class is the same (`MissingPeerDependencyError`) regardless of which sub-path triggered it.
 
 ## `AckRequiredError` on a test you expected to replay
 
-The test expected to replay from a cassette but shell-cassette tried to record instead.
+The test expected to replay from a cassette but shell-cassette tried to record instead. The error message starts with:
+
+> auto mode: no recording matched `git status --porcelain`, attempted to record but ack gate not set.
 
 **Most common cause:** the matcher missed. shell-cassette's default matcher is `command + deep-equal args`. If a recording captured `git status --porcelain` and the test now calls `git status -uall`, the matcher fails. In auto mode (default), failure falls through to the record path. The record path requires the ack gate.
 
@@ -66,7 +75,17 @@ The test expected to replay from a cassette but shell-cassette tried to record i
 - **If you want to re-record:** delete the cassette file and re-run with `SHELL_CASSETTE_ACK_REDACTION=true`.
 - **If you're hitting this in CI:** CI=true forces replay-strict mode. Failures here mean the cassette is stale. Re-record locally and commit.
 
-Tracked by [#33](https://github.com/slgoodrich/shell-cassette/issues/33): error message will be augmented to include matcher-miss context in v0.3.
+## `NoActiveSessionError` in CI
+
+> NoActiveSessionError: shell-cassette is in replay mode but no active cassette session is bound.
+
+You're running with `CI=true` (which forces replay mode) or `SHELL_CASSETTE_MODE=replay`, but the call site isn't inside a `useCassette` scope and the vitest plugin isn't loaded. Without a session, replay can't resolve a cassette. Falling through to the real subprocess would defeat "deterministic CI", so shell-cassette refuses.
+
+**Fix one of:**
+
+- Wrap the call site with `useCassette(path, async () => { ... })`.
+- Import `shell-cassette/vitest` as a setupFile so the plugin auto-binds per test.
+- Set `SHELL_CASSETTE_MODE=passthrough` to opt out of strict replay (real subprocess will run).
 
 ## `ReplayMissError` in CI
 
@@ -156,4 +175,4 @@ Worth being explicit so nothing gets committed by accident:
 - **env vars with non-curated names** - anything not matching a curated keyword stays as-is. shell-cassette emits a warning if the value is over 100 chars, but doesn't redact.
 - **paths in cwd** - `/Users/yourname/projects/foo` stays in the cassette
 
-**Always review cassettes before committing.** v0.3 will ship pattern-based detection for stdout/stderr/args (GitHub PATs, AWS keys, Stripe keys, etc.), but for now: review.
+**Always review cassettes before committing.** Pattern-based detection for stdout/stderr/args (GitHub PATs, AWS keys, Stripe keys, etc.) isn't built yet - review by eye.

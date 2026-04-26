@@ -20,6 +20,7 @@ All notable changes to shell-cassette are documented here. The format is based o
 
 - **`aborted: boolean` field in cassette `Result` schema**: preserves AbortSignal/cancellation state end-to-end. execa records `r.isCanceled`, tinyexec records `r.aborted`. Replay synthesizes back to the runner's native field. Schema-additive: legacy cassettes without the field deserialize as `aborted: false`. No version bump. Closes [#29](https://github.com/slgoodrich/shell-cassette/issues/29).
 - **`shell-cassette/tinyexec` adapter**: drop-in replacement for tinyexec's `x` function. Same record/replay semantics as the execa adapter.
+- **`MissingPeerDependencyError`**: thrown by every adapter sub-path (`shell-cassette/execa`, `shell-cassette/tinyexec`, `shell-cassette/vitest`) when its peer dep can't be resolved. Replaces the bare `"Cannot find module"` Node trace with install instructions for npm, pnpm, and yarn. Closes [#35](https://github.com/slgoodrich/shell-cassette/issues/35).
 - **End-of-run redaction summary**: vitest plugin and `useCassette` emit a grouped summary at scope end listing all redactions and warnings, with `⚠️` markers. Designed to be hard to miss in vitest's noisy output.
 - **Cassette `_warning` field**: every cassette JSON now includes a top-level `_warning` field with a "review before commit" reminder. Catches the case where users pipe stderr to `/dev/null` in CI but still commit cassettes.
 - **README sections**: tinyexec adapter overview, "Common gotchas" pointer to troubleshooting docs, "Real-world results" with cac and eslint-import-resolver-typescript benchmarks.
@@ -38,13 +39,14 @@ All notable changes to shell-cassette are documented here. The format is based o
 - Long-value warning text rewritten to mention the key-only-matching limitation explicitly, so users know what they're being warned about.
 - README rewrite: leads with reproducible-CI-failures framing instead of speed. Adapter content moved to `docs/` for cleaner separation.
 - **`durationMs` is now measured uniformly** around `realCall` via `performance.now()` for both adapters. Previously: tinyexec recorded `0` (no native field), execa relied on its own field which is sometimes `0`. Closes [#34](https://github.com/slgoodrich/shell-cassette/issues/34).
+- **`AckRequiredError` on auto-mode matcher miss now augments the message** with the actual matched call signature and a "no recording matched" prefix. Same error class (programmatic catches still work), but the diagnostic surfaces the real cause instead of only the ack-required help text. Closes [#33](https://github.com/slgoodrich/shell-cassette/issues/33).
 
 ### Notes
 
 - Cassette schema is unchanged at `version: 1`. Existing v0.1 cassettes load and replay correctly under v0.2's execa adapter. Cassettes recorded by v0.2 are loadable by v0.1 (additive only). The new `_warning` field is unknown to v0.1's deserializer, which ignores it.
 - **vitest 3.x and 4.x users must add `'shell-cassette'` to `test.server.deps.inline`**. See `docs/troubleshooting.md`.
 - **tinyexec adapter limitations**: `result.process` is `null` on replay, `result.pipe()` and `for await (line of result)` throw `UnsupportedOptionError`, `result.kill()` is a no-op, sync field reads before await return undefined. See `docs/tinyexec.md`.
-- **Known issue [#33](https://github.com/slgoodrich/shell-cassette/issues/33)**: `AckRequiredError` thrown on matcher miss in auto mode is misleading; will be augmented with matcher-miss context in v0.3.
+
 ## [0.1.0] - 2026-04-25
 
 Initial release.

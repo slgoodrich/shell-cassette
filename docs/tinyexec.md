@@ -45,7 +45,7 @@ test('captures git output', async () => {
 })
 ```
 
-If `deps.inline` is missing, you'll see "Vitest failed to find the runner" - see [troubleshooting](troubleshooting.md#vitest-failed-to-find-the-runner).
+If `deps.inline` is missing, you'll see `VitestPluginRegistrationError` - see [troubleshooting](troubleshooting.md#vitestpluginregistrationerror-vitest-failed-to-find-the-runner).
 
 ## Differences from execa
 
@@ -70,19 +70,18 @@ tinyexec returns a richer object than `Promise<Result>` - it's structurally `Pro
 | `result.process` | `null` | No live `ChildProcess` to expose |
 | `result.pipe(...)` | Throws `UnsupportedOptionError` | Pipe chaining requires a live subprocess to receive stdin |
 | `result.kill()` | No-op | The subprocess never spawned; nothing to kill |
-| `for await (line of result)` | Throws `UnsupportedOptionError` | Streaming iteration over recorded output isn't faithful (interleaving order is lost in storage) |
+| `for await (line of result)` | Throws `UnsupportedOptionError` | Interleaving order between stdout and stderr is lost in storage |
 | Synchronous reads of `proc.pid`, `proc.killed`, `proc.aborted` BEFORE `await` | Returns `undefined` | Replay returns `Promise<Result>`, not the live ProcessPromise shape |
 
 **Workaround:** `await` the result first, then read fields on the resolved object. All v0.2 validation targets (varlet-release, cac, eslint-import-resolver-typescript) follow this pattern, so it's the common case.
 
 ## Lossy mappings
 
-The cassette schema is narrower than tinyexec's runtime result. Two mappings lose information:
+The cassette schema is narrower than tinyexec's runtime result. One mapping still loses information:
 
-- **`signal` (string vs boolean)**: tinyexec exposes `killed: boolean` but not the actual signal name. We unconditionally store `'SIGTERM'` on kill. The real signal name is lost. Tracked for v1.0.
-- **`aborted` (always `false` on replay)**: cassette schema has no `aborted` field. tinyexec's `aborted: true` (set when AbortSignal triggered) is discarded on capture and synthesized as `false` on replay. Tracked in [#29](https://github.com/slgoodrich/shell-cassette/issues/29).
+- **`signal` (string vs boolean)**: tinyexec exposes `killed: boolean` but not the actual signal name. We unconditionally store `'SIGTERM'` on kill. The real signal name is lost.
 
-In practice, code that relies on these specific fields after replay is rare. Code that uses AbortController to cancel and then checks `result.aborted` is the most likely failure path. If you hit this, comment on #29.
+`aborted` is preserved through record/replay since v0.2 (captured from tinyexec's `aborted: true` when AbortSignal triggered, synthesized back to `aborted` on replay).
 
 ## Supported tinyexec options
 
