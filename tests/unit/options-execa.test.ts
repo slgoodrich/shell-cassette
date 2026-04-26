@@ -36,7 +36,7 @@ describe('validateOptions', () => {
     expect(() => validateOptions({ node: true })).toThrow(UnsupportedOptionError)
   })
 
-  test('error message includes the option name and target version', () => {
+  test('error message includes the option name and backlog reference', () => {
     try {
       validateOptions({ ipc: true })
     } catch (e) {

@@ -39,6 +39,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./execa": {
+      "types": "./dist/execa.d.ts",
+      "default": "./dist/execa.js"
+    },
     "./vitest": {
       "types": "./dist/vitest.d.ts",
       "default": "./dist/vitest.js"
@@ -72,6 +76,9 @@
     "vitest": "^4.0.0"
   },
   "peerDependenciesMeta": {
+    "execa": {
+      "optional": true
+    },
     "vitest": {
       "optional": true
     }

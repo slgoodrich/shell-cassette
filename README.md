@@ -47,7 +47,7 @@ export default defineConfig({
 ```ts
 // my-test.test.ts
 import { test, expect } from 'vitest'
-import { execa } from 'shell-cassette'
+import { execa } from 'shell-cassette/execa'
 
 test('finds current branch', async () => {
   const { stdout } = await execa('git', ['branch', '--show-current'])
@@ -121,7 +121,8 @@ export default {
 For non-vitest contexts or `test.concurrent`:
 
 ```ts
-import { useCassette, execa } from 'shell-cassette'
+import { useCassette } from 'shell-cassette'
+import { execa } from 'shell-cassette/execa'
 
 test.concurrent('parallel test', async () => {
   await useCassette('./cassettes/parallel.json', async () => {

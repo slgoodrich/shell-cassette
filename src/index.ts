@@ -1,4 +1,3 @@
-export { execa } from './execa.js'
 export type {
   Call,
   CassetteFile,
