@@ -33,9 +33,9 @@ export default defineConfig({
 
 Required across vitest 3.x and 4.x. This is the standard pattern for vitest plugin packages.
 
-## "Cannot find module 'tinyexec'" (or 'execa', or 'vitest')
+## `MissingPeerDependencyError` on adapter import
 
-You imported a shell-cassette sub-path that requires a peer dependency you haven't installed.
+You imported a shell-cassette sub-path that requires a peer dependency you haven't installed. The error message includes the install command.
 
 **Fix:** install the matching peer dep:
 
@@ -45,12 +45,11 @@ npm install execa
 
 # For shell-cassette/tinyexec
 npm install tinyexec
-
-# For shell-cassette/vitest
-npm install --save-dev vitest
 ```
 
 Both `execa` and `tinyexec` are optional peer deps. Install whichever you import from.
+
+(`vitest` is required only if you use `shell-cassette/vitest`. Missing-vitest still surfaces as the bare "Cannot find module 'vitest'" error today; tracked as a future improvement.)
 
 ## `AckRequiredError` on a test you expected to replay
 
