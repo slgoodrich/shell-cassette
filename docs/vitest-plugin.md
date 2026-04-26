@@ -46,9 +46,11 @@ That's it. The plugin sets the active cassette per test; subprocess calls inside
 
 Vitest externalizes node_modules packages by default. The plugin's top-level `beforeEach`/`afterEach` calls fire outside the runner-aware context and throw "Vitest failed to find the runner."
 
-Add `'shell-cassette'` to `test.server.deps.inline`. This is the standard pattern for vitest plugin packages - many plugins document it.
+shell-cassette catches that throw at registration and rethrows as `VitestPluginRegistrationError` with the fix path inline (config snippets for both vitest 3.x and 4.x). You'll see the actionable error class instead of vitest's bare message.
 
-If you skip this: the test run fails immediately with the externalization error. See [troubleshooting](troubleshooting.md#vitest-failed-to-find-the-runner).
+Add `'shell-cassette'` to `test.server.deps.inline` (vitest 3.x) or `test.deps.inline` (vitest 4.x). This is the standard pattern for vitest plugin packages - many plugins document it.
+
+See [troubleshooting](troubleshooting.md#vitestpluginregistrationerror-vitest-failed-to-find-the-runner) for the full snippet.
 
 ### `vite-plus` (vite-plus/test) compatibility
 

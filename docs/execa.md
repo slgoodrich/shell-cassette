@@ -48,7 +48,7 @@ test('finds current branch', async () => {
 
 The plugin registers a `beforeEach`/`afterEach` pair that scopes each test to its own cassette under `__cassettes__/<test-file>/<test-name>.json`.
 
-If `deps.inline` is missing, you'll see a "Vitest failed to find the runner" error at test startup - see [troubleshooting](troubleshooting.md#vitest-failed-to-find-the-runner).
+If `deps.inline` is missing, you'll see `VitestPluginRegistrationError` at test startup - see [troubleshooting](troubleshooting.md#vitestpluginregistrationerror-vitest-failed-to-find-the-runner).
 
 ### With explicit `useCassette` (non-vitest, or `test.concurrent`)
 
@@ -124,10 +124,7 @@ When the wrapper synthesizes a result on replay, it produces the same shape exec
 - `all` (when `all: true` was passed)
 - Throws synthesized `ExecaError` when exit code is non-zero AND `reject: false` not set (matching execa's default)
 
-Known limitations:
-
-- `isCanceled` is always `false` on replay (cassette schema doesn't preserve it; tracked in [#29](https://github.com/slgoodrich/shell-cassette/issues/29))
-- `durationMs` may be `0` if execa didn't report it (tracked in [#34](https://github.com/slgoodrich/shell-cassette/issues/34))
+`isCanceled` is preserved through record/replay (captured from execa's field, stored as `aborted` in the cassette schema, synthesized back to `isCanceled` on replay). `durationMs` is wall-clock measured around the real subprocess by shell-cassette's wrapper, uniform across runners.
 
 ## What's NOT redacted
 

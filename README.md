@@ -193,9 +193,10 @@ export default {
 
 If you hit one of these, see [docs/troubleshooting.md](docs/troubleshooting.md):
 
-- "Vitest failed to find the runner" → add `deps.inline: ['shell-cassette']`
-- "Cannot find module 'tinyexec'" → install the runner peer dep
-- `AckRequiredError` on a test you expected to replay → matcher missed; check cassette
+- `VitestPluginRegistrationError` ("Vitest failed to find the runner") → add `deps.inline: ['shell-cassette']`
+- `MissingPeerDependencyError` → install the runner peer dep (execa, tinyexec, or vitest)
+- `NoActiveSessionError` → in CI=true replay mode without a session bound; wrap with `useCassette` or import the vitest plugin
+- `AckRequiredError` with "auto mode: no recording matched..." → matcher missed; check cassette
 - `__cassettes__/` showing up as a test fixture → exclude alongside `__snapshots__/`
 - `vi.mock('tinyexec')` infinite loop → redirect at the import level instead
 
