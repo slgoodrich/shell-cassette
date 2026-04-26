@@ -191,14 +191,14 @@ If you hit one of these, see [docs/troubleshooting.md](docs/troubleshooting.md):
 
 ## What this doesn't do (yet)
 
-If you're evaluating shell-cassette for your project, here's what users hit. Each is something you might reasonably expect to work and currently doesn't.
+If you're evaluating shell-cassette for your project, here's what users hit. Each is something you might expect to work and doesn't.
 
 **Adapter feature parity.** shell-cassette doesn't wrap every option of execa or tinyexec.
 
 - execa: `buffer: false` (streaming), `ipc: true` (IPC), `inputFile` / `input: 'string'` (stdin), `node: true` (execaNode) all throw `UnsupportedOptionError` at the wrapper. See [docs/execa.md](docs/execa.md).
 - tinyexec: `result.process` is `null` on replay, `result.pipe()` and `for await (line of result)` throw, `result.kill()` is a no-op, sync field reads before `await` return undefined. The exact signal name on `kill` is lost (only `killed: boolean` preserved). See [docs/tinyexec.md](docs/tinyexec.md).
 
-**Matcher flexibility.** The default matcher is `command + deep-equal args`. There's no per-call override and no path-normalization, so ephemeral temp dirs (e.g., `/tmp/sandbox-1234`) in args break replay across runs. Configurable via `shell-cassette.config.{js,mjs}` if you want to write a custom matcher today, but the built-in is intentionally minimal.
+**Matcher flexibility.** The default matcher is `command + deep-equal args`. There's no per-call override and no path-normalization, so ephemeral temp dirs (e.g., `/tmp/sandbox-1234`) in args break replay across runs. Configurable via `shell-cassette.config.{js,mjs}` if you want to write a custom matcher today, but the built-in is minimal on purpose.
 
 **Redaction coverage.** shell-cassette redacts env-var values when KEY matches a curated list. It does NOT redact:
 
@@ -226,7 +226,7 @@ Wall-time speedup is bounded by vitest startup (~300-400ms regardless of mode). 
 
 Stable enough for solo and small-team use. Cassette schema won't break before v1.0 - new fields land additively, legacy cassettes keep replaying.
 
-Direction is set by signal: when something blocks a real adoption, it gets prioritized. Open an issue if you hit a gap from the section above.
+Priority follows signal: when something blocks a real adoption, it moves up. Open an issue if you hit a gap from the section above.
 
 ## License
 
