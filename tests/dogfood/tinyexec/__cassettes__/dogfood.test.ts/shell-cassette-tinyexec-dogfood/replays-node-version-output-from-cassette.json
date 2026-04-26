@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "recordings": [
+    {
+      "call": {
+        "command": "node",
+        "args": [
+          "--version"
+        ],
+        "cwd": null,
+        "env": {},
+        "stdin": null
+      },
+      "result": {
+        "stdoutLines": [
+          "v23.11.0\r",
+          ""
+        ],
+        "stderrLines": [
+          ""
+        ],
+        "allLines": null,
+        "exitCode": 0,
+        "signal": null,
+        "durationMs": 0
+      }
+    }
+  ]
+}
