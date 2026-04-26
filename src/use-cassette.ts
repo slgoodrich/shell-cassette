@@ -6,6 +6,7 @@ import {
   unregisterSessionPath,
   withCassette as withCassetteScope,
 } from './state.js'
+import { summarizeSession } from './summary.js'
 import type { CassetteFile, CassetteSession } from './types.js'
 
 export async function useCassette<T>(cassettePath: string, fn: () => Promise<T>): Promise<T> {
@@ -19,6 +20,8 @@ export async function useCassette<T>(cassettePath: string, fn: () => Promise<T>)
       loadedFile: null,
       matcher: null,
       newRecordings: [],
+      redactedKeys: [],
+      warnings: [],
     }
 
     return await withCassetteScope(session, async () => {
@@ -26,6 +29,7 @@ export async function useCassette<T>(cassettePath: string, fn: () => Promise<T>)
         return await fn()
       } finally {
         await persistSession(session)
+        summarizeSession(session)
       }
     })
   } finally {

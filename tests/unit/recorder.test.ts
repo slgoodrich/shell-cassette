@@ -9,6 +9,8 @@ const baseSession = (): CassetteSession => ({
   loadedFile: null,
   matcher: null,
   newRecordings: [],
+  redactedKeys: [],
+  warnings: [],
 })
 
 const callOf = (env: Record<string, string> = {}): Call => ({

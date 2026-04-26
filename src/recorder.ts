@@ -12,9 +12,11 @@ export function record(
 
   for (const key of redactedKeys) {
     log(`redacted env var ${key} → ${session.path}`)
+    session.redactedKeys.push(key)
   }
   for (const warning of warnings) {
     log(warning)
+    session.warnings.push(warning)
   }
 
   session.newRecordings.push({
