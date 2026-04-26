@@ -6,14 +6,19 @@
 //
 // CI replay-strict: set CI=true (forces replay; record paths throw).
 
-import '../../../src/vitest.js'
 import { describe, expect, test } from 'vitest'
+// Side-effect import: registers the vitest auto-cassette plugin's beforeEach/
+// afterEach hooks. Must be imported (the load order vs `vitest` doesn't matter
+// since both register effects synchronously before any test runs).
+import '../../../src/vitest.js'
 import { x } from '../../../src/tinyexec.js'
 
 describe('shell-cassette tinyexec dogfood', () => {
   test('replays node version output from cassette', async () => {
     const r = await x('node', ['--version'])
     expect(r.exitCode).toBe(0)
+    // Regex-anchored prefix only; tolerates trailing \r\n on Windows-recorded
+    // cassettes and the cassette's actual node version (whoever recorded last).
     expect(r.stdout).toMatch(/^v\d+\.\d+\.\d+/)
   })
 
