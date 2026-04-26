@@ -126,7 +126,13 @@ jobs:
           npm init -y > /dev/null
           # ESM package so vitest setup files can use top-level await.
           node -e "const p = require('./package.json'); p.type = 'module'; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2))"
-          npm install --silent "$GITHUB_WORKSPACE"/shell-cassette-*.tgz vitest
+          # Pin vitest 3.x: this is the version family where the externalization
+          # path (no deps.inline) reliably triggers the "Vitest failed to find
+          # the runner" error. Vitest 4.x changed externalization behavior so
+          # the smoke would no-op there. Production peer-dep range still allows
+          # both 3.x and 4.x; the fix code in src/vitest.ts catches whichever
+          # throws.
+          npm install --silent "$GITHUB_WORKSPACE"/shell-cassette-*.tgz "vitest@^3.0.0"
           cat > setup.mjs <<'EOF'
           import 'shell-cassette/vitest'
           EOF
