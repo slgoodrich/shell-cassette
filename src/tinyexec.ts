@@ -1,11 +1,30 @@
 import type { Options, Result as TinyResult } from 'tinyexec'
-import { x as realX } from 'tinyexec'
-import { UnsupportedOptionError } from './errors.js'
+import { MissingPeerDependencyError, UnsupportedOptionError } from './errors.js'
 import { validateOptions } from './options-tinyexec.js'
 import type { Call, Result as CassetteResult, Recording } from './types.js'
 import { type RunnerHooks, runWrapped } from './wrapper.js'
 
 export type { Options, Result } from 'tinyexec'
+
+// Resolve tinyexec via dynamic import so we can wrap "Cannot find module"
+// with an actionable error. Top-level await here means consumers importing
+// shell-cassette/tinyexec wait for this resolution. If tinyexec isn't
+// installed, shell-cassette/tinyexec fails to load with a clear install
+// instruction.
+let realX: typeof import('tinyexec').x
+try {
+  const mod = await import('tinyexec')
+  realX = mod.x
+} catch (e) {
+  throw new MissingPeerDependencyError(
+    'shell-cassette/tinyexec requires tinyexec as a peer dependency.\n\n' +
+      'Install it:\n' +
+      '  npm install tinyexec\n' +
+      '  pnpm add tinyexec\n' +
+      '  yarn add tinyexec\n\n' +
+      `Original error: ${(e as Error).message}`,
+  )
+}
 
 export function x(
   file: string,

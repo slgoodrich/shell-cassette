@@ -15,6 +15,8 @@ export const makeSession = (overrides: Partial<CassetteSession> = {}): CassetteS
     loadedFile: { version: 1, recordings: [] },
     matcher: null,
     newRecordings: [],
+    redactedKeys: [],
+    warnings: [],
     ...overrides,
   }
   if (base.loadedFile !== null && base.matcher === null) {

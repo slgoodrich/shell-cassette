@@ -3,11 +3,21 @@ import type { CassetteFile, Recording } from './types.js'
 
 const SCHEMA_VERSION = 1
 
+const REVIEW_WARNING =
+  'REVIEW BEFORE COMMITTING. shell-cassette redacts curated env-key values; ' +
+  'it does NOT redact stdout, stderr, args, or env vars with non-curated names. ' +
+  'See https://github.com/slgoodrich/shell-cassette/blob/main/docs/troubleshooting.md#what-shell-cassette-does-not-redact'
+
 export function serialize(file: CassetteFile): string {
   validateBeforeSerialize(file)
-  // Build object in canonical key order for stable diffs
+  // Build object in canonical key order for stable diffs.
+  // _warning is an additive optional field meant for code-review eyeballs:
+  // anyone reading the cassette JSON sees the redaction caveat at the top
+  // even if they never saw the stderr log when it was recorded.
+  // Underscore prefix marks it as metadata (deserialize ignores unknown fields).
   const ordered = {
     version: file.version,
+    _warning: REVIEW_WARNING,
     recordings: file.recordings.map(orderRecording),
   }
   return `${JSON.stringify(ordered, null, 2)}\n`

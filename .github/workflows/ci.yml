@@ -40,3 +40,47 @@ jobs:
 
       - name: build
         run: npm run build
+
+  # Smoke test on the published tarball. Catches dist/ shape, exports map,
+  # and peer-dep resolution issues that in-repo tests miss because they
+  # resolve through src/. This would have caught the v0.2 deps.inline
+  # gap before publish.
+  tarball-smoke:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: pack
+        run: npm pack
+
+      - name: smoke test the tarball in a fresh project
+        run: |
+          set -e
+          mkdir -p /tmp/sc-smoke
+          cd /tmp/sc-smoke
+          npm init -y > /dev/null
+          # Install the tarball plus required peer deps for the adapters
+          # we exercise. tinyexec is enough for the smoke check.
+          npm install --silent "$GITHUB_WORKSPACE"/shell-cassette-*.tgz tinyexec
+          # Verify each public sub-path resolves at runtime.
+          node --input-type=module -e "
+            import { useCassette } from 'shell-cassette'
+            import { x } from 'shell-cassette/tinyexec'
+            import { ShellCassetteError } from 'shell-cassette/errors'
+            console.log('useCassette:', typeof useCassette)
+            console.log('tinyexec.x:', typeof x)
+            console.log('ShellCassetteError:', typeof ShellCassetteError)
+            if (typeof useCassette !== 'function') process.exit(1)
+            if (typeof x !== 'function') process.exit(1)
+            if (typeof ShellCassetteError !== 'function') process.exit(1)
+          "

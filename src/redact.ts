@@ -41,7 +41,7 @@ export function redactEnv(env: Record<string, string>, config: RedactConfig): Re
       redacted[key] = value
       if (value.length > LONG_VALUE_THRESHOLD) {
         warnings.push(
-          `env var ${key} has ${value.length}-char value, not in curated/configured list. Review before commit.`,
+          `${key}: long value (${value.length} chars), not in curated/configured list - may contain a credential. shell-cassette matches by key name only, not value pattern. Review cassette, or add ${key} to config.redactEnvKeys.`,
         )
       }
     }

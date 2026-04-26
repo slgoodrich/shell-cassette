@@ -49,3 +49,7 @@ export class CassetteIOError extends ShellCassetteError {
 export class CassetteConfigError extends ShellCassetteError {
   static override code = 'CASSETTE_CONFIG'
 }
+
+export class MissingPeerDependencyError extends ShellCassetteError {
+  static override code = 'CASSETTE_MISSING_PEER_DEP'
+}

@@ -1,8 +1,27 @@
 import type { Options, ResultPromise } from 'execa'
-import { execa as realExeca } from 'execa'
+import { MissingPeerDependencyError } from './errors.js'
 import { validateOptions } from './options-execa.js'
 import type { Call, Recording, Result } from './types.js'
 import { type RunnerHooks, runWrapped } from './wrapper.js'
+
+// Resolve execa via dynamic import so we can wrap "Cannot find module" with
+// an actionable error. Top-level await here means consumers importing
+// shell-cassette/execa wait for this resolution. If execa isn't installed,
+// shell-cassette/execa fails to load with a clear install instruction.
+let realExeca: typeof import('execa').execa
+try {
+  const mod = await import('execa')
+  realExeca = mod.execa
+} catch (e) {
+  throw new MissingPeerDependencyError(
+    'shell-cassette/execa requires execa as a peer dependency.\n\n' +
+      'Install it:\n' +
+      '  npm install execa\n' +
+      '  pnpm add execa\n' +
+      '  yarn add execa\n\n' +
+      `Original error: ${(e as Error).message}`,
+  )
+}
 
 export function execa(
   file: string,

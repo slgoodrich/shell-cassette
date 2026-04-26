@@ -37,6 +37,10 @@ export type CassetteSession = {
   loadedFile: CassetteFile | null
   matcher: MatcherStateLike | null // built lazily; defined in matcher.ts
   newRecordings: Recording[]
+  // Accumulated across record() calls in this scope. Emitted as an
+  // end-of-run summary by the vitest plugin and useCassette finally.
+  redactedKeys: string[]
+  warnings: string[]
 }
 
 // Forward-declared interface; implemented in matcher.ts
