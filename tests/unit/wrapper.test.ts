@@ -34,6 +34,7 @@ const baseHooks = (
       exitCode: r.exitCode,
       signal: null,
       durationMs: 0,
+      aborted: false,
     }
   },
   synthesize: (rec) => ({
@@ -138,6 +139,7 @@ describe('runWrapped (envelope)', () => {
         exitCode: 0,
         signal: null,
         durationMs: 0,
+        aborted: false,
       },
     }
     const session = makeSession({

@@ -82,6 +82,51 @@ describe('tinyexec adapter', () => {
     expect(session.newRecordings[0]?.result.allLines).toBeNull()
   })
 
+  test('captureResult preserves aborted=true through to recording', async () => {
+    process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
+    const session = makeSession({ loadedFile: null })
+    setActiveCassette(session)
+
+    vi.mocked(realXMock).mockResolvedValueOnce({
+      stdout: '',
+      stderr: '',
+      exitCode: 1,
+      pid: 1,
+      aborted: true,
+      killed: true,
+    } as never)
+
+    await x('sleep', ['10'])
+    expect(session.newRecordings[0]?.result.aborted).toBe(true)
+  })
+
+  test('synthesize emits aborted=true from a recording with aborted=true', async () => {
+    // signal=null and aborted=true isolates the aborted-passthrough path from
+    // the killed-derivation path (synthesize computes killed = signal !== null).
+    const recording: Recording = {
+      call: { command: 'sleep', args: ['10'], cwd: null, env: {}, stdin: null },
+      result: {
+        stdoutLines: [''],
+        stderrLines: [''],
+        allLines: null,
+        exitCode: 1,
+        signal: null,
+        durationMs: 0,
+        aborted: true,
+      },
+    }
+    const session = makeSession({
+      loadedFile: { version: 1, recordings: [recording] },
+    })
+    setActiveCassette(session)
+    process.env.SHELL_CASSETTE_MODE = 'replay'
+
+    const result = await x('sleep', ['10'])
+    expect(result.aborted).toBe(true)
+    expect(result.killed).toBe(false)
+    expect(realXMock).not.toHaveBeenCalled()
+  })
+
   test('captureResult maps killed=true to signal=SIGTERM', async () => {
     process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
     const session = makeSession({ loadedFile: null })
@@ -110,6 +155,7 @@ describe('tinyexec adapter', () => {
         exitCode: 0,
         signal: null,
         durationMs: 0,
+        aborted: false,
       },
     }
     const session = makeSession({
@@ -138,6 +184,7 @@ describe('tinyexec adapter', () => {
         exitCode: 1,
         signal: null,
         durationMs: 0,
+        aborted: false,
       },
     }
     const session = makeSession({
@@ -159,6 +206,7 @@ describe('tinyexec adapter', () => {
         exitCode: 1,
         signal: null,
         durationMs: 0,
+        aborted: false,
       },
     }
     const session = makeSession({
@@ -181,6 +229,7 @@ describe('tinyexec adapter', () => {
         exitCode: 0,
         signal: null,
         durationMs: 0,
+        aborted: false,
       },
     }
     const session = makeSession({
@@ -203,6 +252,7 @@ describe('tinyexec adapter', () => {
         exitCode: 0,
         signal: null,
         durationMs: 0,
+        aborted: false,
       },
     }
     const session = makeSession({
@@ -225,6 +275,7 @@ describe('tinyexec adapter', () => {
         exitCode: 0,
         signal: null,
         durationMs: 0,
+        aborted: false,
       },
     }
     const session = makeSession({

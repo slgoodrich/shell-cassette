@@ -22,6 +22,7 @@ describe('DEFAULT_CONFIG', () => {
         exitCode: 0,
         signal: null,
         durationMs: 1,
+        aborted: false,
       },
     }
     expect(DEFAULT_CONFIG.matcher(call, rec)).toBe(true)

@@ -79,6 +79,7 @@ function captureResult(raw: unknown): CassetteResult {
     exitCode: r.exitCode ?? 0,
     signal: r.killed === true ? 'SIGTERM' : null,
     durationMs: 0,
+    aborted: r.aborted === true,
   }
 }
 
@@ -92,7 +93,7 @@ function synthesize(rec: Recording, options: Partial<Options>): TinyResult {
     stderr,
     exitCode: rec.result.exitCode,
     pid: -1,
-    aborted: false,
+    aborted: rec.result.aborted,
     killed,
     process: null,
     pipe: () => {
