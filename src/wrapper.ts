@@ -83,7 +83,7 @@ export async function runWrapped<Opts, ResultShape>(
 
 function captureAndRecord<Opts, ResultShape>(
   call: Call,
-  raw: ResultShape | unknown,
+  raw: unknown,
   hooks: RunnerHooks<Opts, ResultShape>,
   session: CassetteSession,
   config: Config,
