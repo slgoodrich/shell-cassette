@@ -1,0 +1,176 @@
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { DEFAULT_CONFIG } from '../../src/config.js'
+import { AckRequiredError, ReplayMissError, UnsupportedOptionError } from '../../src/errors.js'
+import { MatcherState } from '../../src/matcher.js'
+import { _resetForTesting, clearActiveCassette, setActiveCassette } from '../../src/state.js'
+import type { CassetteSession, Recording } from '../../src/types.js'
+import { type RunnerHooks, runWrapped } from '../../src/wrapper.js'
+
+type FakeOpts = { fake?: true }
+type FakeResult = { stdout: string; exitCode: number }
+
+const baseHooks = (
+  realCall: (file: string, args: readonly string[], options: FakeOpts) => Promise<FakeResult>,
+): RunnerHooks<FakeOpts, FakeResult> => ({
+  validate: () => {},
+  buildCall: (file, args) => ({
+    command: file,
+    args: [...args],
+    cwd: null,
+    env: {},
+    stdin: null,
+  }),
+  realCall,
+  captureResult: (raw) => {
+    const r = raw as FakeResult
+    return {
+      stdoutLines: r.stdout.split('\n'),
+      stderrLines: [''],
+      allLines: null,
+      exitCode: r.exitCode,
+      signal: null,
+      durationMs: 0,
+    }
+  },
+  synthesize: (rec) => ({
+    stdout: rec.result.stdoutLines.join('\n'),
+    exitCode: rec.result.exitCode,
+  }),
+})
+
+const makeSession = (overrides: Partial<CassetteSession> = {}): CassetteSession => {
+  const base: CassetteSession = {
+    name: 'test',
+    path: '/tmp/test.json',
+    scopeDefault: 'auto',
+    loadedFile: { version: 1, recordings: [] },
+    matcher: null,
+    newRecordings: [],
+    ...overrides,
+  }
+  // wrapper.ts only initializes the matcher when loadedFile is null on first
+  // call. When tests pre-populate loadedFile, also pre-populate the matcher
+  // to mirror what the wrapper would do on its lazy-load path.
+  if (base.loadedFile !== null && base.matcher === null) {
+    base.matcher = new MatcherState(base.loadedFile.recordings, DEFAULT_CONFIG.matcher)
+  }
+  return base
+}
+
+describe('runWrapped (envelope)', () => {
+  beforeEach(() => {
+    _resetForTesting()
+    delete process.env.SHELL_CASSETTE_MODE
+    delete process.env.SHELL_CASSETTE_ACK_REDACTION
+    delete process.env.CI
+  })
+
+  afterEach(() => {
+    _resetForTesting()
+    clearActiveCassette()
+  })
+
+  test('passthrough when no active cassette', async () => {
+    const realCall = vi.fn(async () => ({ stdout: 'hello', exitCode: 0 }))
+    const result = await runWrapped('echo', ['hello'], {}, baseHooks(realCall))
+    expect(realCall).toHaveBeenCalledOnce()
+    expect(result).toEqual({ stdout: 'hello', exitCode: 0 })
+  })
+
+  test('validate is called even when no active cassette', async () => {
+    const validate = vi.fn(() => {
+      throw new UnsupportedOptionError('test')
+    })
+    const realCall = vi.fn()
+    const hooks: RunnerHooks<FakeOpts, FakeResult> = {
+      ...baseHooks(realCall as never),
+      validate,
+    }
+    await expect(runWrapped('echo', [], {}, hooks)).rejects.toBeInstanceOf(UnsupportedOptionError)
+    expect(validate).toHaveBeenCalledOnce()
+    expect(realCall).not.toHaveBeenCalled()
+  })
+
+  test('record path requires ack gate', async () => {
+    const session = makeSession({ scopeDefault: 'auto', loadedFile: null })
+    setActiveCassette(session)
+    const realCall = vi.fn(async () => ({ stdout: 'x', exitCode: 0 }))
+    await expect(runWrapped('echo', [], {}, baseHooks(realCall))).rejects.toBeInstanceOf(
+      AckRequiredError,
+    )
+    expect(realCall).not.toHaveBeenCalled()
+    clearActiveCassette()
+  })
+
+  test('replay path returns synthesized result on match', async () => {
+    const recording: Recording = {
+      call: { command: 'echo', args: ['hi'], cwd: null, env: {}, stdin: null },
+      result: {
+        stdoutLines: ['hi', ''],
+        stderrLines: [''],
+        allLines: null,
+        exitCode: 0,
+        signal: null,
+        durationMs: 0,
+      },
+    }
+    const session = makeSession({
+      loadedFile: { version: 1, recordings: [recording] },
+    })
+    setActiveCassette(session)
+    process.env.SHELL_CASSETTE_MODE = 'replay'
+
+    const realCall = vi.fn()
+    const result = await runWrapped('echo', ['hi'], {}, baseHooks(realCall as never))
+    expect(realCall).not.toHaveBeenCalled()
+    expect(result).toEqual({ stdout: 'hi\n', exitCode: 0 })
+    clearActiveCassette()
+  })
+
+  test('replay path throws ReplayMissError when no match', async () => {
+    const session = makeSession({
+      loadedFile: { version: 1, recordings: [] },
+    })
+    setActiveCassette(session)
+    process.env.SHELL_CASSETTE_MODE = 'replay'
+
+    const realCall = vi.fn()
+    await expect(
+      runWrapped('echo', ['hi'], {}, baseHooks(realCall as never)),
+    ).rejects.toBeInstanceOf(ReplayMissError)
+    clearActiveCassette()
+  })
+
+  test('record path captures result and returns it', async () => {
+    const session = makeSession({ scopeDefault: 'auto', loadedFile: null })
+    setActiveCassette(session)
+    process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
+    const realCall = vi.fn(async () => ({ stdout: 'recorded', exitCode: 0 }))
+
+    const result = await runWrapped('echo', ['recorded'], {}, baseHooks(realCall))
+
+    expect(result).toEqual({ stdout: 'recorded', exitCode: 0 })
+    expect(session.newRecordings).toHaveLength(1)
+    expect(session.newRecordings[0]?.result.stdoutLines).toEqual(['recorded'])
+    clearActiveCassette()
+  })
+
+  test('record path captures error and re-throws', async () => {
+    const session = makeSession({ scopeDefault: 'auto', loadedFile: null })
+    setActiveCassette(session)
+    process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
+
+    const fakeError = Object.assign(new Error('subprocess failed'), {
+      stdout: 'partial',
+      exitCode: 1,
+    })
+    const realCall = vi.fn(async () => {
+      throw fakeError
+    })
+
+    await expect(runWrapped('echo', [], {}, baseHooks(realCall))).rejects.toBe(fakeError)
+    expect(session.newRecordings).toHaveLength(1)
+    expect(session.newRecordings[0]?.result.exitCode).toBe(1)
+    clearActiveCassette()
+  })
+})
