@@ -124,7 +124,7 @@ When the wrapper synthesizes a result on replay, it produces the same shape exec
 - `all` (when `all: true` was passed)
 - Throws synthesized `ExecaError` when exit code is non-zero AND `reject: false` not set (matching execa's default)
 
-`isCanceled` is preserved through record/replay (captured from execa's field, stored as `aborted` in the cassette schema, synthesized back to `isCanceled` on replay). `durationMs` is wall-clock measured around the real subprocess by shell-cassette's wrapper, uniform across runners.
+`isCanceled` is preserved through record/replay (captured from execa's field, stored as `aborted` in the cassette schema, synthesized back to `isCanceled` on replay). `durationMs` is wall-clock measured by shell-cassette's wrapper around the real subprocess.
 
 ## What's NOT redacted
 
