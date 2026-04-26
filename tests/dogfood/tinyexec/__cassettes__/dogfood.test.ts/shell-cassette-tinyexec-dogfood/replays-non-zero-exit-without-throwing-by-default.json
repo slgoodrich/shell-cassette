@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "recordings": [
+    {
+      "call": {
+        "command": "node",
+        "args": [
+          "-e",
+          "process.exit(2)"
+        ],
+        "cwd": null,
+        "env": {},
+        "stdin": null
+      },
+      "result": {
+        "stdoutLines": [
+          ""
+        ],
+        "stderrLines": [
+          ""
+        ],
+        "allLines": null,
+        "exitCode": 2,
+        "signal": null,
+        "durationMs": 0
+      }
+    }
+  ]
+}
