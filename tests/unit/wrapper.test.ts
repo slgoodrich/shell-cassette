@@ -205,9 +205,10 @@ describe('runWrapped (envelope)', () => {
     } catch (e) {
       expect(e).toBeInstanceOf(AckRequiredError)
       const msg = (e as Error).message
-      // No matcher-miss prefix on the explicit-record path
-      expect(msg).not.toContain('auto mode')
-      expect(msg).not.toContain('no recording matched')
+      // Positive assertion: explicit-record path returns the unmodified ack
+      // help text from src/ack.ts, which starts with "refusing to record".
+      // Augmented messages instead start with "auto mode:".
+      expect(msg.startsWith('refusing to record')).toBe(true)
       expect(msg).toContain('SHELL_CASSETTE_ACK_REDACTION')
     } finally {
       expect(realCall).not.toHaveBeenCalled()
