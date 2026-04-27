@@ -94,8 +94,13 @@ describe('normalizeTmpPath - idempotence', () => {
   })
 })
 
+// basenameCommand uses path.basename, which is platform-aware: on POSIX it only
+// recognizes forward slashes; on Windows it recognizes both. Tests that pass
+// backslash paths must be guarded with skipIf on non-Windows.
+const isWindows = process.platform === 'win32'
+
 describe('basenameCommand', () => {
-  test('absolute path returns basename', () => {
+  test('absolute POSIX path returns basename', () => {
     expect(basenameCommand('/usr/bin/git')).toBe('git')
   })
 
@@ -103,16 +108,12 @@ describe('basenameCommand', () => {
     expect(basenameCommand('git')).toBe('git')
   })
 
-  test('Windows-style path returns basename', () => {
+  test.skipIf(!isWindows)('Windows-style path returns basename', () => {
     expect(basenameCommand('C:\\Program Files\\Git\\bin\\git.exe')).toMatch(/^git(\.exe)?$/)
   })
 })
 
 describe('basenameCommand - Windows .exe strip', () => {
-  // These behavior tests assume process.platform === 'win32'.
-  // Skipped on non-Windows runners but documented for cross-platform clarity.
-  const isWindows = process.platform === 'win32'
-
   test.skipIf(!isWindows)('strips lowercase .exe on Windows', () => {
     expect(basenameCommand('git.exe')).toBe('git')
   })
