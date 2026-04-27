@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { DEFAULT_CONFIG } from '../../src/config.js'
 import { record } from '../../src/recorder.js'
+import { seedCountersFromCassette } from '../../src/redact-pipeline.js'
 import type { Call, CassetteSession, Result } from '../../src/types.js'
 
 function makeSession(): CassetteSession {
@@ -137,6 +138,54 @@ describe('recorder applies redaction across all 5 sources', () => {
     // Counter continues from where it left off; second recording gets :2
     expect(session.newRecordings[0]?.call.args[0]).toBe('<redacted:args:github-pat-classic:1>')
     expect(session.newRecordings[1]?.call.args[0]).toBe('<redacted:args:github-pat-classic:2>')
+  })
+
+  test('counters continue from existing cassette ceiling on auto-additive append', () => {
+    const session = makeSession()
+    // Simulate a pre-loaded cassette with a placeholder counter of :3
+    session.loadedFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [
+        {
+          call: {
+            command: 'curl',
+            args: ['Bearer <redacted:args:github-pat-classic:3>'],
+            cwd: null,
+            env: {},
+            stdin: null,
+          },
+          result: {
+            stdoutLines: [],
+            stderrLines: [],
+            allLines: null,
+            exitCode: 0,
+            signal: null,
+            durationMs: 0,
+            aborted: false,
+          },
+          redactions: [{ rule: 'github-pat-classic', source: 'args', count: 3 }],
+        },
+      ],
+    }
+    // Seed counters (in production done by wrapper.ts on cassette load)
+    const seeded = seedCountersFromCassette(session.loadedFile)
+    for (const [k, v] of seeded) {
+      session.redactCounters.set(k, v)
+    }
+
+    // Record a new call with a fresh PAT; counter should continue at :4
+    const call: Call = {
+      command: 'curl',
+      args: ['Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'],
+      cwd: null,
+      env: {},
+      stdin: null,
+    }
+    record(call, benignResult, session)
+    expect(session.newRecordings[0]?.call.args[0]).toBe(
+      'Bearer <redacted:args:github-pat-classic:4>',
+    )
   })
 
   test('redactEnabled: false bypasses pipeline', () => {

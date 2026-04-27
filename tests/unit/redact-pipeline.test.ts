@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { runPipeline, stripCounter } from '../../src/redact-pipeline.js'
-import type { RedactConfig } from '../../src/types.js'
+import { runPipeline, seedCountersFromCassette, stripCounter } from '../../src/redact-pipeline.js'
+import type { CassetteFile, RedactConfig } from '../../src/types.js'
 
 const baseConfig: RedactConfig = {
   bundledPatterns: false,
@@ -391,5 +391,141 @@ describe('stripCounter', () => {
 
   test('leaves stripped placeholders unchanged', () => {
     expect(stripCounter('<redacted:env:rule>')).toBe('<redacted:env:rule>')
+  })
+})
+
+const emptyRec = (): CassetteFile['recordings'][number] => ({
+  call: { command: 'curl', args: [], cwd: null, env: {}, stdin: null },
+  result: {
+    stdoutLines: [],
+    stderrLines: [],
+    allLines: null,
+    exitCode: 0,
+    signal: null,
+    durationMs: 0,
+    aborted: false,
+  },
+  redactions: [],
+})
+
+describe('seedCountersFromCassette', () => {
+  test('returns empty map for cassette with no recordings', () => {
+    const cassette: CassetteFile = {
+      version: 2,
+      recordedBy: { name: 'shell-cassette', version: '0.4.0' },
+      recordings: [],
+    }
+    const counters = seedCountersFromCassette(cassette)
+    expect(counters.size).toBe(0)
+  })
+
+  test('seeds from per-recording redactions metadata', () => {
+    const cassette: CassetteFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [
+        {
+          ...emptyRec(),
+          redactions: [
+            { rule: 'github-pat-classic', source: 'env', count: 3 },
+            { rule: 'aws-access-key-id', source: 'args', count: 1 },
+          ],
+        },
+      ],
+    }
+    const counters = seedCountersFromCassette(cassette)
+    expect(counters.get('env:github-pat-classic')).toBe(3)
+    expect(counters.get('args:aws-access-key-id')).toBe(1)
+  })
+
+  test('seeds from placeholder counters in body when metadata is stale', () => {
+    const cassette: CassetteFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [
+        {
+          ...emptyRec(),
+          call: {
+            command: 'curl',
+            args: ['Bearer <redacted:args:github-pat-classic:5>'],
+            cwd: null,
+            env: {},
+            stdin: null,
+          },
+        },
+      ],
+    }
+    const counters = seedCountersFromCassette(cassette)
+    expect(counters.get('args:github-pat-classic')).toBe(5)
+  })
+
+  test('takes max when both metadata and body contribute', () => {
+    const cassette: CassetteFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [
+        {
+          ...emptyRec(),
+          call: {
+            command: 'curl',
+            args: ['<redacted:args:github-pat-classic:7>'],
+            cwd: null,
+            env: {},
+            stdin: null,
+          },
+          redactions: [{ rule: 'github-pat-classic', source: 'args', count: 4 }],
+        },
+      ],
+    }
+    const counters = seedCountersFromCassette(cassette)
+    // Body has :7, metadata has :4. Max wins.
+    expect(counters.get('args:github-pat-classic')).toBe(7)
+  })
+
+  test('walks all 5 sources in body', () => {
+    const cassette: CassetteFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [
+        {
+          ...emptyRec(),
+          call: {
+            command: 'curl',
+            args: ['<redacted:args:r:1>'],
+            cwd: null,
+            env: { FOO: '<redacted:env:r:2>' },
+            stdin: null,
+          },
+          result: {
+            stdoutLines: ['<redacted:stdout:r:3>'],
+            stderrLines: ['<redacted:stderr:r:4>'],
+            allLines: ['<redacted:allLines:r:5>'],
+            exitCode: 0,
+            signal: null,
+            durationMs: 0,
+            aborted: false,
+          },
+        },
+      ],
+    }
+    const counters = seedCountersFromCassette(cassette)
+    expect(counters.get('args:r')).toBe(1)
+    expect(counters.get('env:r')).toBe(2)
+    expect(counters.get('stdout:r')).toBe(3)
+    expect(counters.get('stderr:r')).toBe(4)
+    expect(counters.get('allLines:r')).toBe(5)
+  })
+
+  test('multiple recordings: max across all is the ceiling', () => {
+    const cassette: CassetteFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [
+        { ...emptyRec(), redactions: [{ rule: 'r', source: 'env', count: 2 }] },
+        { ...emptyRec(), redactions: [{ rule: 'r', source: 'env', count: 5 }] },
+      ],
+    }
+    const counters = seedCountersFromCassette(cassette)
+    expect(counters.get('env:r')).toBe(5)
   })
 })

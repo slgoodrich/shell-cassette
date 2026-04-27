@@ -5,6 +5,7 @@ import { loadCassette } from './loader.js'
 import { MatcherState } from './matcher.js'
 import { resolveMode } from './mode.js'
 import { record } from './recorder.js'
+import { seedCountersFromCassette } from './redact-pipeline.js'
 import { getActiveCassette } from './state.js'
 import type { Call, CassetteSession, MatcherStateLike, Recording, Result } from './types.js'
 
@@ -56,7 +57,17 @@ export async function runWrapped<Opts, ResultShape>(
   }
 
   if (session.loadedFile === null) {
-    session.loadedFile = await loadCassette(session.path)
+    const file = await loadCassette(session.path)
+    if (file !== null) {
+      session.loadedFile = file
+      // Seed redact counters from existing cassette placeholders so
+      // auto-additive appends continue from the existing per-(source, rule)
+      // ceiling. Spec Q5 + counter rebuild on cassette load.
+      const seeded = seedCountersFromCassette(file)
+      for (const [k, v] of seeded) {
+        session.redactCounters.set(k, v)
+      }
+    }
     session.matcher = new MatcherState(session.loadedFile?.recordings ?? [], session.canonicalize)
   }
 

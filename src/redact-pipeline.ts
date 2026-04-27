@@ -1,6 +1,12 @@
 import { ShellCassetteError } from './errors.js'
 import { BUNDLED_PATTERNS } from './redact-patterns.js'
-import type { RedactConfig, RedactionEntry, RedactRule, RedactSource } from './types.js'
+import type {
+  CassetteFile,
+  RedactConfig,
+  RedactionEntry,
+  RedactRule,
+  RedactSource,
+} from './types.js'
 
 export type RedactInput = {
   source: RedactSource
@@ -173,4 +179,70 @@ function applyRegexRule(
  */
 export function stripCounter(s: string): string {
   return s.replace(/<redacted:([^:>]+):([^:>]+):(\d+)>/g, '<redacted:$1:$2>')
+}
+
+// Pattern is module-private; a fresh RegExp is constructed per call to
+// walkStringsForPlaceholders so lastIndex never leaks between iterations.
+const COUNTER_PLACEHOLDER_REGEX = /<redacted:([^:>]+):([^:>]+):(\d+)>/g
+
+/**
+ * Build a counter map seeded from existing placeholders in a loaded cassette.
+ *
+ * Two sources are walked:
+ *   1. Each recording's `redactions` metadata: (rule, source, count) triples
+ *      contribute to the per-(source, rule) counter ceiling.
+ *   2. Every value (env, args, stdout, stderr, allLines) is scanned for
+ *      counter-tagged placeholders. The maximum N seen for each
+ *      (source, rule) pair becomes the ceiling. This catches hand-edited
+ *      cassettes where the metadata is stale or out-of-sync with the body.
+ *
+ * The returned Map is the seed for `CassetteSession.redactCounters`. New
+ * placeholders emitted during auto-additive appends start at
+ * `max(seeded) + 1` per (source, rule), continuing the existing counter
+ * sequence.
+ */
+export function seedCountersFromCassette(cassette: CassetteFile): Map<string, number> {
+  const counters = new Map<string, number>()
+
+  // Source 1: per-recording redactions metadata
+  for (const rec of cassette.recordings) {
+    for (const entry of rec.redactions) {
+      const key = `${entry.source}:${entry.rule}`
+      const existing = counters.get(key) ?? 0
+      counters.set(key, Math.max(existing, entry.count))
+    }
+  }
+
+  // Source 2: walk every string value for counter-tagged placeholders
+  for (const rec of cassette.recordings) {
+    walkStringsForPlaceholders(rec, (source, rule, n) => {
+      const key = `${source}:${rule}`
+      const existing = counters.get(key) ?? 0
+      if (n > existing) counters.set(key, n)
+    })
+  }
+
+  return counters
+}
+
+function walkStringsForPlaceholders(
+  rec: CassetteFile['recordings'][number],
+  visit: (source: string, rule: string, n: number) => void,
+): void {
+  const values = [
+    ...Object.values(rec.call.env),
+    ...rec.call.args,
+    ...rec.result.stdoutLines,
+    ...rec.result.stderrLines,
+    ...(rec.result.allLines ?? []),
+  ]
+  for (const value of values) {
+    // Construct a fresh RegExp each iteration to avoid lastIndex state leaking.
+    const re = new RegExp(COUNTER_PLACEHOLDER_REGEX.source, COUNTER_PLACEHOLDER_REGEX.flags)
+    for (const m of value.matchAll(re)) {
+      // Groups 1-3 are always present given the pattern shape; non-null safe.
+      // biome-ignore lint/style/noNonNullAssertion: regex groups are structural
+      visit(m[1]!, m[2]!, parseInt(m[3]!, 10))
+    }
+  }
 }
