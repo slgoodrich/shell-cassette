@@ -222,12 +222,6 @@ There's no pattern-based detection for tokens / API keys in stdout, stderr, or a
 
 Wall-time speedup is bounded by vitest startup (~300-400ms regardless of mode). Test execution speedup scales with subprocess work per test.
 
-## Status
-
-Stable enough for solo and small-team use. Cassette schema won't break before v1.0 - new fields land additively, legacy cassettes keep replaying.
-
-Priority follows signal: when something blocks a real adoption, it moves up. Open an issue if you hit a gap from the section above.
-
 ## License
 
 MIT - see `LICENSE`.
