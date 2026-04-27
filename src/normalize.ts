@@ -4,6 +4,10 @@
 // Order matters: more-specific prefixes (/var/tmp, /private/tmp, /var/folders) must
 // run before the plain /tmp pattern so /var/tmp and /private/tmp are not partially
 // consumed by /tmp first, leaving a `/var` or `/private` prefix.
+//
+// IMPORTANT: these are module-level g-flag RegExp instances. Use them ONLY with
+// `String.prototype.replace`, never `.test()` or `.exec()`. The g flag makes those
+// methods stateful via `lastIndex`, which would carry state across calls.
 const TMP_PREFIX_PATTERNS: readonly RegExp[] = [
   /\/var\/folders\/[^/]+\/[^/]+\/T\/[^/\s]+/g,
   /\/var\/tmp\/[^/\s]+/g,
