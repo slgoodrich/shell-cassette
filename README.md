@@ -191,7 +191,7 @@ If you hit one of these, see [docs/troubleshooting.md](docs/troubleshooting.md):
 
 ## What this doesn't do (yet)
 
-If you're evaluating shell-cassette for your project, here's what users hit. Each is something you might expect to work and doesn't.
+If you're evaluating shell-cassette for your project, here are some things you might run into.
 
 **Adapter feature parity.** shell-cassette doesn't wrap every option of execa or tinyexec.
 
