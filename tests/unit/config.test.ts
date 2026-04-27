@@ -68,3 +68,202 @@ describe('validateConfig', () => {
     expect(() => validateConfig({ canonicalize: 'foo' })).toThrow(CassetteConfigError)
   })
 })
+
+describe('Config defaults: redact field', () => {
+  test('bundledPatterns defaults to true', () => {
+    expect(DEFAULT_CONFIG.redact.bundledPatterns).toBe(true)
+  })
+
+  test('warnLengthThreshold defaults to 40', () => {
+    expect(DEFAULT_CONFIG.redact.warnLengthThreshold).toBe(40)
+  })
+
+  test('warnPathHeuristic defaults to true', () => {
+    expect(DEFAULT_CONFIG.redact.warnPathHeuristic).toBe(true)
+  })
+
+  test('customPatterns, suppressPatterns, envKeys default to empty arrays', () => {
+    expect(DEFAULT_CONFIG.redact.customPatterns).toEqual([])
+    expect(DEFAULT_CONFIG.redact.suppressPatterns).toEqual([])
+    expect(DEFAULT_CONFIG.redact.envKeys).toEqual([])
+  })
+})
+
+describe('mergeWithDefaults: redact field', () => {
+  test('user-provided redact.envKeys takes precedence over redactEnvKeys', () => {
+    const merged = mergeWithDefaults({
+      redact: { envKeys: ['FROM_REDACT'] },
+      redactEnvKeys: ['FROM_FLAT'],
+    })
+    expect(merged.redact.envKeys).toEqual(['FROM_REDACT'])
+    // Both fields stay in sync; deprecated field reflects the resolved value.
+    expect(merged.redactEnvKeys).toEqual(['FROM_REDACT'])
+  })
+
+  test('user-provided redactEnvKeys without redact.envKeys: both fields populated', () => {
+    const merged = mergeWithDefaults({ redactEnvKeys: ['STRIPE_KEY'] })
+    expect(merged.redactEnvKeys).toEqual(['STRIPE_KEY'])
+    expect(merged.redact.envKeys).toEqual(['STRIPE_KEY'])
+  })
+
+  test('user-provided redact: { bundledPatterns: false }: only that field overridden', () => {
+    const merged = mergeWithDefaults({ redact: { bundledPatterns: false } })
+    expect(merged.redact.bundledPatterns).toBe(false)
+    expect(merged.redact.warnLengthThreshold).toBe(40)
+    expect(merged.redact.warnPathHeuristic).toBe(true)
+  })
+
+  test('custom rules pass through merge', () => {
+    const rule = { name: 'my-rule', pattern: /SECRET-[A-Z]+/ }
+    const merged = mergeWithDefaults({ redact: { customPatterns: [rule] } })
+    expect(merged.redact.customPatterns).toEqual([rule])
+  })
+
+  test('suppress patterns pass through merge', () => {
+    const sup = /^FAKE_/
+    const merged = mergeWithDefaults({ redact: { suppressPatterns: [sup] } })
+    expect(merged.redact.suppressPatterns).toEqual([sup])
+  })
+
+  test('warnLengthThreshold override', () => {
+    const merged = mergeWithDefaults({ redact: { warnLengthThreshold: 60 } })
+    expect(merged.redact.warnLengthThreshold).toBe(60)
+  })
+
+  test('warnPathHeuristic override', () => {
+    const merged = mergeWithDefaults({ redact: { warnPathHeuristic: false } })
+    expect(merged.redact.warnPathHeuristic).toBe(false)
+  })
+
+  test('returned redact object is frozen', () => {
+    const merged = mergeWithDefaults({ redact: { bundledPatterns: false } })
+    expect(Object.isFrozen(merged.redact)).toBe(true)
+  })
+})
+
+describe('validateConfig: redact field', () => {
+  test('accepts a custom rule with a regex (no g flag required)', () => {
+    expect(() =>
+      validateConfig({
+        redact: {
+          customPatterns: [{ name: 'my-rule', pattern: /SECRET-[A-Z]+/ }],
+        },
+      }),
+    ).not.toThrow()
+  })
+
+  test('accepts a custom rule with a g-flagged regex', () => {
+    expect(() =>
+      validateConfig({
+        redact: {
+          customPatterns: [{ name: 'my-rule', pattern: /SECRET-[A-Z]+/g }],
+        },
+      }),
+    ).not.toThrow()
+  })
+
+  test('accepts a custom rule with a function pattern', () => {
+    expect(() =>
+      validateConfig({
+        redact: {
+          customPatterns: [{ name: 'my-fn', pattern: (s: string) => s.toUpperCase() }],
+        },
+      }),
+    ).not.toThrow()
+  })
+
+  test('rejects custom rule with non-kebab-case name', () => {
+    expect(() =>
+      validateConfig({
+        redact: { customPatterns: [{ name: 'BadName', pattern: /A/ }] },
+      }),
+    ).toThrow(/kebab-case/)
+  })
+
+  test('rejects custom rule with empty name', () => {
+    expect(() =>
+      validateConfig({
+        redact: { customPatterns: [{ name: '', pattern: /A/ }] },
+      }),
+    ).toThrow(CassetteConfigError)
+  })
+
+  test('rejects duplicate custom rule names', () => {
+    expect(() =>
+      validateConfig({
+        redact: {
+          customPatterns: [
+            { name: 'dupe', pattern: /A/ },
+            { name: 'dupe', pattern: /B/ },
+          ],
+        },
+      }),
+    ).toThrow(/duplicated/)
+  })
+
+  test('rejects custom rule with neither RegExp nor function pattern', () => {
+    expect(() =>
+      validateConfig({
+        redact: {
+          customPatterns: [{ name: 'bad', pattern: 'not-a-regex' as unknown as RegExp }],
+        },
+      }),
+    ).toThrow(/RegExp or function/)
+  })
+
+  test('rejects suppress entries that are not RegExp', () => {
+    expect(() =>
+      validateConfig({
+        redact: { suppressPatterns: ['not-a-regex' as unknown as RegExp] },
+      }),
+    ).toThrow(/RegExp/)
+  })
+
+  test('rejects negative warnLengthThreshold', () => {
+    expect(() => validateConfig({ redact: { warnLengthThreshold: -1 } })).toThrow(
+      /positive integer/,
+    )
+  })
+
+  test('rejects zero warnLengthThreshold', () => {
+    expect(() => validateConfig({ redact: { warnLengthThreshold: 0 } })).toThrow(/positive integer/)
+  })
+
+  test('rejects non-integer warnLengthThreshold', () => {
+    expect(() => validateConfig({ redact: { warnLengthThreshold: 40.5 } })).toThrow(
+      /positive integer/,
+    )
+  })
+
+  test('rejects non-boolean bundledPatterns', () => {
+    expect(() => validateConfig({ redact: { bundledPatterns: 'yes' } })).toThrow(/boolean/)
+  })
+
+  test('rejects non-boolean warnPathHeuristic', () => {
+    expect(() => validateConfig({ redact: { warnPathHeuristic: 'yes' } })).toThrow(/boolean/)
+  })
+
+  test('rejects non-array customPatterns', () => {
+    expect(() => validateConfig({ redact: { customPatterns: 'foo' } })).toThrow(/array/)
+  })
+
+  test('rejects non-array suppressPatterns', () => {
+    expect(() => validateConfig({ redact: { suppressPatterns: 'foo' } })).toThrow(/array/)
+  })
+
+  test('rejects non-array envKeys', () => {
+    expect(() => validateConfig({ redact: { envKeys: 'foo' } })).toThrow(/array of strings/)
+  })
+
+  test('rejects envKeys with non-string entries', () => {
+    expect(() => validateConfig({ redact: { envKeys: [1, 2] } })).toThrow(/array of strings/)
+  })
+
+  test('rejects non-object redact', () => {
+    expect(() => validateConfig({ redact: 'foo' })).toThrow(/must be an object/)
+  })
+
+  test('user can opt out of bundle by setting bundledPatterns: false', () => {
+    expect(() => validateConfig({ redact: { bundledPatterns: false } })).not.toThrow()
+  })
+})
