@@ -44,14 +44,10 @@ export type RedactRule = {
    */
   name: string
   /**
-   * Either a global regex (most rules) or a transform function (for advanced
-   * cases where the user wants full control over the replacement). Regex rules
-   * use `String.prototype.matchAll` semantics; the regex MUST have the `g` flag.
-   * Note: the `g` flag carries `lastIndex` state. Callers must use
-   * `String.prototype.replace` (stateless) or construct a fresh
-   * `new RegExp(re.source, re.flags)` copy before `.test()` or `.exec()`;
-   * direct `.test()` on the stored object will silently misfire on alternating
-   * calls.
+   * Regex for shape detection or a transform function for advanced cases where
+   * the user wants full control over the replacement. The pipeline normalizes
+   * regex patterns by ensuring the `g` flag is set at call time, so user-supplied
+   * regex may be supplied with or without the `g` flag.
    */
   pattern: RegExp | ((s: string) => string)
   /**

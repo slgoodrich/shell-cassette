@@ -18,14 +18,14 @@ describe('BUNDLED_PATTERNS', () => {
     }
   })
 
-  test('all regex patterns have the global flag', () => {
+  test('no regex patterns have the global flag (pipeline applies g internally)', () => {
     for (const rule of BUNDLED_PATTERNS) {
       if (!(rule.pattern instanceof RegExp)) {
         throw new Error(
           `bundled rule ${rule.name} has a function pattern; bundle currently expects RegExp only`,
         )
       }
-      expect(rule.pattern.flags).toContain('g')
+      expect(rule.pattern.flags).not.toContain('g')
     }
   })
 })
