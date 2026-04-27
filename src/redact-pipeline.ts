@@ -6,6 +6,16 @@ export type RedactInput = {
   value: string
 }
 
+/**
+ * Discriminated union over counter mode. Restructured from the spec's
+ * `{ counted: boolean; counters?: Map<string, number> }` shape so the
+ * unreachable state `counted: true && counters: undefined` cannot be
+ * expressed; callers in counted mode must supply the counters Map.
+ *
+ * Per `.claude/rules/error_handling.md` "Internal Invariants": restructure
+ * types so unreachable states can't be expressed in preference to runtime
+ * non-null assertions.
+ */
 export type RedactOptions = { counted: false } | { counted: true; counters: Map<string, number> }
 
 export type RedactOutput = {
@@ -17,6 +27,8 @@ export type RedactOutput = {
 // Module-level cache: build g-flagged copies once at module load.
 // BUNDLED_PATTERNS stores patterns without the g flag (stateless, safe for .test()/.exec()).
 // The pipeline adds the g flag here so String.prototype.replace iterates all matches.
+// `r.pattern as RegExp`: the preceding .filter narrows to RegExp, but the
+// narrowing does not propagate into .map's callback. The cast is safe.
 const G_FLAGGED_BUNDLE: { name: string; pattern: RegExp }[] = BUNDLED_PATTERNS.filter(
   (r) => r.pattern instanceof RegExp,
 ).map((r) => ({
@@ -26,6 +38,34 @@ const G_FLAGGED_BUNDLE: { name: string; pattern: RegExp }[] = BUNDLED_PATTERNS.f
 
 const PATH_OR_WHITESPACE_REGEX = /[/\\: ]/
 
+/**
+ * Apply the redact pipeline to a single value.
+ *
+ * Phases run in this fixed order:
+ *
+ *   1. Suppress: if any regex in `config.suppressPatterns` matches the input
+ *      value, the value is exempt from all subsequent phases (short-circuit).
+ *      Use case: project-wide fake-token fixtures.
+ *   2. Bundled patterns: when `config.bundledPatterns` is true, every rule in
+ *      `BUNDLED_PATTERNS` (with the `g` flag added by the pipeline) runs against
+ *      the working value. Each match is replaced by a placeholder.
+ *   3. Custom patterns: each rule in `config.customPatterns` runs after bundled.
+ *      Regex patterns are normalized so the `g` flag is set; function patterns
+ *      are called once and counted as one match if they transform.
+ *   4. Length warning: fires only when the output is identity-equal to the
+ *      input (no rule fired) AND output length exceeds
+ *      `config.warnLengthThreshold` AND (`warnPathHeuristic` is false OR the
+ *      value contains no `/`, `\`, `:`, or space). Surfaces a candidate
+ *      credential not caught by any rule.
+ *
+ * Output mode is set by `options.counted`:
+ *   - `true`: emit `<redacted:source:rule:N>` placeholders. Counter is per
+ *     `(source, rule)` pair, drawn from `options.counters`. Used at record time
+ *     so cassette content has stable, greppable provenance.
+ *   - `false`: emit `<redacted:source:rule>` placeholders (no counter). Used at
+ *     canonicalize / match time so cassette args containing counter-tagged
+ *     placeholders deep-equal against fresh-call args.
+ */
 export function runPipeline(
   input: RedactInput,
   config: Readonly<RedactConfig>,
