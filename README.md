@@ -162,7 +162,7 @@ shell-cassette does **NOT** redact:
 
 - stdout / stderr content
 - command args
-- env vars with non-curated names (`STRIPE_KEY`, `OPENAI_KEY`, etc.; extend via `redactEnvKeys` config)
+- env vars with non-curated names (`STRIPE_KEY`, `OPENAI_KEY`, etc.; extend via `redact.envKeys` config)
 - paths in cwd
 
 **Always review cassettes before committing.** Pattern-based detection for stdout/stderr/args (GitHub PATs, AWS keys, Stripe keys, etc.) isn't built yet. Review by eye.
@@ -189,7 +189,9 @@ export default {
   cassetteDir: '__cassettes__',
 
   // Adds to the curated env-key redaction list (substring, case-insensitive)
-  redactEnvKeys: ['STRIPE_API_KEY', 'OPENAI_API_KEY'],
+  redact: {
+    envKeys: ['STRIPE_API_KEY', 'OPENAI_API_KEY'],
+  },
 
   // Custom canonicalize fn (default: defaultCanonicalize, command exact +
   // args with absolute mkdtemp paths normalized to <tmp>; cwd, env, stdin

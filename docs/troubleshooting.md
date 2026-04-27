@@ -157,7 +157,9 @@ Add the env var name to your `shell-cassette.config.js`:
 
 ```js
 export default {
-  redactEnvKeys: ['STRIPE_API_KEY', 'OPENAI_API_KEY'],
+  redact: {
+    envKeys: ['STRIPE_API_KEY', 'OPENAI_API_KEY'],
+  },
 }
 ```
 
