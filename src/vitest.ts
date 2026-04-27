@@ -11,6 +11,9 @@
 //
 // See docs/vitest-plugin.md for details.
 
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { getConfig } from './config.js'
 import { ConcurrencyError, MissingPeerDependencyError } from './errors.js'
 import { writeCassetteFile } from './io.js'
@@ -26,6 +29,15 @@ import {
 import { summarizeSession } from './summary.js'
 import type { CassetteSession } from './types.js'
 import { wrapRegistrationError } from './vitest-error.js'
+
+const PACKAGE_VERSION = (
+  JSON.parse(
+    readFileSync(
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../package.json'),
+      'utf8',
+    ),
+  ) as { version: string }
+).version
 
 // Resolve vitest via dynamic import so we can wrap "Cannot find module" with
 // an actionable error. Top-level await means consumers importing
@@ -91,7 +103,7 @@ try {
       const existingRecordings = session.loadedFile?.recordings ?? []
       const merged = {
         version: 2 as const,
-        recordedBy: null,
+        recordedBy: { name: 'shell-cassette', version: PACKAGE_VERSION },
         recordings: [...existingRecordings, ...session.newRecordings],
       }
       await writeCassetteFile(session.path, serialize(merged))

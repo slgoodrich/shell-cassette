@@ -25,19 +25,19 @@ const minimalV2: CassetteFile = {
 
 describe('serialize v2', () => {
   test('emits version: 2 in JSON', () => {
-    const out = serialize(minimalV2, { name: 'shell-cassette', version: '0.4.0' })
+    const out = serialize(minimalV2)
     const parsed = JSON.parse(out) as Record<string, unknown>
     expect(parsed.version).toBe(2)
   })
 
-  test('emits _recorded_by from arg', () => {
-    const out = serialize(minimalV2, { name: 'shell-cassette', version: '0.4.0' })
+  test('emits _recorded_by from file.recordedBy', () => {
+    const out = serialize(minimalV2)
     const parsed = JSON.parse(out) as Record<string, unknown>
     expect(parsed._recorded_by).toEqual({ name: 'shell-cassette', version: '0.4.0' })
   })
 
-  test('emits null _recorded_by when not provided', () => {
-    const out = serialize(minimalV2)
+  test('emits null _recorded_by when file.recordedBy is null', () => {
+    const out = serialize({ ...minimalV2, recordedBy: null })
     const parsed = JSON.parse(out) as Record<string, unknown>
     expect(parsed._recorded_by).toBe(null)
   })
@@ -54,7 +54,7 @@ describe('serialize v2', () => {
         },
       ],
     }
-    const out = serialize(file, { name: 'shell-cassette', version: '0.4.0' })
+    const out = serialize(file)
     const parsed = JSON.parse(out) as { recordings: Array<{ _redactions: unknown }> }
     expect(parsed.recordings[0]?._redactions).toEqual([
       { rule: 'github-pat-classic', source: 'env', count: 1 },
@@ -62,14 +62,14 @@ describe('serialize v2', () => {
   })
 
   test('emits trailing newline', () => {
-    const out = serialize(minimalV2, { name: 'shell-cassette', version: '0.4.0' })
+    const out = serialize(minimalV2)
     expect(out.endsWith('\n')).toBe(true)
   })
 })
 
 describe('deserialize v2', () => {
   test('round-trip preserves all fields', () => {
-    const out = serialize(minimalV2, { name: 'shell-cassette', version: '0.4.0' })
+    const out = serialize(minimalV2)
     const parsed = deserialize(out)
     expect(parsed).toEqual(minimalV2)
   })

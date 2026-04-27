@@ -10,10 +10,7 @@ const REVIEW_WARNING =
   'option parity). Run `shell-cassette scan <path>` to verify before committing. ' +
   'See https://github.com/slgoodrich/shell-cassette/blob/main/docs/troubleshooting.md'
 
-export function serialize(
-  file: CassetteFile,
-  recordedBy: { name: string; version: string } | null = null,
-): string {
+export function serialize(file: CassetteFile): string {
   validateBeforeSerialize(file)
   // Build object in canonical key order for stable diffs.
   // _warning is an additive optional field meant for code-review eyeballs:
@@ -23,7 +20,7 @@ export function serialize(
   const ordered = {
     version: SCHEMA_VERSION,
     _warning: REVIEW_WARNING,
-    _recorded_by: recordedBy,
+    _recorded_by: file.recordedBy,
     recordings: file.recordings.map(orderRecording),
   }
   return `${JSON.stringify(ordered, null, 2)}\n`
