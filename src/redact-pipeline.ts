@@ -118,6 +118,14 @@ function buildStrippedPlaceholder(source: RedactSource, ruleName: string): strin
   return `<redacted:${source}:${ruleName}>`
 }
 
+const COUNTER_REGEX = /<redacted:([^:>]+):([^:>]+):(\d+)>/g
+
+/**
+ * Replace counter-tagged placeholders with their counter-stripped form.
+ * Used by the canonicalize pipeline at match time so cassette args containing
+ * counter-tagged placeholders deep-equal against fresh-call args canonicalized
+ * in stripped mode. Stripped placeholders pass through unchanged.
+ */
 export function stripCounter(s: string): string {
-  return s
+  return s.replace(COUNTER_REGEX, '<redacted:$1:$2>')
 }
