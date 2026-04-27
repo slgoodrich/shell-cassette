@@ -1,6 +1,7 @@
 import { log } from './log.js'
 import { normalizeTmpPath } from './normalize.js'
-import { runPipeline, stripCounter } from './redact-pipeline.js'
+import { redact } from './redact.js'
+import { stripCounter } from './redact-pipeline.js'
 import type { Call, Canonicalize, MatcherStateLike, Recording, RedactConfig } from './types.js'
 
 // cwd/env/stdin are omitted: their values vary per-machine and would break
@@ -23,8 +24,7 @@ export const defaultCanonicalize: Canonicalize = (call, opts) => {
       //    identical strings; stripped mode is the only mode that gives that
       //    invariant.
       if (redactConfig) {
-        return runPipeline({ source: 'args', value: stripped }, redactConfig, { counted: false })
-          .output
+        return redact({ source: 'args', value: stripped }, redactConfig, { counted: false }).output
       }
       return stripped
     }),
