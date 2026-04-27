@@ -4,6 +4,38 @@ All notable changes to shell-cassette are documented here. The format is based o
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-26
+
+### BREAKING CHANGES
+
+- **The matcher API is replaced with a canonicalize primitive.** The `MatcherFn` type and the `(call, recording) => boolean` shape are removed entirely. The new primitive is `Canonicalize: (call) => Partial<Call>`, with implicit deep-equal comparison of canonical forms. Migration:
+  ```diff
+  - matcher: (call, rec) => call.command === rec.call.command && deepEqual(call.args, rec.call.args)
+  + canonicalize: (call) => ({ command: call.command, args: call.args })
+  ```
+- `Config.matcher` is renamed to `Config.canonicalize` (type changed accordingly).
+- The `MatcherFn` type export is removed from the main `shell-cassette` entry.
+
+### Added
+
+- **`Canonicalize` type**: `(call: Call) => Partial<Call>`. The matcher primitive.
+- **`defaultCanonicalize`**: the new default. Includes `command` (exact) and `args` (with absolute mkdtemp paths normalized to `<tmp>` token); excludes `cwd`, `env`, `stdin` so cassettes are portable across machines.
+- **`normalizeTmpPath(s)`**: per-OS regex helper. Replaces tmp-prefix + one path component with `<tmp>`. Used internally by the default; exported for composition in custom canonicalize functions.
+- **`basenameCommand(cmd)`**: cross-platform basename helper. Strips `.exe` on Windows. Opt-in for users who need cross-machine command portability (`/usr/bin/git` matches `git`).
+- **`useCassette` gains an optional middle `options` argument**: `useCassette(path, options, fn)` for per-call canonicalize override. Original `useCassette(path, fn)` shape unchanged.
+- **`UseCassetteOptions` type** with `canonicalize?: Canonicalize` field.
+- **Property-based tests** via `fast-check` (devDependency). Cover serializer round-trip, normalizeTmpPath idempotence, canonicalize determinism, and matcher invariants.
+
+### Changed
+
+- **The default matching behavior now normalizes mkdtemp paths in args.** Existing cassettes get strictly more permissive matching: tests that passed under v0.2 continue to pass under v0.3. Tests that bounced on mkdtemp variance (e.g., `varletjs/varlet-release` pattern) now succeed without user opt-in.
+- **`ReplayMissError` shows canonical forms.** When a match fails, the error message includes the unmatched call's canonical form and up to 10 recordings' canonical forms (with `... (N more)` truncation). Easier debugging when matcher behavior isn't what you expected.
+
+### Notes
+
+- Cassette schema is unchanged (still version 1). v0.2 cassettes load and replay correctly under v0.3.
+- The default canonicalize is conservative. Patterns NOT normalized (nested mkdtemp dirs, relative tmp paths via `path.relative`, custom `$TMPDIR` outside our regex table, `process.cwd()` substrings in args) are documented in the README's "Documented limitations" section, each with a one-line workaround via custom canonicalize.
+
 ## [0.2.0] - 2026-04-26
 
 ### BREAKING CHANGES
