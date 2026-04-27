@@ -86,6 +86,9 @@ export const BUNDLED_PATTERNS: readonly RedactRule[] = [
 
   // Anthropic
   // https://docs.anthropic.com/en/api/getting-started
+  // Note: Anthropic must precede OpenAI in this list. The OpenAI pattern's
+  // bare sk- prefix would otherwise match Anthropic keys (sk-ant-...) first
+  // and tag them as openai-api-key in placeholders.
   {
     name: 'anthropic-api-key',
     pattern: /sk-ant-(api03|sid01|admin01)-[A-Za-z0-9_-]{80,}/g,

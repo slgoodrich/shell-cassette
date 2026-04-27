@@ -20,9 +20,12 @@ describe('BUNDLED_PATTERNS', () => {
 
   test('all regex patterns have the global flag', () => {
     for (const rule of BUNDLED_PATTERNS) {
-      if (rule.pattern instanceof RegExp) {
-        expect(rule.pattern.flags).toContain('g')
+      if (!(rule.pattern instanceof RegExp)) {
+        throw new Error(
+          `bundled rule ${rule.name} has a function pattern; bundle currently expects RegExp only`,
+        )
       }
+      expect(rule.pattern.flags).toContain('g')
     }
   })
 })
@@ -55,12 +58,19 @@ describe('per-rule regression fixtures', () => {
   })
 
   test('github-oauth, user-to-server, server-to-server, refresh', () => {
-    expect(matches('github-oauth', 'gho_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890')).toBe(true)
-    expect(matches('github-user-to-server', 'ghu_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890')).toBe(true)
-    expect(matches('github-server-to-server', 'ghs_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890')).toBe(
+    expect(matches('github-oauth', `gho_${'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'}`)).toBe(true)
+    expect(matches('github-user-to-server', `ghu_${'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'}`)).toBe(
       true,
     )
-    expect(matches('github-refresh', 'ghr_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890')).toBe(true)
+    expect(
+      matches('github-server-to-server', `ghs_${'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'}`),
+    ).toBe(true)
+    expect(matches('github-refresh', `ghr_${'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'}`)).toBe(true)
+    // off-by-one short for each (35 chars instead of 36)
+    expect(matches('github-oauth', `gho_${'a'.repeat(35)}`)).toBe(false)
+    expect(matches('github-user-to-server', `ghu_${'a'.repeat(35)}`)).toBe(false)
+    expect(matches('github-server-to-server', `ghs_${'a'.repeat(35)}`)).toBe(false)
+    expect(matches('github-refresh', `ghr_${'a'.repeat(35)}`)).toBe(false)
   })
 
   test('aws-access-key-id covers all 10 prefix variants', () => {
@@ -89,8 +99,11 @@ describe('per-rule regression fixtures', () => {
     expect(matches('stripe-restricted-live', `rk_live_${'a'.repeat(24)}`)).toBe(true)
     expect(matches('stripe-restricted-test', `rk_test_${'a'.repeat(24)}`)).toBe(true)
     expect(matches('stripe-secret-live', 'sk_live_short')).toBe(false)
-    // off-by-one: 23 chars after prefix
+    // off-by-one: 23 chars after prefix for each variant
     expect(matches('stripe-secret-live', `sk_live_${'a'.repeat(23)}`)).toBe(false)
+    expect(matches('stripe-secret-test', `sk_test_${'a'.repeat(23)}`)).toBe(false)
+    expect(matches('stripe-restricted-live', `rk_live_${'a'.repeat(23)}`)).toBe(false)
+    expect(matches('stripe-restricted-test', `rk_test_${'a'.repeat(23)}`)).toBe(false)
   })
 
   test('openai-api-key with all prefix variants', () => {
