@@ -5,7 +5,7 @@ import path from 'node:path'
 // first, leaving a `/var` prefix.
 //
 // These are module-level g-flag RegExp instances. Use them ONLY with
-// `String.prototype.replace`, never `.test()` or `.exec()` — the g flag makes those
+// `String.prototype.replace`, never `.test()` or `.exec()`; the g flag makes those
 // methods stateful via `lastIndex`, which would carry state across calls.
 const TMP_PREFIX_PATTERNS: readonly RegExp[] = [
   /\/var\/folders\/[^/]+\/[^/]+\/T\/[^/\s]+/g,

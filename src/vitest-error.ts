@@ -21,7 +21,7 @@ See https://github.com/slgoodrich/shell-cassette/blob/main/docs/troubleshooting.
 // The most common failure here is vitest externalizing shell-cassette so the
 // plugin module loads in a different module graph than vitest's runner. The
 // observable symptom is a thrown Error mentioning "runner". We don't gate the
-// wrap on the message text — registration at module top should never throw
+// wrap on the message text; registration at module top should never throw
 // for any other reason, so any throw here gets the deps.inline diagnostic
 // appended (with the original error preserved verbatim).
 export function wrapRegistrationError(e: unknown): VitestPluginRegistrationError {
