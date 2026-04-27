@@ -5,7 +5,7 @@
 [![Node.js](https://img.shields.io/node/v/shell-cassette.svg)](https://www.npmjs.com/package/shell-cassette)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-> Polly.js, but for shell commands. Record subprocess calls once, replay them deterministically forever.
+> Polly.js for shell commands. Record subprocess output once, replay deterministically forever.
 
 ## Why
 
@@ -32,10 +32,10 @@ shell-cassette fits tests that **assert on subprocess output** (stdout, stderr, 
 
 It is NOT for:
 
-- Tests asserting on **which command was called** (`expect(execMock).toHaveBeenCalledWith(...)`). That's mock-for-assertion. Use `vi.mock` instead; different problem.
+- Tests asserting on **which command was called** (`expect(execMock).toHaveBeenCalledWith(...)`). That's mock-for-assertion. Use `vi.mock` instead; that's a different problem and `vi.mock` is the right tool for it.
 - Tests where the subprocess **mutates state** (creates a commit, installs packages, writes files) that non-mocked downstream code then reads. Replay returns recorded output but doesn't perform the mutation; downstream sees an unset-up state.
 
-See [What this doesn't do](#what-this-doesnt-do-yet) for the full incompatibility list.
+See [What this doesn't do](#what-this-doesnt-do) for the full incompatibility list.
 
 ## Install
 
@@ -191,7 +191,7 @@ export default {
   // Adds to the curated env-key redaction list (substring, case-insensitive)
   redactEnvKeys: ['STRIPE_API_KEY', 'OPENAI_API_KEY'],
 
-  // Custom canonicalize fn (default: defaultCanonicalize — command exact +
+  // Custom canonicalize fn (default: defaultCanonicalize - command exact +
   // args with absolute mkdtemp paths normalized to <tmp>; cwd, env, stdin
   // omitted from the canonical form so cassettes are portable across machines)
   canonicalize: (call) => ({
@@ -209,7 +209,7 @@ shell-cassette matches a call to a recording by deep-equality of their canonical
 import { basenameCommand, defaultCanonicalize, useCassette } from 'shell-cassette'
 import type { Canonicalize } from 'shell-cassette'
 
-// Cross-machine command portability — /usr/bin/git matches git
+// Cross-machine command portability - /usr/bin/git matches git
 const basenameMatching: Canonicalize = (call) => ({
   ...defaultCanonicalize(call),
   command: basenameCommand(call.command),
@@ -240,7 +240,7 @@ Or globally via `shell-cassette.config.js` (see Configuration above).
 
 ### Documented limitations
 
-The default canonicalize is conservative. Patterns NOT normalized — write a custom canonicalize if you hit one:
+The default canonicalize is conservative. Patterns NOT normalized - write a custom canonicalize if you hit one:
 
 | Pattern | Workaround |
 |---|---|
@@ -260,31 +260,11 @@ If you hit one of these, see [docs/troubleshooting.md](docs/troubleshooting.md):
 - `__cassettes__/` showing up as a test fixture → exclude alongside `__snapshots__/`
 - `vi.mock('tinyexec')` infinite loop → redirect at the import level instead
 
-## What this doesn't do (yet)
+## What this doesn't do
 
-If you're evaluating shell-cassette for your project, here are some things you might run into.
+Two patterns shell-cassette is not a fit for. These aren't on a roadmap. They're outside the design.
 
-**Adapter feature parity.** shell-cassette doesn't wrap every option of execa or tinyexec.
-
-- execa: `buffer: false` (streaming), `ipc: true` (IPC), `inputFile` / `input: 'string'` (stdin), `node: true` (execaNode) all throw `UnsupportedOptionError` at the wrapper. See [docs/execa.md](docs/execa.md).
-- tinyexec: `result.process` is `null` on replay, `result.pipe()` and `for await (line of result)` throw, `result.kill()` is a no-op, sync field reads before `await` return undefined. The exact signal name on `kill` is lost (only `killed: boolean` preserved). See [docs/tinyexec.md](docs/tinyexec.md).
-
-**Matcher coverage.** The default canonicalize handles the common case: command + args with absolute mkdtemp paths normalized to `<tmp>`. cwd, env, and stdin are excluded from the canonical form so cassettes replay across machines. Patterns it does NOT handle (nested mkdtemp, relative tmp paths, custom `$TMPDIR`, `process.cwd()` substrings in args) are documented under [Customizing matching](#customizing-matching) with one-line workarounds.
-
-**Redaction coverage.** shell-cassette redacts env-var values when KEY matches a curated list. It does NOT redact:
-
-- stdout / stderr content
-- command args (`--token=ghp_xxx`)
-- env vars whose KEY isn't in the curated list (extend via `redactEnvKeys` config)
-- paths in cwd
-
-There's no pattern-based detection for tokens / API keys in stdout, stderr, or args. Review cassettes before committing.
-
-**Other runners and frameworks.** Only execa and tinyexec are wrapped today. No Bun.spawn, no Deno.Command, no native `child_process`, no nano-spawn. Only vitest is plumbed as a plugin - no jest, mocha, or `node:test` plugin.
-
-**Tooling.** No CLI for inspecting / pruning / reviewing cassettes (`shell-cassette show`, `shell-cassette prune`, etc.). The cassette JSON is human-readable; for now you read and edit by hand.
-
-**Mock-for-assertion patterns.** shell-cassette captures and replays subprocess **output**, not subprocess invocations. Tests that assert on **which command was called** (`expect(execMock).toHaveBeenCalledWith('git', ['commit', ...])`) are testing the wrong abstraction layer for shell-cassette. Use `vi.mock` for that pattern; it's a different concern. Examples in the wild: `prettier/pretty-quick`, `antfu/ni`, `jinghaihan/pncat`.
+**Mock-for-assertion patterns.** shell-cassette captures and replays subprocess **output**, not subprocess invocations. Tests that assert on **which command was called** (`expect(execMock).toHaveBeenCalledWith('git', ['commit', ...])`) are testing the wrong abstraction layer. Use `vi.mock` for that pattern; it's a different concern. Examples in the wild: `prettier/pretty-quick`, `antfu/ni`, `jinghaihan/pncat`.
 
 **Subprocess as state mutator.** shell-cassette mocks subprocess **outputs** on replay; it does NOT actually re-execute the subprocess. Tests that use a subprocess to mutate state (`git commit` to make a real commit, `mkdir`/`touch` to create files, `npm install` to populate node_modules), then have downstream code that depends on that mutation, will fail in replay mode: setup is mocked, no real mutation happens, downstream sees an unset-up state. Two patterns to watch for:
 
@@ -295,7 +275,7 @@ shell-cassette is for **output-assertion** tests: spawn a subprocess, capture st
 
 ## Real-world results
 
-Three projects measured so far. Numbers are point measurements on a single machine (Windows, Node 23), not benchmarks. They illustrate that the speedup multiplier scales with subprocess weight; treat them as "what to expect" rather than "what shell-cassette guarantees." A broader validation pass against more diverse projects is planned for v1.0 launch.
+Three projects measured so far on Windows + Node 23. Point measurements, not benchmarks - directional only.
 
 | Project | Test execution speedup | Wall speedup | Notes |
 |---|---:|---:|---|
