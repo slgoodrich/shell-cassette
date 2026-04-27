@@ -268,6 +268,13 @@ There's no pattern-based detection for tokens / API keys in stdout, stderr, or a
 
 **Tooling.** No CLI for inspecting / pruning / reviewing cassettes (`shell-cassette show`, `shell-cassette prune`, etc.). The cassette JSON is human-readable; for now you read and edit by hand.
 
+**Subprocess as state mutator.** shell-cassette mocks subprocess **outputs** on replay; it does NOT actually re-execute the subprocess. Tests that use a subprocess to mutate state (`git commit` to make a real commit, `mkdir`/`touch` to create files, `npm install` to populate node_modules), then have downstream code that depends on that mutation, will fail in replay mode: setup is mocked, no real mutation happens, downstream sees an unset-up state. Two patterns to watch for:
+
+- Setup uses wrapped `exec` for state changes; a non-wrapped library (or a `vi.mock` chain that calls real `actual.x`) reads the resulting state. The wrapped calls return mocked output but the state never changed. The unwrapped reads see the true (unmutated) state.
+- A test branches on subprocess output (`if status === clean`) and the branch performs writes the next assertion depends on. Replay returns the recorded "clean" output but the writes that depended on a real subprocess having run never happen.
+
+shell-cassette is for **output-assertion** tests: spawn a subprocess, capture stdout / exit code / signal, assert on it. For state orchestration where a real mutation has to happen, run those calls outside shell-cassette's scope (or in `passthrough` mode).
+
 ## Real-world results
 
 | Project | Test execution speedup | Wall speedup | Notes |
