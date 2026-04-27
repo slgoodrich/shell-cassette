@@ -68,7 +68,11 @@ export async function runWrapped<Opts, ResultShape>(
         session.redactCounters.set(k, v)
       }
     }
-    session.matcher = new MatcherState(session.loadedFile?.recordings ?? [], session.canonicalize)
+    session.matcher = new MatcherState(
+      session.loadedFile?.recordings ?? [],
+      session.canonicalize,
+      session.redactConfig,
+    )
   }
 
   const mode = resolveMode(
