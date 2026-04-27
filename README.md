@@ -172,7 +172,7 @@ End-of-run summaries surface redaction events on every record:
 ```
 shell-cassette: cassette saved (3 recordings, 1 redaction, 2 warnings): /path/to/cassette.json
   redacted: GH_TOKEN
-  ⚠️  STRIPE_API_KEY: long value (104 chars), not in curated/configured list; may contain a credential...
+  ⚠️  STRIPE_API_KEY: long value (104 chars), not in curated/configured list - may contain a credential...
 ```
 
 Each cassette JSON also contains a `_warning` field reminding code reviewers to check before committing.
