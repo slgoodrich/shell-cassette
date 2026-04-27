@@ -1,6 +1,12 @@
 import { ShellCassetteError } from './errors.js'
 import { BUNDLED_PATTERNS } from './redact-patterns.js'
-import type { RedactConfig, RedactionEntry, RedactRule, RedactSource } from './types.js'
+import type {
+  CassetteFile,
+  RedactConfig,
+  RedactionEntry,
+  RedactRule,
+  RedactSource,
+} from './types.js'
 
 export type RedactInput = {
   source: RedactSource
@@ -133,7 +139,7 @@ export function runPipeline(
   return { output, entries, warnings }
 }
 
-function formatPlaceholder(source: RedactSource, ruleName: string, count?: number): string {
+export function formatPlaceholder(source: RedactSource, ruleName: string, count?: number): string {
   return count === undefined
     ? `<redacted:${source}:${ruleName}>`
     : `<redacted:${source}:${ruleName}:${count}>`
@@ -165,6 +171,11 @@ function applyRegexRule(
   return result
 }
 
+// Single source of truth for the counter-placeholder pattern. Both
+// stripCounter and walkStringsForPlaceholders construct g-flagged RegExp
+// instances from this string so lastIndex state never leaks between callers.
+const COUNTER_PLACEHOLDER_PATTERN = '<redacted:([^:>]+):([^:>]+):(\\d+)>'
+
 /**
  * Replace counter-tagged placeholders with their counter-stripped form.
  * Used by the canonicalize pipeline at match time so cassette args containing
@@ -172,5 +183,99 @@ function applyRegexRule(
  * in stripped mode. Stripped placeholders pass through unchanged.
  */
 export function stripCounter(s: string): string {
-  return s.replace(/<redacted:([^:>]+):([^:>]+):(\d+)>/g, '<redacted:$1:$2>')
+  return s.replace(new RegExp(COUNTER_PLACEHOLDER_PATTERN, 'g'), '<redacted:$1:$2>')
+}
+
+/**
+ * Build a counter map seeded from existing placeholders in a loaded cassette.
+ *
+ * Two sources are walked:
+ *   1. Each recording's `redactions` metadata: (rule, source, count) triples
+ *      contribute to the per-(source, rule) counter ceiling.
+ *   2. Every value (env, args, stdout, stderr, allLines) is scanned for
+ *      counter-tagged placeholders. The maximum N seen for each
+ *      (source, rule) pair becomes the ceiling. This catches hand-edited
+ *      cassettes where the metadata is stale or out-of-sync with the body.
+ *
+ * The returned Map is the seed for `CassetteSession.redactCounters`. New
+ * placeholders emitted during auto-additive appends start at
+ * `max(seeded) + 1` per (source, rule), continuing the existing counter
+ * sequence.
+ */
+export function seedCountersFromCassette(cassette: CassetteFile): Map<string, number> {
+  const counters = new Map<string, number>()
+
+  // Source 1: per-recording _redactions metadata. Each entry.count is the
+  // number of placeholder occurrences within that single recording. The
+  // cassette-wide ceiling is the SUM across recordings — counters are
+  // monotonic and per-(source, rule) globally.
+  for (const rec of cassette.recordings) {
+    for (const entry of rec.redactions) {
+      const key = `${entry.source}:${entry.rule}`
+      counters.set(key, (counters.get(key) ?? 0) + entry.count)
+    }
+  }
+
+  // Source 2: walk every string value for counter-tagged placeholders
+  for (const rec of cassette.recordings) {
+    walkStringsForPlaceholders(rec, (source, rule, n) => {
+      const key = `${source}:${rule}`
+      const existing = counters.get(key) ?? 0
+      if (n > existing) counters.set(key, n)
+    })
+  }
+
+  return counters
+}
+
+function walkStringsForPlaceholders(
+  rec: CassetteFile['recordings'][number],
+  visit: (source: string, rule: string, n: number) => void,
+): void {
+  // Construct the regex once per function call. String.prototype.matchAll
+  // does not mutate the pattern's lastIndex, so reusing re across multiple
+  // matchAll calls is safe.
+  const re = new RegExp(COUNTER_PLACEHOLDER_PATTERN, 'g')
+  const values = [
+    ...Object.values(rec.call.env),
+    ...rec.call.args,
+    ...rec.result.stdoutLines,
+    ...rec.result.stderrLines,
+    ...(rec.result.allLines ?? []),
+  ]
+  for (const value of values) {
+    for (const m of value.matchAll(re)) {
+      // Groups 1-3 are always present given the pattern shape; non-null safe.
+      // biome-ignore lint/style/noNonNullAssertion: regex groups are structural
+      visit(m[1]!, m[2]!, parseInt(m[3]!, 10))
+    }
+  }
+}
+
+/**
+ * Synthetic rule name for the recorder's curated env-key-match path
+ * (env values whose key name matches the CURATED_ENV_KEYS or user-supplied
+ * envKeys list). Not in BUNDLED_PATTERNS — the env-key pathway bypasses the
+ * regex pipeline since the whole value is sensitive.
+ */
+export const ENV_KEY_MATCH_RULE = 'env-key-match'
+
+/**
+ * Collapse a flat array of RedactionEntry into one entry per (source, rule)
+ * by summing counts. Used at record time to produce per-recording redaction
+ * metadata, and by re-redact (M11) to rebuild metadata after re-applying
+ * rules.
+ */
+export function aggregateEntries(entries: readonly RedactionEntry[]): RedactionEntry[] {
+  const map = new Map<string, RedactionEntry>()
+  for (const e of entries) {
+    const key = `${e.source}:${e.rule}`
+    const existing = map.get(key)
+    if (existing) {
+      existing.count += e.count
+    } else {
+      map.set(key, { ...e })
+    }
+  }
+  return [...map.values()]
 }

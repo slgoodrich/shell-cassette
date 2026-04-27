@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { getConfig } from './config.js'
 import { writeCassetteFile } from './io.js'
 import { defaultCanonicalize } from './matcher.js'
 import { serialize } from './serialize.js'
@@ -32,6 +33,7 @@ export async function useCassette<T>(
   const absolutePath = path.resolve(cassettePath)
   registerSessionPath(absolutePath, `useCassette(${cassettePath})`)
   try {
+    const config = getConfig()
     const session: CassetteSession = {
       name: path.basename(cassettePath),
       path: absolutePath,
@@ -39,8 +41,11 @@ export async function useCassette<T>(
       loadedFile: null,
       matcher: null,
       canonicalize,
+      redactConfig: config.redact,
+      redactEnabled: options.redact !== false,
+      redactCounters: new Map(),
+      redactionEntries: [],
       newRecordings: [],
-      redactedKeys: [],
       warnings: [],
     }
 

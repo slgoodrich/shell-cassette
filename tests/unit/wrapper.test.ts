@@ -257,9 +257,9 @@ describe('runWrapped (envelope)', () => {
       expect(e).toBeInstanceOf(AckRequiredError)
       const msg = (e as Error).message
       // Positive assertion: explicit-record path returns the unmodified ack
-      // help text from src/ack.ts, which starts with "refusing to record".
+      // help text from src/ack.ts, which starts with "shell-cassette is about".
       // Augmented messages instead start with "auto mode:".
-      expect(msg.startsWith('refusing to record')).toBe(true)
+      expect(msg.startsWith('shell-cassette is about')).toBe(true)
       expect(msg).toContain('SHELL_CASSETTE_ACK_REDACTION')
     } finally {
       expect(realCall).not.toHaveBeenCalled()

@@ -9,12 +9,6 @@ export type Config = {
   canonicalize: Canonicalize
   cassetteDir: string
   /**
-   * @deprecated Use Config.redact.envKeys. This field is kept for v0.3
-   * backward compatibility through v0.4 and will be removed in v0.5
-   * (when v0.4 M6 ships and the recorder/redact.ts rewrite no longer needs it).
-   */
-  redactEnvKeys: string[]
-  /**
    * v0.4 composed redaction config: bundled patterns, custom rules, suppress
    * list, env-key extension, length warning tuning.
    */
@@ -24,7 +18,6 @@ export type Config = {
 export type PartialConfig = {
   canonicalize?: Canonicalize
   cassetteDir?: string
-  redactEnvKeys?: string[]
   redact?: Partial<RedactConfig>
 }
 
@@ -42,18 +35,11 @@ const DEFAULT_REDACT: Readonly<RedactConfig> = Object.freeze({
 export const DEFAULT_CONFIG: Readonly<Config> = Object.freeze({
   canonicalize: defaultCanonicalize,
   cassetteDir: '__cassettes__',
-  redactEnvKeys: [] as string[],
   redact: DEFAULT_REDACT,
 })
 
 export function mergeWithDefaults(input: PartialConfig | undefined): Readonly<Config> {
   const userRedact: Partial<RedactConfig> = input?.redact ?? {}
-  const userRedactEnvKeys = input?.redactEnvKeys
-
-  // Resolve envKeys: redact.envKeys takes precedence over deprecated redactEnvKeys.
-  // Both Config.redactEnvKeys and Config.redact.envKeys end up with the same value
-  // so deprecated and new callers see consistent data.
-  const resolvedEnvKeys = userRedact.envKeys ?? userRedactEnvKeys ?? DEFAULT_REDACT.envKeys
 
   const resolvedRedact: RedactConfig = {
     bundledPatterns: userRedact.bundledPatterns ?? DEFAULT_REDACT.bundledPatterns,
@@ -63,7 +49,7 @@ export function mergeWithDefaults(input: PartialConfig | undefined): Readonly<Co
     suppressPatterns: userRedact.suppressPatterns
       ? Object.freeze([...userRedact.suppressPatterns])
       : DEFAULT_REDACT.suppressPatterns,
-    envKeys: Object.freeze([...resolvedEnvKeys]),
+    envKeys: userRedact.envKeys ? Object.freeze([...userRedact.envKeys]) : DEFAULT_REDACT.envKeys,
     warnLengthThreshold: userRedact.warnLengthThreshold ?? DEFAULT_REDACT.warnLengthThreshold,
     warnPathHeuristic: userRedact.warnPathHeuristic ?? DEFAULT_REDACT.warnPathHeuristic,
   }
@@ -71,10 +57,6 @@ export function mergeWithDefaults(input: PartialConfig | undefined): Readonly<Co
   return Object.freeze({
     canonicalize: input?.canonicalize ?? DEFAULT_CONFIG.canonicalize,
     cassetteDir: input?.cassetteDir ?? DEFAULT_CONFIG.cassetteDir,
-    // Config.redactEnvKeys is typed string[] for v0.3 API compat but the
-    // underlying array is the frozen readonly array from resolvedRedact.envKeys.
-    // The cast widens the type; runtime mutability is still locked by Object.freeze.
-    redactEnvKeys: resolvedRedact.envKeys as string[],
     redact: Object.freeze(resolvedRedact),
   })
 }
@@ -177,14 +159,6 @@ export function validateConfig(input: unknown): asserts input is PartialConfig {
   }
   if ('canonicalize' in obj && typeof obj.canonicalize !== 'function') {
     throw new CassetteConfigError('config.canonicalize must be a function (call) => Partial<Call>')
-  }
-  if ('redactEnvKeys' in obj) {
-    if (!Array.isArray(obj.redactEnvKeys)) {
-      throw new CassetteConfigError('config.redactEnvKeys must be an array of strings')
-    }
-    if (!obj.redactEnvKeys.every((k) => typeof k === 'string')) {
-      throw new CassetteConfigError('config.redactEnvKeys items must all be strings')
-    }
   }
   if ('redact' in obj) {
     validateRedact(obj.redact)

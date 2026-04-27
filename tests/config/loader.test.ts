@@ -33,10 +33,10 @@ describe('loadConfigFromDir', () => {
   test('loads .mjs config file', async () => {
     await writeFile(
       path.join(tmp, 'shell-cassette.config.mjs'),
-      `export default { redactEnvKeys: ['STRIPE_KEY'] }`,
+      `export default { redact: { envKeys: ['STRIPE_KEY'] } }`,
     )
     const config = await loadConfigFromDir(tmp)
-    expect(config.redactEnvKeys).toEqual(['STRIPE_KEY'])
+    expect(config.redact.envKeys).toEqual(['STRIPE_KEY'])
   })
 
   test('throws CassetteConfigError on syntax error in config', async () => {

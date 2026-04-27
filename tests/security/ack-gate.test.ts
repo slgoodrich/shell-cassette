@@ -43,7 +43,62 @@ describe('requireAckGate', () => {
       const msg = (e as Error).message
       expect(msg).toContain('SHELL_CASSETTE_ACK_REDACTION')
       expect(msg).toContain('TOKEN')
-      expect(msg).toContain('stdout')
+      expect(msg).toContain('config.redact.envKeys')
+    }
+  })
+
+  test('ack message lists 25 bundled credential patterns coverage', () => {
+    try {
+      requireAckGate()
+    } catch (e) {
+      const msg = (e as Error).message
+      expect(msg).toContain('25 bundled credential patterns')
+      expect(msg).toContain('GitHub')
+      expect(msg).toContain('AWS access key ID')
+      expect(msg).toContain('Stripe')
+      expect(msg).toContain('OpenAI')
+      expect(msg).toContain('Anthropic')
+    }
+  })
+
+  test('ack message names residual risks', () => {
+    try {
+      requireAckGate()
+    } catch (e) {
+      const msg = (e as Error).message
+      expect(msg).toContain('AWS Secret Access Keys')
+      expect(msg).toContain('JWTs')
+      expect(msg).toContain('cwd values')
+      expect(msg).toContain('stdin')
+    }
+  })
+
+  test('ack message references scan and re-redact CLIs', () => {
+    try {
+      requireAckGate()
+    } catch (e) {
+      const msg = (e as Error).message
+      expect(msg).toContain('shell-cassette scan')
+      expect(msg).toContain('shell-cassette re-redact')
+    }
+  })
+
+  test('ack message references config.redact.envKeys (not deprecated redactEnvKeys)', () => {
+    try {
+      requireAckGate()
+    } catch (e) {
+      const msg = (e as Error).message
+      expect(msg).toContain('config.redact.envKeys')
+      expect(msg).not.toContain('redactEnvKeys')
+    }
+  })
+
+  test('ack message references config.redact.customPatterns', () => {
+    try {
+      requireAckGate()
+    } catch (e) {
+      const msg = (e as Error).message
+      expect(msg).toContain('config.redact.customPatterns')
     }
   })
 

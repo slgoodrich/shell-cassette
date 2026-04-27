@@ -138,10 +138,29 @@ export type CassetteSession = {
   loadedFile: CassetteFile | null
   matcher: MatcherStateLike | null // built lazily; defined in matcher.ts
   canonicalize: Canonicalize
+  /**
+   * Frozen redaction config for this session. Loaded from Config.redact.
+   * Per-cassette override of redact: false is wired via redactEnabled.
+   */
+  redactConfig: Readonly<RedactConfig>
+  /**
+   * When false (set via useCassette({ redact: false })), the recorder
+   * bypasses the redact pipeline. Default true.
+   */
+  redactEnabled: boolean
+  /**
+   * Mutable counter map: key is `${source}:${rule}`. Incremented on each
+   * placeholder emission during recording. Seeded from existing cassette
+   * placeholders on cassette load (so auto-additive appends continue from
+   * the existing ceiling).
+   */
+  redactCounters: Map<string, number>
+  /**
+   * Accumulated across all redact() calls in this session. Used for summary
+   * logging at session end.
+   */
+  redactionEntries: RedactionEntry[]
   newRecordings: Recording[]
-  // Accumulated across record() calls in this scope. Emitted as an
-  // end-of-run summary by the vitest plugin and useCassette finally.
-  redactedKeys: string[]
   warnings: string[]
 }
 
