@@ -50,6 +50,8 @@ describe('per-rule regression fixtures', () => {
     const sample = `github_pat_${'A'.repeat(82)}`
     expect(matches('github-pat-fine-grained', sample)).toBe(true)
     expect(matches('github-pat-fine-grained', 'github_pat_TOOSHORT')).toBe(false)
+    // off-by-one: 81 chars is one short
+    expect(matches('github-pat-fine-grained', `github_pat_${'A'.repeat(81)}`)).toBe(false)
   })
 
   test('github-oauth, user-to-server, server-to-server, refresh', () => {
@@ -87,6 +89,8 @@ describe('per-rule regression fixtures', () => {
     expect(matches('stripe-restricted-live', `rk_live_${'a'.repeat(24)}`)).toBe(true)
     expect(matches('stripe-restricted-test', `rk_test_${'a'.repeat(24)}`)).toBe(true)
     expect(matches('stripe-secret-live', 'sk_live_short')).toBe(false)
+    // off-by-one: 23 chars after prefix
+    expect(matches('stripe-secret-live', `sk_live_${'a'.repeat(23)}`)).toBe(false)
   })
 
   test('openai-api-key with all prefix variants', () => {
@@ -95,6 +99,8 @@ describe('per-rule regression fixtures', () => {
     expect(matches('openai-api-key', `sk-svcacct-${'a'.repeat(48)}`)).toBe(true)
     expect(matches('openai-api-key', `sk-admin-${'a'.repeat(48)}`)).toBe(true)
     expect(matches('openai-api-key', 'sk-short')).toBe(false)
+    // off-by-one: 39 chars after sk- prefix
+    expect(matches('openai-api-key', `sk-${'a'.repeat(39)}`)).toBe(false)
   })
 
   test('anthropic-api-key with all prefix variants', () => {
@@ -102,6 +108,8 @@ describe('per-rule regression fixtures', () => {
     expect(matches('anthropic-api-key', `sk-ant-sid01-${'a'.repeat(80)}`)).toBe(true)
     expect(matches('anthropic-api-key', `sk-ant-admin01-${'a'.repeat(80)}`)).toBe(true)
     expect(matches('anthropic-api-key', `sk-ant-other-${'a'.repeat(80)}`)).toBe(false)
+    // off-by-one: 79 chars after prefix
+    expect(matches('anthropic-api-key', `sk-ant-api03-${'a'.repeat(79)}`)).toBe(false)
   })
 
   test('google-api-key', () => {
@@ -115,6 +123,8 @@ describe('per-rule regression fixtures', () => {
       expect(matches('slack-token', `${p}-1234567890`)).toBe(true)
     }
     expect(matches('slack-token', 'xoxz-1234567890')).toBe(false)
+    // off-by-one: 9 chars after xoxb-
+    expect(matches('slack-token', `xoxb-${'a'.repeat(9)}`)).toBe(false)
   })
 
   test('slack-webhook-url', () => {
@@ -130,46 +140,60 @@ describe('per-rule regression fixtures', () => {
   test('gitlab-pat', () => {
     expect(matches('gitlab-pat', `glpat-${'a'.repeat(20)}`)).toBe(true)
     expect(matches('gitlab-pat', 'glpat-short')).toBe(false)
+    // off-by-one short
+    expect(matches('gitlab-pat', `glpat-${'a'.repeat(19)}`)).toBe(false)
   })
 
   test('npm-token', () => {
     expect(matches('npm-token', `npm_${'a'.repeat(36)}`)).toBe(true)
     expect(matches('npm-token', 'npm_short')).toBe(false)
+    expect(matches('npm-token', `npm_${'a'.repeat(35)}`)).toBe(false)
   })
 
   test('digitalocean-pat', () => {
     expect(matches('digitalocean-pat', `dop_v1_${'0'.repeat(64)}`)).toBe(true)
     expect(matches('digitalocean-pat', 'dop_v1_short')).toBe(false)
+    expect(matches('digitalocean-pat', `dop_v1_${'0'.repeat(63)}`)).toBe(false)
   })
 
   test('sendgrid-api-key', () => {
     expect(matches('sendgrid-api-key', `SG.${'a'.repeat(22)}.${'a'.repeat(43)}`)).toBe(true)
     expect(matches('sendgrid-api-key', 'SG.short.short')).toBe(false)
+    // off-by-one in first segment
+    expect(matches('sendgrid-api-key', `SG.${'a'.repeat(21)}.${'a'.repeat(43)}`)).toBe(false)
   })
 
   test('mailgun-api-key', () => {
     expect(matches('mailgun-api-key', `key-${'0'.repeat(32)}`)).toBe(true)
     expect(matches('mailgun-api-key', 'key-short')).toBe(false)
+    expect(matches('mailgun-api-key', `key-${'0'.repeat(31)}`)).toBe(false)
   })
 
   test('huggingface-token', () => {
     expect(matches('huggingface-token', `hf_${'a'.repeat(34)}`)).toBe(true)
     expect(matches('huggingface-token', 'hf_short')).toBe(false)
+    expect(matches('huggingface-token', `hf_${'a'.repeat(33)}`)).toBe(false)
   })
 
   test('pypi-token', () => {
     expect(matches('pypi-token', `pypi-AgE${'a'.repeat(50)}`)).toBe(true)
     expect(matches('pypi-token', 'pypi-other')).toBe(false)
+    expect(matches('pypi-token', `pypi-AgE${'a'.repeat(49)}`)).toBe(false)
   })
 
   test('discord-bot-token', () => {
     const sample = `M${'a'.repeat(23)}.${'a'.repeat(6)}.${'a'.repeat(27)}`
     expect(matches('discord-bot-token', sample)).toBe(true)
     expect(matches('discord-bot-token', 'M.short.short')).toBe(false)
+    // off-by-one in first segment
+    expect(
+      matches('discord-bot-token', `M${'a'.repeat(22)}.${'a'.repeat(6)}.${'a'.repeat(27)}`),
+    ).toBe(false)
   })
 
   test('square-production-token', () => {
     expect(matches('square-production-token', `EAAA${'a'.repeat(60)}`)).toBe(true)
     expect(matches('square-production-token', 'EAAA-short')).toBe(false)
+    expect(matches('square-production-token', `EAAA${'a'.repeat(59)}`)).toBe(false)
   })
 })

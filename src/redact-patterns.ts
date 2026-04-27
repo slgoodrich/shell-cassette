@@ -84,20 +84,20 @@ export const BUNDLED_PATTERNS: readonly RedactRule[] = [
     description: 'Stripe restricted test key',
   },
 
-  // OpenAI
-  // https://platform.openai.com/docs/api-reference/authentication
-  {
-    name: 'openai-api-key',
-    pattern: /sk-(proj-|svcacct-|admin-)?[A-Za-z0-9_-]{40,}/g,
-    description: 'OpenAI API key (sk-, sk-proj-, sk-svcacct-, sk-admin- variants)',
-  },
-
   // Anthropic
   // https://docs.anthropic.com/en/api/getting-started
   {
     name: 'anthropic-api-key',
     pattern: /sk-ant-(api03|sid01|admin01)-[A-Za-z0-9_-]{80,}/g,
     description: 'Anthropic API key (api03, sid01, admin01 variants)',
+  },
+
+  // OpenAI
+  // https://platform.openai.com/docs/api-reference/authentication
+  {
+    name: 'openai-api-key',
+    pattern: /sk-(proj-|svcacct-|admin-)?[A-Za-z0-9_-]{40,}/g,
+    description: 'OpenAI API key (sk-, sk-proj-, sk-svcacct-, sk-admin- variants)',
   },
 
   // Google API
