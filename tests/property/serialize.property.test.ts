@@ -71,6 +71,9 @@ const genRecording: fc.Arbitrary<Recording> = fc.record({
   redactions: fc.array(genRedactionEntry, { maxLength: 3 }),
 })
 
+// fc.tuple(int, int, int).map(([M, m, p]) => `${M}.${m}.${p}`) generates
+// semver strings directly. Earlier versions used fc.string().filter() which
+// rejected ~99% of generations and caused test runs to hit the 60s timeout.
 const genSemver = fc
   .tuple(
     fc.integer({ min: 0, max: 9 }),

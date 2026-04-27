@@ -10,6 +10,16 @@ const REVIEW_WARNING =
   'option parity). Run `shell-cassette scan <path>` to verify before committing. ' +
   'See https://github.com/slgoodrich/shell-cassette/blob/main/docs/troubleshooting.md'
 
+/**
+ * Serialize a CassetteFile to JSON. Always emits SCHEMA_VERSION (currently 2)
+ * regardless of `file.version` — serialize is upgrade-on-write. A v1 cassette
+ * passed in is materialized as v2 on disk; deserialize handles the inverse
+ * by accepting v1 input and normalizing missing fields.
+ *
+ * `file.recordedBy` is the single source of truth for the cassette's recorder
+ * identity. Production callers populate it with { name, version } from
+ * package.json; tools constructing cassettes manually may set it to null.
+ */
 export function serialize(file: CassetteFile): string {
   validateBeforeSerialize(file)
   // Build object in canonical key order for stable diffs.
@@ -104,9 +114,15 @@ export function deserialize(text: string): CassetteFile {
   }
 
   const recordings = (obj.recordings as LegacyRecording[]).map(normalizeRecording)
-  const recordedBy =
+  const recordedByObj =
     version === 2 && obj._recorded_by && typeof obj._recorded_by === 'object'
-      ? (obj._recorded_by as { name: string; version: string })
+      ? (obj._recorded_by as Record<string, unknown>)
+      : null
+  const recordedBy =
+    recordedByObj &&
+    typeof recordedByObj.name === 'string' &&
+    typeof recordedByObj.version === 'string'
+      ? { name: recordedByObj.name, version: recordedByObj.version }
       : null
 
   return {

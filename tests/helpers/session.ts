@@ -13,7 +13,7 @@ export const makeSession = (overrides: Partial<CassetteSession> = {}): CassetteS
     name: 'test',
     path: '/tmp/test.json',
     scopeDefault: 'auto',
-    loadedFile: { version: 1, recordedBy: null, recordings: [] },
+    loadedFile: { version: 2, recordedBy: null, recordings: [] },
     matcher: null,
     canonicalize,
     newRecordings: [],

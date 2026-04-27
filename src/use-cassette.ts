@@ -1,6 +1,4 @@
-import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { writeCassetteFile } from './io.js'
 import { defaultCanonicalize } from './matcher.js'
 import { serialize } from './serialize.js'
@@ -11,15 +9,7 @@ import {
 } from './state.js'
 import { summarizeSession } from './summary.js'
 import type { Canonicalize, CassetteFile, CassetteSession, UseCassetteOptions } from './types.js'
-
-const PACKAGE_VERSION = (
-  JSON.parse(
-    readFileSync(
-      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../package.json'),
-      'utf8',
-    ),
-  ) as { version: string }
-).version
+import { RECORDED_BY } from './version.js'
 
 // Public overloads
 export function useCassette<T>(cassettePath: string, fn: () => Promise<T>): Promise<T>
@@ -73,7 +63,7 @@ async function persistSession(session: CassetteSession): Promise<void> {
   const existingRecordings = session.loadedFile?.recordings ?? []
   const merged: CassetteFile = {
     version: 2,
-    recordedBy: { name: 'shell-cassette', version: PACKAGE_VERSION },
+    recordedBy: RECORDED_BY,
     recordings: [...existingRecordings, ...session.newRecordings],
   }
   const json = serialize(merged)

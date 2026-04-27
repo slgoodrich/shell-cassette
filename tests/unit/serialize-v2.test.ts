@@ -68,6 +68,16 @@ describe('serialize v2', () => {
 })
 
 describe('deserialize v2', () => {
+  test('rejects malformed _recorded_by (non-string name/version) and loads as null', () => {
+    const json = JSON.stringify({
+      version: 2,
+      _recorded_by: { name: 123, version: null },
+      recordings: [],
+    })
+    const parsed = deserialize(json)
+    expect(parsed.recordedBy).toBe(null)
+  })
+
   test('round-trip preserves all fields', () => {
     const out = serialize(minimalV2)
     const parsed = deserialize(out)
