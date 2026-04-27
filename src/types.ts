@@ -58,9 +58,7 @@ export type RedactRule = {
 
 /**
  * One entry per (source, rule) combination that fired during a redaction pass.
- * Persisted as the `_redactions` JSON field on each cassette recording (wire
- * format) and mapped to `Recording.redactions` in memory. Accumulated on
- * `CassetteSession.redactionEntries` during a recording session.
+ * Persisted as the `_redactions` JSON field on each cassette recording.
  */
 export type RedactionEntry = {
   rule: string // matches RedactRule.name
@@ -71,8 +69,8 @@ export type RedactionEntry = {
 export type RedactConfig = {
   /**
    * When true, the bundled credential patterns from `BUNDLED_PATTERNS` apply.
-   * Defaults to true. Set false to opt out of all bundled detection (custom
-   * patterns and suppress list still apply).
+   * Set false to opt out of all bundled detection (custom patterns and suppress
+   * list still apply).
    */
   bundledPatterns: boolean
   /**
@@ -95,8 +93,8 @@ export type RedactConfig = {
   envKeys: readonly string[]
   /**
    * Length above which an unredacted value triggers a long-value warning.
-   * Default: 40. Tuned to catch GitHub PATs, OpenAI keys, Stripe restricted,
-   * AWS Secret Access Keys without nagging on common path env vars.
+   * Tuned to catch GitHub PATs, OpenAI keys, Stripe restricted, AWS Secret
+   * Access Keys without nagging on common path env vars.
    */
   warnLengthThreshold: number
   /**
@@ -110,12 +108,11 @@ export type RedactConfig = {
 export type UseCassetteOptions = {
   canonicalize?: Canonicalize
   /**
-   * Per-cassette redaction toggle. Default true (redaction applies).
-   * Set false for cassettes that legitimately need raw stdout/args (e.g.,
-   * tests asserting on CLI output that happens to contain credential-shaped
-   * strings as test fixtures, NOT real credentials). The boolean is
-   * intentionally coarse-grained. Per-stream toggles (env: false, stdout: true)
-   * are explicitly out of scope for v0.4.
+   * Per-cassette redaction toggle. Set false for cassettes that legitimately
+   * need raw stdout/args (e.g., tests asserting on CLI output that happens to
+   * contain credential-shaped strings as test fixtures, NOT real credentials).
+   * The boolean is intentionally coarse-grained; per-stream toggling is not
+   * supported.
    */
   redact?: boolean
 }
