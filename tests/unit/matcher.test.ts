@@ -1,29 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 import { defaultCanonicalize, MatcherState } from '../../src/matcher.js'
-import type { Call, Canonicalize, Recording } from '../../src/types.js'
-
-const callOf = (command: string, args: string[], extra: Partial<Call> = {}): Call => ({
-  command,
-  args,
-  cwd: null,
-  env: {},
-  stdin: null,
-  ...extra,
-})
-
-const recordingOf = (command: string, args: string[], stdout = ''): Recording => ({
-  call: callOf(command, args),
-  result: {
-    stdoutLines: [stdout, ''],
-    stderrLines: [''],
-    allLines: null,
-    exitCode: 0,
-    signal: null,
-    durationMs: 1,
-    aborted: false,
-  },
-  redactions: [],
-})
+import type { Canonicalize } from '../../src/types.js'
+import { callOf, recordingOf } from '../helpers/fixtures.js'
 
 describe('defaultCanonicalize', () => {
   test('includes command and args', () => {
