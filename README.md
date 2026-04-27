@@ -55,7 +55,7 @@ export default defineConfig({
     setupFiles: ['./tests/sc-setup.ts'],
     server: {
       deps: {
-        inline: ['shell-cassette'],   // required for vitest 3.x and 4.x
+        inline: ['shell-cassette'],   // required for vitest 4.x
       },
     },
   },

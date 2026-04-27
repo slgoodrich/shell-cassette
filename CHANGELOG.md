@@ -25,8 +25,6 @@ All notable changes to shell-cassette are documented here. The format is based o
 - **`useCassette` gains an optional middle `options` argument**: `useCassette(path, options, fn)` for per-call canonicalize override. Original `useCassette(path, fn)` shape unchanged.
 - **`UseCassetteOptions` type** with `canonicalize?: Canonicalize` field.
 - **Property-based tests** via `fast-check` (devDependency). Cover serializer round-trip, normalizeTmpPath idempotence, canonicalize determinism, and matcher invariants.
-- **Pre-commit hook** via Husky + lint-staged. Auto-fixes biome lint and format issues on staged files. Installs automatically on `npm install`.
-- **Tightened biome rules**: `noConsole` (allow warn/error), `noNonNullAssertion`, `useImportType`, `organizeImports`. No source changes required; codebase was already clean.
 
 ### Changed
 
