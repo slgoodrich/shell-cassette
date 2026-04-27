@@ -1,5 +1,6 @@
+import { ShellCassetteError } from './errors.js'
 import { BUNDLED_PATTERNS } from './redact-patterns.js'
-import type { RedactConfig, RedactionEntry, RedactSource } from './types.js'
+import type { RedactConfig, RedactionEntry, RedactRule, RedactSource } from './types.js'
 
 export type RedactInput = {
   source: RedactSource
@@ -27,13 +28,24 @@ export type RedactOutput = {
 // Module-level cache: build g-flagged copies once at module load.
 // BUNDLED_PATTERNS stores patterns without the g flag (stateless, safe for .test()/.exec()).
 // The pipeline adds the g flag here so String.prototype.replace iterates all matches.
-// `r.pattern as RegExp`: the preceding .filter narrows to RegExp, but the
-// narrowing does not propagate into .map's callback. The cast is safe.
+
+// Bundled patterns are RegExp-only by contract (see redact-patterns.ts and the
+// structural test in tests/unit/redact-patterns.test.ts). Validate at module
+// load so a future function-typed addition fails fast and visibly (rather than
+// being silently filtered out).
+for (const rule of BUNDLED_PATTERNS) {
+  if (!(rule.pattern instanceof RegExp)) {
+    throw new ShellCassetteError(
+      `bundled rule "${rule.name}" has a non-RegExp pattern; bundle is RegExp-only (internal bug; should be unreachable)`,
+    )
+  }
+}
+
 const G_FLAGGED_BUNDLE: { name: string; pattern: RegExp }[] = BUNDLED_PATTERNS.filter(
-  (r) => r.pattern instanceof RegExp,
+  (r): r is RedactRule & { pattern: RegExp } => r.pattern instanceof RegExp,
 ).map((r) => ({
   name: r.name,
-  pattern: new RegExp((r.pattern as RegExp).source, `${(r.pattern as RegExp).flags}g`),
+  pattern: new RegExp(r.pattern.source, `${r.pattern.flags}g`),
 }))
 
 const PATH_OR_WHITESPACE_REGEX = /[/\\: ]/
@@ -97,7 +109,8 @@ export function runPipeline(
         output = transformed
       }
     } else {
-      // Normalize: ensure g flag is set so all matches are replaced
+      // User-supplied regex may omit the g flag; pipeline requires it for
+      // String.prototype.replace to iterate all matches in a value.
       const gPattern = rule.pattern.flags.includes('g')
         ? rule.pattern
         : new RegExp(rule.pattern.source, `${rule.pattern.flags}g`)
@@ -105,11 +118,11 @@ export function runPipeline(
     }
   }
 
-  if (
-    output === value &&
-    output.length > config.warnLengthThreshold &&
-    !(config.warnPathHeuristic && PATH_OR_WHITESPACE_REGEX.test(output))
-  ) {
+  const noRuleFired = output === value
+  const exceedsThreshold = output.length > config.warnLengthThreshold
+  const suppressedByHeuristic = config.warnPathHeuristic && PATH_OR_WHITESPACE_REGEX.test(output)
+
+  if (noRuleFired && exceedsThreshold && !suppressedByHeuristic) {
     warnings.push(
       `${input.source} value (${output.length} chars) exceeds threshold ${config.warnLengthThreshold} ` +
         `and contains no path/whitespace characters; may be a credential not in any rule. ` +
@@ -118,6 +131,12 @@ export function runPipeline(
   }
 
   return { output, entries, warnings }
+}
+
+function formatPlaceholder(source: RedactSource, ruleName: string, count?: number): string {
+  return count === undefined
+    ? `<redacted:${source}:${ruleName}>`
+    : `<redacted:${source}:${ruleName}:${count}>`
 }
 
 function applyRegexRule(
@@ -133,32 +152,18 @@ function applyRegexRule(
   const result = text.replace(pattern, () => {
     count++
     if (options.counted) {
-      return buildCountedPlaceholder(source, ruleName, options.counters)
+      const key = `${source}:${ruleName}`
+      const next = (options.counters.get(key) ?? 0) + 1
+      options.counters.set(key, next)
+      return formatPlaceholder(source, ruleName, next)
     }
-    return buildStrippedPlaceholder(source, ruleName)
+    return formatPlaceholder(source, ruleName)
   })
   if (count > 0) {
     entries.push({ rule: ruleName, source, count })
   }
   return result
 }
-
-function buildCountedPlaceholder(
-  source: RedactSource,
-  ruleName: string,
-  counters: Map<string, number>,
-): string {
-  const key = `${source}:${ruleName}`
-  const next = (counters.get(key) ?? 0) + 1
-  counters.set(key, next)
-  return `<redacted:${source}:${ruleName}:${next}>`
-}
-
-function buildStrippedPlaceholder(source: RedactSource, ruleName: string): string {
-  return `<redacted:${source}:${ruleName}>`
-}
-
-const COUNTER_REGEX = /<redacted:([^:>]+):([^:>]+):(\d+)>/g
 
 /**
  * Replace counter-tagged placeholders with their counter-stripped form.
@@ -167,5 +172,5 @@ const COUNTER_REGEX = /<redacted:([^:>]+):([^:>]+):(\d+)>/g
  * in stripped mode. Stripped placeholders pass through unchanged.
  */
 export function stripCounter(s: string): string {
-  return s.replace(COUNTER_REGEX, '<redacted:$1:$2>')
+  return s.replace(/<redacted:([^:>]+):([^:>]+):(\d+)>/g, '<redacted:$1:$2>')
 }

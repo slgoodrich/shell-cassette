@@ -11,10 +11,6 @@ const baseConfig: RedactConfig = {
   warnPathHeuristic: true,
 }
 
-// ---------------------------------------------------------------------------
-// Task 7: suppress short-circuit
-// ---------------------------------------------------------------------------
-
 describe('redact-pipeline: suppress short-circuit', () => {
   test('suppress regex match exempts the value from all rules', () => {
     const config: RedactConfig = {
@@ -38,10 +34,6 @@ describe('redact-pipeline: suppress short-circuit', () => {
     expect(result.entries).toEqual([])
   })
 })
-
-// ---------------------------------------------------------------------------
-// Task 8: bundled pattern application
-// ---------------------------------------------------------------------------
 
 describe('redact-pipeline: bundled patterns', () => {
   test('bundle disabled: no rules apply even when value matches a bundled pattern', () => {
@@ -81,18 +73,58 @@ describe('redact-pipeline: bundled patterns', () => {
     expect(result.entries).toEqual([])
   })
 
-  test('all 25 bundled rules are wired into the pipeline (smoke check)', () => {
+  test('bundled rule fires when bundle enabled (smoke check, single rule)', () => {
     const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
     const result = runPipeline({ source: 'env', value: `AIza${'a'.repeat(35)}` }, config, {
       counted: false,
     })
     expect(result.output).toBe('<redacted:env:google-api-key>')
   })
-})
 
-// ---------------------------------------------------------------------------
-// Task 9: custom rule application
-// ---------------------------------------------------------------------------
+  test('all 25 bundled rules are wired into the pipeline (per-rule smoke)', () => {
+    const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
+    // For each bundled rule, construct a sample value matching its pattern
+    // and verify the pipeline produces the corresponding placeholder.
+    const samples: { name: string; value: string }[] = [
+      { name: 'github-pat-classic', value: `ghp_${'a'.repeat(36)}` },
+      { name: 'github-pat-fine-grained', value: `github_pat_${'A'.repeat(82)}` },
+      { name: 'github-oauth', value: `gho_${'a'.repeat(36)}` },
+      { name: 'github-user-to-server', value: `ghu_${'a'.repeat(36)}` },
+      { name: 'github-server-to-server', value: `ghs_${'a'.repeat(36)}` },
+      { name: 'github-refresh', value: `ghr_${'a'.repeat(36)}` },
+      { name: 'aws-access-key-id', value: 'AKIA0123456789ABCDEF' },
+      { name: 'stripe-secret-live', value: `sk_live_${'a'.repeat(24)}` },
+      { name: 'stripe-secret-test', value: `sk_test_${'a'.repeat(24)}` },
+      { name: 'stripe-restricted-live', value: `rk_live_${'a'.repeat(24)}` },
+      { name: 'stripe-restricted-test', value: `rk_test_${'a'.repeat(24)}` },
+      { name: 'anthropic-api-key', value: `sk-ant-api03-${'a'.repeat(80)}` },
+      { name: 'openai-api-key', value: `sk-${'a'.repeat(48)}` },
+      { name: 'google-api-key', value: `AIza${'a'.repeat(35)}` },
+      { name: 'slack-token', value: 'xoxb-1234567890' },
+      {
+        name: 'slack-webhook-url',
+        value: 'https://hooks.slack.com/services/T0AB12CDE/B0FG34HIJ/0123456789ABCDEF',
+      },
+      { name: 'gitlab-pat', value: `glpat-${'a'.repeat(20)}` },
+      { name: 'npm-token', value: `npm_${'a'.repeat(36)}` },
+      { name: 'digitalocean-pat', value: `dop_v1_${'0'.repeat(64)}` },
+      { name: 'sendgrid-api-key', value: `SG.${'a'.repeat(22)}.${'a'.repeat(43)}` },
+      { name: 'mailgun-api-key', value: `key-${'0'.repeat(32)}` },
+      { name: 'huggingface-token', value: `hf_${'a'.repeat(34)}` },
+      { name: 'pypi-token', value: `pypi-AgE${'a'.repeat(50)}` },
+      { name: 'discord-bot-token', value: `M${'a'.repeat(23)}.${'a'.repeat(6)}.${'a'.repeat(27)}` },
+      { name: 'square-production-token', value: `EAAA${'a'.repeat(60)}` },
+    ]
+    expect(samples.length).toBe(25)
+    for (const sample of samples) {
+      const result = runPipeline({ source: 'stdout', value: sample.value }, config, {
+        counted: false,
+      })
+      expect(result.output).toBe(`<redacted:stdout:${sample.name}>`)
+      expect(result.entries.some((e) => e.rule === sample.name)).toBe(true)
+    }
+  })
+})
 
 describe('redact-pipeline: custom rules', () => {
   test('regex custom rule (no g flag) applies after bundle and is normalized', () => {
@@ -167,10 +199,6 @@ describe('redact-pipeline: custom rules', () => {
     ])
   })
 })
-
-// ---------------------------------------------------------------------------
-// Task 10: length warning with path heuristic
-// ---------------------------------------------------------------------------
 
 describe('redact-pipeline: length warning', () => {
   test('value > threshold + no path/whitespace + no rule fired: warning emitted', () => {
@@ -271,10 +299,6 @@ describe('redact-pipeline: length warning', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// Task 11: counter management + stripCounter
-// ---------------------------------------------------------------------------
-
 describe('redact-pipeline: counter management', () => {
   test('counted mode increments per emission within a session', () => {
     const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
@@ -324,6 +348,24 @@ describe('redact-pipeline: counter management', () => {
     const r2 = runPipeline({ source: 'args', value }, config, { counted: false })
     expect(r1.output).toBe(r2.output)
     expect(r1.output).toBe('<redacted:args:github-pat-classic>')
+  })
+
+  test('function custom rules in counted mode return whatever the function produces (no placeholder)', () => {
+    const config: RedactConfig = {
+      ...baseConfig,
+      bundledPatterns: false,
+      customPatterns: [{ name: 'shouty', pattern: (s: string) => s.toUpperCase() }],
+    }
+    const counters = new Map<string, number>()
+    const result = runPipeline({ source: 'env', value: 'hello' }, config, {
+      counted: true,
+      counters,
+    })
+    // Function rules bypass the placeholder mechanism; the function's return value
+    // is the output. Counter map is not touched (counters scope only the placeholder path).
+    expect(result.output).toBe('HELLO')
+    expect(result.entries).toEqual([{ rule: 'shouty', source: 'env', count: 1 }])
+    expect(counters.size).toBe(0)
   })
 })
 
