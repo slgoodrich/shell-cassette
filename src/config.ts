@@ -31,6 +31,8 @@ export type PartialConfig = {
   redact?: Partial<RedactConfig>
 }
 
+// `Object.freeze([])` returns `readonly []` (TS narrows the empty literal).
+// Cast widens to the typed read-only arrays expected by RedactConfig fields.
 const DEFAULT_REDACT: Readonly<RedactConfig> = Object.freeze({
   bundledPatterns: true,
   customPatterns: Object.freeze([]) as readonly RedactRule[],
@@ -58,9 +60,13 @@ export function mergeWithDefaults(input: PartialConfig | undefined): Readonly<Co
 
   const resolvedRedact: RedactConfig = {
     bundledPatterns: userRedact.bundledPatterns ?? DEFAULT_REDACT.bundledPatterns,
-    customPatterns: userRedact.customPatterns ?? DEFAULT_REDACT.customPatterns,
-    suppressPatterns: userRedact.suppressPatterns ?? DEFAULT_REDACT.suppressPatterns,
-    envKeys: resolvedEnvKeys,
+    customPatterns: userRedact.customPatterns
+      ? Object.freeze([...userRedact.customPatterns])
+      : DEFAULT_REDACT.customPatterns,
+    suppressPatterns: userRedact.suppressPatterns
+      ? Object.freeze([...userRedact.suppressPatterns])
+      : DEFAULT_REDACT.suppressPatterns,
+    envKeys: Object.freeze([...resolvedEnvKeys]),
     warnLengthThreshold: userRedact.warnLengthThreshold ?? DEFAULT_REDACT.warnLengthThreshold,
     warnPathHeuristic: userRedact.warnPathHeuristic ?? DEFAULT_REDACT.warnPathHeuristic,
   }
@@ -128,8 +134,11 @@ function validateRedact(redact: unknown): void {
   }
 
   if (r.envKeys !== undefined) {
-    if (!Array.isArray(r.envKeys) || !r.envKeys.every((k) => typeof k === 'string')) {
-      throw new CassetteConfigError('config.redact.envKeys must be an array of strings')
+    if (!Array.isArray(r.envKeys)) {
+      throw new CassetteConfigError('config.redact.envKeys must be an array')
+    }
+    if (!r.envKeys.every((k) => typeof k === 'string')) {
+      throw new CassetteConfigError('config.redact.envKeys items must all be strings')
     }
   }
 

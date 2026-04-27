@@ -139,6 +139,31 @@ describe('mergeWithDefaults: redact field', () => {
     const merged = mergeWithDefaults({ redact: { bundledPatterns: false } })
     expect(Object.isFrozen(merged.redact)).toBe(true)
   })
+
+  test('user-supplied customPatterns array is defensively copied and frozen', () => {
+    const userArray = [{ name: 'my-rule', pattern: /A/ }]
+    const merged = mergeWithDefaults({ redact: { customPatterns: userArray } })
+    expect(Object.isFrozen(merged.redact.customPatterns)).toBe(true)
+    // Mutating the original user array does NOT affect merged
+    userArray.push({ name: 'sneaky', pattern: /B/ })
+    expect(merged.redact.customPatterns.length).toBe(1)
+  })
+
+  test('user-supplied suppressPatterns array is defensively copied and frozen', () => {
+    const userArray = [/^FAKE_/]
+    const merged = mergeWithDefaults({ redact: { suppressPatterns: userArray } })
+    expect(Object.isFrozen(merged.redact.suppressPatterns)).toBe(true)
+    userArray.push(/^OTHER_/)
+    expect(merged.redact.suppressPatterns.length).toBe(1)
+  })
+
+  test('user-supplied envKeys array is defensively copied and frozen', () => {
+    const userArray = ['STRIPE_KEY']
+    const merged = mergeWithDefaults({ redact: { envKeys: userArray } })
+    expect(Object.isFrozen(merged.redact.envKeys)).toBe(true)
+    userArray.push('OPENAI_KEY')
+    expect(merged.redact.envKeys.length).toBe(1)
+  })
 })
 
 describe('validateConfig: redact field', () => {
@@ -252,11 +277,15 @@ describe('validateConfig: redact field', () => {
   })
 
   test('rejects non-array envKeys', () => {
-    expect(() => validateConfig({ redact: { envKeys: 'foo' } })).toThrow(/array of strings/)
+    expect(() => validateConfig({ redact: { envKeys: 'foo' } })).toThrow(
+      /envKeys must be an array$/,
+    )
   })
 
   test('rejects envKeys with non-string entries', () => {
-    expect(() => validateConfig({ redact: { envKeys: [1, 2] } })).toThrow(/array of strings/)
+    expect(() => validateConfig({ redact: { envKeys: [1, 2] } })).toThrow(
+      /items must all be strings/,
+    )
   })
 
   test('rejects non-object redact', () => {
@@ -265,5 +294,37 @@ describe('validateConfig: redact field', () => {
 
   test('user can opt out of bundle by setting bundledPatterns: false', () => {
     expect(() => validateConfig({ redact: { bundledPatterns: false } })).not.toThrow()
+  })
+
+  test('accepts custom rule with valid description', () => {
+    expect(() =>
+      validateConfig({
+        redact: {
+          customPatterns: [{ name: 'my-rule', pattern: /A/, description: 'matches A' }],
+        },
+      }),
+    ).not.toThrow()
+  })
+
+  test('accepts custom rule without description', () => {
+    expect(() =>
+      validateConfig({
+        redact: {
+          customPatterns: [{ name: 'my-rule', pattern: /A/ }],
+        },
+      }),
+    ).not.toThrow()
+  })
+
+  test('rejects custom rule with non-string description', () => {
+    expect(() =>
+      validateConfig({
+        redact: {
+          customPatterns: [
+            { name: 'my-rule', pattern: /A/, description: 123 as unknown as string },
+          ],
+        },
+      }),
+    ).toThrow(/description must be a string/)
   })
 })
