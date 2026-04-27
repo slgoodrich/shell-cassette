@@ -1,8 +1,8 @@
 import * as fc from 'fast-check'
-import { describe, expect, test } from 'vitest'
+import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { defaultCanonicalize, MatcherState } from '../../src/matcher.js'
 import { normalizeTmpPath } from '../../src/normalize.js'
-import type { Call, Recording } from '../../src/types.js'
+import type { Call, Recording, Result } from '../../src/types.js'
 
 // Reuse generators (deliberate inline duplication — rule of three; two
 // property test files don't justify a shared helpers module yet)
@@ -27,7 +27,7 @@ const genCall: fc.Arbitrary<Call> = fc.record({
   stdin: fc.constant(null),
 })
 
-const dummyResult = {
+const dummyResult: Result = {
   stdoutLines: [''],
   stderrLines: [''],
   allLines: null,
@@ -95,15 +95,39 @@ describe('defaultCanonicalize properties', () => {
   })
 })
 
+// Suppress the matcher's "ambiguous match" warnings in this describe block.
+// The sequential-consumption test deliberately creates N identical recordings,
+// which fires the warning every time there are 2+ unconsumed candidates.
+// That's correct behavior under test, but ~150 lines of stderr noise per run.
 describe('MatcherState properties', () => {
-  test('equal canonical forms imply match succeeds', () => {
-    // Take a recording made from a call; the same call must match it
+  const originalLog = process.env.SHELL_CASSETTE_LOG
+  beforeAll(() => {
+    process.env.SHELL_CASSETTE_LOG = 'silent'
+  })
+  afterAll(() => {
+    if (originalLog === undefined) {
+      delete process.env.SHELL_CASSETTE_LOG
+    } else {
+      process.env.SHELL_CASSETTE_LOG = originalLog
+    }
+  })
+
+  test('equal canonical forms imply match succeeds (calls differ in non-canonical fields)', () => {
+    // Build call A and call B that differ in cwd/env (NOT in the canonical form
+    // since defaultCanonicalize omits both), and verify B matches a recording of A.
+    // This actually tests the canonicalization-driven matching contract, vs. the
+    // weaker "single recording matches its own call" tautology.
     fc.assert(
-      fc.property(genCall, (call) => {
-        const state = new MatcherState([recOf(call)], defaultCanonicalize)
-        const matched = state.findMatch(call)
-        expect(matched).not.toBeNull()
-      }),
+      fc.property(
+        genCall,
+        fc.string({ maxLength: 30 }).filter((s) => !s.includes('\n')),
+        (callA, otherCwd) => {
+          const callB: Call = { ...callA, cwd: otherCwd, env: { OTHER: 'value' } }
+          const state = new MatcherState([recOf(callA)], defaultCanonicalize)
+          const matched = state.findMatch(callB)
+          expect(matched).not.toBeNull()
+        },
+      ),
       { numRuns: 100 },
     )
   })
