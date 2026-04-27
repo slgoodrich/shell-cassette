@@ -34,6 +34,78 @@ export type CassetteFile = {
 
 export type Canonicalize = (call: Call) => Partial<Call>
 
+export type RedactSource = 'env' | 'args' | 'stdout' | 'stderr' | 'allLines'
+
+export type RedactRule = {
+  /**
+   * Stable kebab-case identifier. API-stable: rule names ship locked at v0.4 and
+   * are never renamed. New patterns may be added additively (any version);
+   * removing or renaming is a breaking change.
+   */
+  name: string
+  /**
+   * Either a global regex (most rules) or a transform function (for advanced
+   * cases where the user wants full control over the replacement). Regex rules
+   * use `String.prototype.matchAll` semantics — the regex MUST have the `g` flag.
+   */
+  pattern: RegExp | ((s: string) => string)
+  /**
+   * Optional human-readable description. Used by `shell-cassette show` and
+   * documentation generators.
+   */
+  description?: string
+}
+
+/**
+ * One entry per (source, rule) combination that fired during a redaction pass.
+ * Stored on `Recording._redactions` in the cassette and on
+ * `CassetteSession.redactionEntries` during a recording session.
+ */
+export type RedactionEntry = {
+  rule: string // matches RedactRule.name
+  source: RedactSource
+  count: number // number of placeholder occurrences for this (source, rule) in this recording
+}
+
+export type RedactConfig = {
+  /**
+   * When true, the bundled credential patterns from `BUNDLED_PATTERNS` apply.
+   * Defaults to true. Set false to opt out of all bundled detection (custom
+   * patterns and suppress list still apply).
+   */
+  bundledPatterns: boolean
+  /**
+   * User-supplied custom rules. Apply after bundled rules. Each rule's `name`
+   * field appears in placeholder strings (`<redacted:source:NAME:N>`).
+   */
+  customPatterns: readonly RedactRule[]
+  /**
+   * Suppress list. Checked FIRST, before bundled and custom rules. If any
+   * suppress regex matches the input value, the value is exempt from all
+   * redaction (including the length warning). Use case: project-wide
+   * fake-token fixtures the bundle would otherwise scrub.
+   */
+  suppressPatterns: readonly RegExp[]
+  /**
+   * User extension to the curated env-key match list. Treated as
+   * case-insensitive substring match against env var key names (matches
+   * v0.2/v0.3 behavior for the curated list).
+   */
+  envKeys: readonly string[]
+  /**
+   * Length above which an unredacted value triggers a long-value warning.
+   * Default: 40. Tuned to catch GitHub PATs, OpenAI keys, Stripe restricted,
+   * AWS Secret Access Keys without nagging on common path env vars.
+   */
+  warnLengthThreshold: number
+  /**
+   * When true, values containing `/`, `\`, `:`, or ` ` (space) suppress the
+   * length warning. Catches the common false-positive case (paths, configs,
+   * connection strings) without missing bare credential strings.
+   */
+  warnPathHeuristic: boolean
+}
+
 export type UseCassetteOptions = {
   canonicalize?: Canonicalize
 }
