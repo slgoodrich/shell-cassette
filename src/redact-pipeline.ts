@@ -47,6 +47,22 @@ export function runPipeline(
     }
   }
 
+  for (const rule of config.customPatterns) {
+    if (typeof rule.pattern === 'function') {
+      const transformed = rule.pattern(output)
+      if (transformed !== output) {
+        entries.push({ rule: rule.name, source: input.source, count: 1 })
+        output = transformed
+      }
+    } else {
+      // Normalize: ensure g flag is set so all matches are replaced
+      const gPattern = rule.pattern.flags.includes('g')
+        ? rule.pattern
+        : new RegExp(rule.pattern.source, `${rule.pattern.flags}g`)
+      output = applyRegexRule(output, rule.name, gPattern, input.source, options, entries)
+    }
+  }
+
   return { output, entries, warnings }
 }
 
