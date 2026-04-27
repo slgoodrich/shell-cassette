@@ -516,16 +516,42 @@ describe('seedCountersFromCassette', () => {
     expect(counters.get('allLines:r')).toBe(5)
   })
 
-  test('multiple recordings: max across all is the ceiling', () => {
+  test('multiple recordings: counts accumulate (sum) across recordings', () => {
     const cassette: CassetteFile = {
       version: 2,
       recordedBy: null,
       recordings: [
-        { ...emptyRec(), redactions: [{ rule: 'r', source: 'env', count: 2 }] },
-        { ...emptyRec(), redactions: [{ rule: 'r', source: 'env', count: 5 }] },
+        {
+          call: { command: 'curl', args: [], cwd: null, env: {}, stdin: null },
+          result: {
+            stdoutLines: [],
+            stderrLines: [],
+            allLines: null,
+            exitCode: 0,
+            signal: null,
+            durationMs: 0,
+            aborted: false,
+          },
+          redactions: [{ rule: 'r', source: 'env', count: 2 }],
+        },
+        {
+          call: { command: 'curl', args: [], cwd: null, env: {}, stdin: null },
+          result: {
+            stdoutLines: [],
+            stderrLines: [],
+            allLines: null,
+            exitCode: 0,
+            signal: null,
+            durationMs: 0,
+            aborted: false,
+          },
+          redactions: [{ rule: 'r', source: 'env', count: 5 }],
+        },
       ],
     }
     const counters = seedCountersFromCassette(cassette)
-    expect(counters.get('env:r')).toBe(5)
+    // rec1 count=2 (placeholders :1, :2) + rec2 count=5 (placeholders :3..:7)
+    // Sum = 7. Next emission should produce :8.
+    expect(counters.get('env:r')).toBe(7)
   })
 })

@@ -204,12 +204,14 @@ const COUNTER_PLACEHOLDER_REGEX = /<redacted:([^:>]+):([^:>]+):(\d+)>/g
 export function seedCountersFromCassette(cassette: CassetteFile): Map<string, number> {
   const counters = new Map<string, number>()
 
-  // Source 1: per-recording redactions metadata
+  // Source 1: per-recording _redactions metadata. Each entry.count is the
+  // number of placeholder occurrences within that single recording. The
+  // cassette-wide ceiling is the SUM across recordings — counters are
+  // monotonic and per-(source, rule) globally.
   for (const rec of cassette.recordings) {
     for (const entry of rec.redactions) {
       const key = `${entry.source}:${entry.rule}`
-      const existing = counters.get(key) ?? 0
-      counters.set(key, Math.max(existing, entry.count))
+      counters.set(key, (counters.get(key) ?? 0) + entry.count)
     }
   }
 
