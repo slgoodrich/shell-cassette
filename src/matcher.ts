@@ -41,7 +41,7 @@ export class MatcherState implements MatcherStateLike {
 
     if (candidates.length > 1) {
       log(
-        `ambiguous match: ${candidates.length} unconsumed recordings could match \`${call.command} ${call.args.join(' ')}\` — taking first`,
+        `ambiguous match: ${candidates.length} unconsumed recordings could match \`${call.command} ${call.args.join(' ')}\` (taking first)`,
       )
     }
 

@@ -105,7 +105,7 @@ export async function runWrapped<Opts, ResultShape>(
     // falls through to the record path, which then asks for ack. From the
     // user's perspective they tried to replay; the ack error obscures the
     // real cause (matcher miss). Mutate the original error's message so the
-    // actual problem path is visible. Stack and class are preserved —
+    // actual problem path is visible. Stack and class are preserved;
     // programmatic catches on AckRequiredError still work.
     if (cameFromAutoMiss && e instanceof Error) {
       e.message = `auto mode: no recording matched \`${formatCallSignature(call)}\`, attempted to record but ack gate not set.\n\n${e.message}`
