@@ -39,6 +39,9 @@ function makeCassette(args: string[]): CassetteFile {
 
 describe('canonicalize limitations - documented current behavior', () => {
   let workspace: string
+  const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
+  const originalMode = process.env.SHELL_CASSETTE_MODE
+  const originalCI = process.env.CI
 
   beforeEach(async () => {
     workspace = await mkdtemp(path.join(tmpdir(), 'shell-cassette-limits-'))
@@ -49,9 +52,18 @@ describe('canonicalize limitations - documented current behavior', () => {
 
   afterEach(async () => {
     await rm(workspace, { recursive: true, force: true })
-    delete process.env.SHELL_CASSETTE_ACK_REDACTION
-    delete process.env.SHELL_CASSETTE_MODE
+    restoreEnv('SHELL_CASSETTE_ACK_REDACTION', originalAck)
+    restoreEnv('SHELL_CASSETTE_MODE', originalMode)
+    restoreEnv('CI', originalCI)
   })
+
+  function restoreEnv(key: string, original: string | undefined): void {
+    if (original === undefined) {
+      delete process.env[key]
+    } else {
+      process.env[key] = original
+    }
+  }
 
   test('relative tmp path (path.relative-style) does NOT normalize - documented limitation', async () => {
     // Recording was canonicalized as if it had been '<tmp>/foo' (a normalized
@@ -60,17 +72,12 @@ describe('canonicalize limitations - documented current behavior', () => {
     const cassettePath = path.join(workspace, 'rel.json')
     await writeCassetteFile(cassettePath, serialize(makeCassette(['-e', '<tmp>/foo'])))
 
-    let caught: unknown
-    try {
-      await useCassette(cassettePath, async () => {
-        await execa('node', ['-e', '../../tmp/foo'])
-      })
-    } catch (e) {
-      caught = e
-    }
-    expect(caught).toBeInstanceOf(ReplayMissError)
+    const result = useCassette(cassettePath, async () => {
+      await execa('node', ['-e', '../../tmp/foo'])
+    })
+    await expect(result).rejects.toBeInstanceOf(ReplayMissError)
     // Error message includes 'canonical' so users see what was compared.
-    expect((caught as Error).message).toContain('canonical')
+    await expect(result).rejects.toThrow(/canonical/)
   })
 
   test('custom $TMPDIR outside our regex table does NOT normalize - documented limitation', async () => {
@@ -82,14 +89,9 @@ describe('canonicalize limitations - documented current behavior', () => {
     const cassettePath = path.join(workspace, 'scratch.json')
     await writeCassetteFile(cassettePath, serialize(makeCassette(['-e', '/scratch/RECORDED/foo'])))
 
-    let caught: unknown
-    try {
-      await useCassette(cassettePath, async () => {
-        await execa('node', ['-e', '/scratch/REPLAY/foo'])
-      })
-    } catch (e) {
-      caught = e
-    }
-    expect(caught).toBeInstanceOf(ReplayMissError)
+    const result = useCassette(cassettePath, async () => {
+      await execa('node', ['-e', '/scratch/REPLAY/foo'])
+    })
+    await expect(result).rejects.toBeInstanceOf(ReplayMissError)
   })
 })

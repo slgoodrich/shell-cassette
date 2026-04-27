@@ -1,7 +1,7 @@
 import * as fc from 'fast-check'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { defaultCanonicalize, MatcherState } from '../../src/matcher.js'
-import { normalizeTmpPath } from '../../src/normalize.js'
+import { normalizeTmpPath, TMP_TOKEN } from '../../src/normalize.js'
 import type { Call, Recording, Result } from '../../src/types.js'
 
 // Reuse generators (deliberate inline duplication — rule of three; two
@@ -52,11 +52,17 @@ describe('normalizeTmpPath properties', () => {
   })
 
   test('non-tmp strings are unchanged', () => {
-    // Generate strings that don't contain any tmp prefix substring
+    // Generate strings that contain neither a tmp prefix substring nor the
+    // already-normalized TMP_TOKEN. Filtering on TMP_TOKEN prevents this test
+    // from accidentally generating "<tmp>/x" which the matcher would treat as
+    // already-canonical (passing the assertion for the wrong reason). The
+    // explicit prefix list mirrors normalize.ts's TMP_PREFIX_PATTERNS; if a
+    // new platform pattern is added there, add it here too.
     const genNonTmp = fc
       .string()
       .filter(
         (s) =>
+          !s.includes(TMP_TOKEN) &&
           !s.includes('/tmp/') &&
           !s.includes('/var/tmp/') &&
           !s.includes('/var/folders/') &&

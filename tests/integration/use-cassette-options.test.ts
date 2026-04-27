@@ -8,6 +8,10 @@ import { useCassette } from '../../src/use-cassette.js'
 
 describe('useCassette per-call options - canonicalize override', () => {
   let tmp: string
+  const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
+  const originalMode = process.env.SHELL_CASSETTE_MODE
+  const originalCI = process.env.CI
+
   beforeEach(async () => {
     tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-test-'))
     process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
@@ -16,8 +20,18 @@ describe('useCassette per-call options - canonicalize override', () => {
   })
   afterEach(async () => {
     await rm(tmp, { recursive: true, force: true })
-    delete process.env.SHELL_CASSETTE_ACK_REDACTION
+    restoreEnv('SHELL_CASSETTE_ACK_REDACTION', originalAck)
+    restoreEnv('SHELL_CASSETTE_MODE', originalMode)
+    restoreEnv('CI', originalCI)
   })
+
+  function restoreEnv(key: string, original: string | undefined): void {
+    if (original === undefined) {
+      delete process.env[key]
+    } else {
+      process.env[key] = original
+    }
+  }
 
   test('default canonicalize matches recordings with same command + args', async () => {
     const cassettePath = path.join(tmp, 'default.json')
