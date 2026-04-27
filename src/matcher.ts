@@ -15,12 +15,16 @@ export const defaultCanonicalize: Canonicalize = (call, opts) => {
       // 2. v0.4: strip counter from counter-tagged placeholders. Handles cassette
       //    args during match-time canonicalization. Idempotent on stripped form.
       const stripped = stripCounter(tmpNormalized)
-      // 3. v0.4: apply pipeline in stripped mode (no counter). For fresh-call args
-      //    containing raw credentials, this produces the same form as cassette args
-      //    after stripCounter. Both arms canonicalize to identical strings.
+      // 3. v0.4: apply pipeline in stripped mode for fresh-call args
+      //    containing raw credentials. counted: false is required because
+      //    counted: true would emit `:N` suffixes driven by current-session
+      //    counter state, which would differ from the stripped cassette form
+      //    (where counters were stripped in step 2). Both arms must produce
+      //    identical strings; stripped mode is the only mode that gives that
+      //    invariant.
       if (redactConfig) {
-        const r = runPipeline({ source: 'args', value: stripped }, redactConfig, { counted: false })
-        return r.output
+        return runPipeline({ source: 'args', value: stripped }, redactConfig, { counted: false })
+          .output
       }
       return stripped
     }),
@@ -30,19 +34,21 @@ export const defaultCanonicalize: Canonicalize = (call, opts) => {
 export class MatcherState implements MatcherStateLike {
   private consumedIndices: Set<number> = new Set()
   private canonicalRecordings: ReadonlyArray<Partial<Call>>
+  // Hoisted to constructor: constant for the lifetime of this matcher instance.
+  // Previously allocated per findMatch call; now allocated once.
+  private readonly opts: { redactConfig: Readonly<RedactConfig> } | undefined
 
   constructor(
     private readonly recordings: readonly Recording[],
     private readonly canonicalize: Canonicalize,
-    private readonly redactConfig?: Readonly<RedactConfig>,
+    redactConfig?: Readonly<RedactConfig>,
   ) {
-    const opts = redactConfig ? { redactConfig } : undefined
-    this.canonicalRecordings = recordings.map((r) => canonicalize(r.call, opts))
+    this.opts = redactConfig ? { redactConfig } : undefined
+    this.canonicalRecordings = recordings.map((r) => canonicalize(r.call, this.opts))
   }
 
   findMatch(call: Call): Recording | null {
-    const opts = this.redactConfig ? { redactConfig: this.redactConfig } : undefined
-    const canonicalCall = this.canonicalize(call, opts)
+    const canonicalCall = this.canonicalize(call, this.opts)
     const candidates: { index: number; rec: Recording }[] = []
     for (let i = 0; i < this.recordings.length; i++) {
       if (this.consumedIndices.has(i)) continue
