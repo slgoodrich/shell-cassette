@@ -1,0 +1,128 @@
+import { describe, expect, test } from 'vitest'
+import { basenameCommand, normalizeTmpPath, TMP_TOKEN } from '../../src/normalize.js'
+
+describe('normalizeTmpPath - Linux /tmp', () => {
+  test('replaces /tmp/<dir> with <tmp>', () => {
+    expect(normalizeTmpPath('/tmp/test-abc/foo.git')).toBe(`${TMP_TOKEN}/foo.git`)
+  })
+
+  test('replaces multiple occurrences', () => {
+    expect(normalizeTmpPath('/tmp/a/x.txt /tmp/b/y.txt')).toBe(
+      `${TMP_TOKEN}/x.txt ${TMP_TOKEN}/y.txt`,
+    )
+  })
+
+  test('preserves path beyond first component', () => {
+    expect(normalizeTmpPath('/tmp/abc/sub/file.json')).toBe(`${TMP_TOKEN}/sub/file.json`)
+  })
+})
+
+describe('normalizeTmpPath - Linux /var/tmp', () => {
+  test('replaces /var/tmp/<dir> with <tmp>', () => {
+    expect(normalizeTmpPath('/var/tmp/x/y')).toBe(`${TMP_TOKEN}/y`)
+  })
+})
+
+describe('normalizeTmpPath - macOS /var/folders', () => {
+  test('replaces /var/folders/<a>/<b>/T/<dir> with <tmp>', () => {
+    expect(normalizeTmpPath('/var/folders/qw/abc123/T/release-test-AbCdEf/remote.git')).toBe(
+      `${TMP_TOKEN}/remote.git`,
+    )
+  })
+})
+
+describe('normalizeTmpPath - macOS /private/tmp', () => {
+  test('replaces /private/tmp/<dir> with <tmp>', () => {
+    expect(normalizeTmpPath('/private/tmp/test/x.txt')).toBe(`${TMP_TOKEN}/x.txt`)
+  })
+})
+
+describe('normalizeTmpPath - Windows', () => {
+  test('replaces C:\\Users\\<u>\\AppData\\Local\\Temp\\<dir> with <tmp>', () => {
+    expect(normalizeTmpPath('C:\\Users\\steve\\AppData\\Local\\Temp\\foo-AbC\\bar\\baz.txt')).toBe(
+      `${TMP_TOKEN}\\bar\\baz.txt`,
+    )
+  })
+})
+
+describe('normalizeTmpPath - embedded substring', () => {
+  test('replaces tmp prefix appearing inside an arg', () => {
+    expect(normalizeTmpPath('--config=/tmp/abc/x.json')).toBe(`--config=${TMP_TOKEN}/x.json`)
+  })
+})
+
+describe('normalizeTmpPath - disambiguation', () => {
+  test('two files in same tmp dir produce different canonical forms', () => {
+    expect(normalizeTmpPath('/tmp/abc/file-a.txt')).not.toBe(
+      normalizeTmpPath('/tmp/abc/file-b.txt'),
+    )
+  })
+})
+
+describe('normalizeTmpPath - boundaries', () => {
+  test('does not normalize /tmpfile (no slash after /tmp)', () => {
+    expect(normalizeTmpPath('/tmpfile')).toBe('/tmpfile')
+  })
+
+  test('does not normalize /tmp/ (trailing slash, no component)', () => {
+    expect(normalizeTmpPath('/tmp/')).toBe('/tmp/')
+  })
+
+  test('non-tmp string is unchanged', () => {
+    expect(normalizeTmpPath('/usr/local/bin/foo')).toBe('/usr/local/bin/foo')
+  })
+
+  test('empty string is unchanged', () => {
+    expect(normalizeTmpPath('')).toBe('')
+  })
+})
+
+describe('normalizeTmpPath - idempotence', () => {
+  test('applying twice is the same as applying once', () => {
+    const inputs = [
+      '/tmp/abc/x',
+      '/var/folders/q/w/T/abc/y',
+      'C:\\Users\\steve\\AppData\\Local\\Temp\\foo\\z',
+      '--config=/tmp/abc/x.json',
+      'no-tmp-here',
+    ]
+    for (const s of inputs) {
+      const once = normalizeTmpPath(s)
+      const twice = normalizeTmpPath(once)
+      expect(twice).toBe(once)
+    }
+  })
+})
+
+// basenameCommand uses path.basename, which is platform-aware: on POSIX it only
+// recognizes forward slashes; on Windows it recognizes both. Tests that pass
+// backslash paths must be guarded with skipIf on non-Windows.
+const isWindows = process.platform === 'win32'
+
+describe('basenameCommand', () => {
+  test('absolute POSIX path returns basename', () => {
+    expect(basenameCommand('/usr/bin/git')).toBe('git')
+  })
+
+  test('bare command returns itself', () => {
+    expect(basenameCommand('git')).toBe('git')
+  })
+
+  test.skipIf(!isWindows)('Windows-style path returns basename', () => {
+    expect(basenameCommand('C:\\Program Files\\Git\\bin\\git.exe')).toMatch(/^git(\.exe)?$/)
+  })
+})
+
+describe('basenameCommand - Windows .exe strip', () => {
+  test.skipIf(!isWindows)('strips lowercase .exe on Windows', () => {
+    expect(basenameCommand('git.exe')).toBe('git')
+  })
+
+  test.skipIf(!isWindows)('strips uppercase .EXE on Windows (case-insensitive)', () => {
+    expect(basenameCommand('node.EXE')).toBe('node')
+  })
+
+  test.skipIf(isWindows)('does NOT strip .exe on non-Windows', () => {
+    expect(basenameCommand('foo.exe')).toBe('foo.exe')
+  })
+})

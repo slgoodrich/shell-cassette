@@ -77,6 +77,7 @@ try {
       scopeDefault: 'auto',
       loadedFile: null,
       matcher: null,
+      canonicalize: config.canonicalize,
       newRecordings: [],
       redactedKeys: [],
       warnings: [],

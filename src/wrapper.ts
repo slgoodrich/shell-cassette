@@ -58,7 +58,7 @@ export async function runWrapped<Opts, ResultShape>(
   const config = getConfig()
   if (session.loadedFile === null) {
     session.loadedFile = await loadCassette(session.path)
-    session.matcher = new MatcherState(session.loadedFile?.recordings ?? [], config.matcher)
+    session.matcher = new MatcherState(session.loadedFile?.recordings ?? [], session.canonicalize)
   }
 
   const mode = resolveMode(
@@ -142,17 +142,33 @@ function ensureMatcher(matcher: MatcherStateLike | null): MatcherStateLike {
   return matcher
 }
 
+const REPLAY_MISS_DIAGNOSTIC_LIMIT = 10
+
 function buildReplayMissError(call: Call, session: CassetteSession): ReplayMissError {
-  const recordedCalls = session.loadedFile?.recordings
-    .map((r) => formatCallSignature(r.call))
-    .join('\n  - ')
+  const canonical = session.canonicalize(call)
+  const recordings = session.loadedFile?.recordings ?? []
+  const shown = recordings.slice(0, REPLAY_MISS_DIAGNOSTIC_LIMIT)
+  const truncated =
+    recordings.length > REPLAY_MISS_DIAGNOSTIC_LIMIT
+      ? `\n  ... (${recordings.length - REPLAY_MISS_DIAGNOSTIC_LIMIT} more)`
+      : ''
+  const recordedCalls = shown.length
+    ? shown.map((r) => formatCallSignature(r.call)).join('\n  - ') + truncated
+    : '(none)'
+  const recordedCanonical = shown.length
+    ? shown.map((r) => JSON.stringify(session.canonicalize(r.call))).join('\n  - ') + truncated
+    : '(none)'
   return new ReplayMissError(
     `no matching recording for \`${formatCallSignature(call)}\`
-  cassette: ${session.path}
-  matcher:  default (command + deep-equal args)
+  cassette:        ${session.path}
+  matcher:         canonicalize-then-equal (default normalizes mkdtemp paths in args)
+  call canonical:  ${JSON.stringify(canonical)}
 
 Recorded calls in this cassette:
-  - ${recordedCalls ?? '(none)'}
+  - ${recordedCalls}
+
+Recorded canonical forms:
+  - ${recordedCanonical}
 
 To re-record: delete the cassette file and run tests again.`,
   )

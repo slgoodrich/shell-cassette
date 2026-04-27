@@ -2,11 +2,11 @@ import { stat } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { CassetteConfigError } from './errors.js'
-import { defaultMatcher } from './matcher.js'
-import type { MatcherFn } from './types.js'
+import { defaultCanonicalize } from './matcher.js'
+import type { Canonicalize } from './types.js'
 
 export type Config = {
-  matcher: MatcherFn
+  canonicalize: Canonicalize
   cassetteDir: string
   redactEnvKeys: string[]
 }
@@ -14,14 +14,14 @@ export type Config = {
 export type PartialConfig = Partial<Config>
 
 export const DEFAULT_CONFIG: Readonly<Config> = Object.freeze({
-  matcher: defaultMatcher,
+  canonicalize: defaultCanonicalize,
   cassetteDir: '__cassettes__',
   redactEnvKeys: [] as string[],
 })
 
 export function mergeWithDefaults(input: PartialConfig | undefined): Readonly<Config> {
   return Object.freeze({
-    matcher: input?.matcher ?? DEFAULT_CONFIG.matcher,
+    canonicalize: input?.canonicalize ?? DEFAULT_CONFIG.canonicalize,
     cassetteDir: input?.cassetteDir ?? DEFAULT_CONFIG.cassetteDir,
     redactEnvKeys: input?.redactEnvKeys ?? DEFAULT_CONFIG.redactEnvKeys,
   })
@@ -37,8 +37,8 @@ export function validateConfig(input: unknown): asserts input is PartialConfig {
   if ('cassetteDir' in obj && typeof obj.cassetteDir !== 'string') {
     throw new CassetteConfigError('config.cassetteDir must be a string')
   }
-  if ('matcher' in obj && typeof obj.matcher !== 'function') {
-    throw new CassetteConfigError('config.matcher must be a function (call, recording) => boolean')
+  if ('canonicalize' in obj && typeof obj.canonicalize !== 'function') {
+    throw new CassetteConfigError('config.canonicalize must be a function (call) => Partial<Call>')
   }
   if ('redactEnvKeys' in obj) {
     if (!Array.isArray(obj.redactEnvKeys)) {

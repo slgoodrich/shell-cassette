@@ -32,7 +32,11 @@ export type CassetteFile = {
   recordings: Recording[]
 }
 
-export type MatcherFn = (call: Call, recording: Recording) => boolean
+export type Canonicalize = (call: Call) => Partial<Call>
+
+export type UseCassetteOptions = {
+  canonicalize?: Canonicalize
+}
 
 export type CassetteSession = {
   name: string
@@ -40,6 +44,7 @@ export type CassetteSession = {
   scopeDefault: 'auto' | 'passthrough'
   loadedFile: CassetteFile | null
   matcher: MatcherStateLike | null // built lazily; defined in matcher.ts
+  canonicalize: Canonicalize
   newRecordings: Recording[]
   // Accumulated across record() calls in this scope. Emitted as an
   // end-of-run summary by the vitest plugin and useCassette finally.

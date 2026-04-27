@@ -7,15 +7,10 @@ import { writeCassetteFile } from '../../src/io.js'
 import { serialize } from '../../src/serialize.js'
 import { clearActiveCassette, setActiveCassette } from '../../src/state.js'
 import type { CassetteSession } from '../../src/types.js'
+import { makeSession } from '../helpers/session.js'
 
-const sessionAt = (sessionPath: string): CassetteSession => ({
-  name: 'test',
-  path: sessionPath,
-  scopeDefault: 'auto',
-  loadedFile: null,
-  matcher: null,
-  newRecordings: [],
-})
+const sessionAt = (sessionPath: string): CassetteSession =>
+  makeSession({ name: 'test', path: sessionPath, loadedFile: null, matcher: null })
 
 const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
 const originalMode = process.env.SHELL_CASSETTE_MODE

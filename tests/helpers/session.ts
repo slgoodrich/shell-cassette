@@ -8,19 +8,21 @@ import type { CassetteSession } from '../../src/types.js'
 // or ensureMatcher() throws "internal bug" on the first call. Tracked under
 // issue #26 (CassetteSession type permits unreachable states).
 export const makeSession = (overrides: Partial<CassetteSession> = {}): CassetteSession => {
+  const canonicalize = overrides.canonicalize ?? DEFAULT_CONFIG.canonicalize
   const base: CassetteSession = {
     name: 'test',
     path: '/tmp/test.json',
     scopeDefault: 'auto',
     loadedFile: { version: 1, recordings: [] },
     matcher: null,
+    canonicalize,
     newRecordings: [],
     redactedKeys: [],
     warnings: [],
     ...overrides,
   }
   if (base.loadedFile !== null && base.matcher === null) {
-    base.matcher = new MatcherState(base.loadedFile.recordings, DEFAULT_CONFIG.matcher)
+    base.matcher = new MatcherState(base.loadedFile.recordings, base.canonicalize)
   }
   return base
 }
