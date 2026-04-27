@@ -4,6 +4,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { execa } from '../../src/execa.js'
 import { useCassette } from '../../src/use-cassette.js'
+import { restoreEnv } from '../helpers/env.js'
 
 describe('e2e: tmp path record-replay across mkdtemp variance', () => {
   let workspace: string
@@ -24,14 +25,6 @@ describe('e2e: tmp path record-replay across mkdtemp variance', () => {
     restoreEnv('SHELL_CASSETTE_MODE', originalMode)
     restoreEnv('CI', originalCI)
   })
-
-  function restoreEnv(key: string, original: string | undefined): void {
-    if (original === undefined) {
-      delete process.env[key]
-    } else {
-      process.env[key] = original
-    }
-  }
 
   test('cassette recorded with one mkdtemp path replays under a different mkdtemp path', async () => {
     const cassettePath = path.join(workspace, 'cassette.json')

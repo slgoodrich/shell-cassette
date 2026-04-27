@@ -18,6 +18,7 @@ import { deriveCassettePathFromTask } from '../../src/plugin.js'
 import { deserialize } from '../../src/serialize.js'
 import { clearActiveCassette, setActiveCassette } from '../../src/state.js'
 import { useCassette } from '../../src/use-cassette.js'
+import { restoreEnv } from '../helpers/env.js'
 import { makeSession } from '../helpers/session.js'
 
 const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
@@ -35,14 +36,6 @@ afterEach(() => {
   restoreEnv('SHELL_CASSETTE_ACK_REDACTION', originalAck)
   restoreEnv('SHELL_CASSETTE_MODE', originalMode)
 })
-
-function restoreEnv(key: string, original: string | undefined): void {
-  if (original === undefined) {
-    delete process.env[key]
-  } else {
-    process.env[key] = original
-  }
-}
 
 describe('all error classes are instanceof ShellCassetteError', () => {
   test('AckRequiredError', async () => {

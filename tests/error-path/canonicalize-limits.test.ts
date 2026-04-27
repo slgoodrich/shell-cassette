@@ -8,6 +8,7 @@ import { writeCassetteFile } from '../../src/io.js'
 import { serialize } from '../../src/serialize.js'
 import type { CassetteFile } from '../../src/types.js'
 import { useCassette } from '../../src/use-cassette.js'
+import { restoreEnv } from '../helpers/env.js'
 
 // Build a cassette with a single recording whose call.command is `node` and
 // one positional arg. The args field drives the matcher comparison.
@@ -58,14 +59,6 @@ describe('canonicalize limitations - documented current behavior', () => {
     restoreEnv('SHELL_CASSETTE_MODE', originalMode)
     restoreEnv('CI', originalCI)
   })
-
-  function restoreEnv(key: string, original: string | undefined): void {
-    if (original === undefined) {
-      delete process.env[key]
-    } else {
-      process.env[key] = original
-    }
-  }
 
   test('relative tmp path (path.relative-style) does NOT normalize - documented limitation', async () => {
     // Recording was canonicalized as if it had been '<tmp>/foo' (a normalized
