@@ -7,14 +7,28 @@ import { useCassette } from '../../src/use-cassette.js'
 
 let tmp: string
 
+const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
+const originalMode = process.env.SHELL_CASSETTE_MODE
+
+function restoreEnv(key: string, original: string | undefined): void {
+  if (original === undefined) {
+    delete process.env[key]
+  } else {
+    process.env[key] = original
+  }
+}
+
 beforeEach(async () => {
   tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-per-cassette-override-'))
   process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
+  // Pin the mode so CI=true on the runner doesn't force replay-strict.
+  process.env.SHELL_CASSETTE_MODE = 'auto'
 })
 
 afterEach(async () => {
   await rm(tmp, { recursive: true, force: true })
-  delete process.env.SHELL_CASSETTE_ACK_REDACTION
+  restoreEnv('SHELL_CASSETTE_ACK_REDACTION', originalAck)
+  restoreEnv('SHELL_CASSETTE_MODE', originalMode)
 })
 
 describe('useCassette per-cassette redact override', () => {
