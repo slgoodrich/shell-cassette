@@ -39,7 +39,7 @@ describe('useCassette', () => {
 
       const content = await readFile(cassettePath, 'utf8')
       const parsed = JSON.parse(content)
-      expect(parsed.version).toBe(1)
+      expect(parsed.version).toBe(2)
       expect(parsed.recordings).toHaveLength(1)
       expect(parsed.recordings[0].call.command).toBe('node')
     } finally {

@@ -114,9 +114,10 @@ describe('tinyexec adapter', () => {
         durationMs: 0,
         aborted: true,
       },
+      redactions: [],
     }
     const session = makeSession({
-      loadedFile: { version: 1, recordings: [recording] },
+      loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
     setActiveCassette(session)
     process.env.SHELL_CASSETTE_MODE = 'replay'
@@ -157,9 +158,10 @@ describe('tinyexec adapter', () => {
         durationMs: 0,
         aborted: false,
       },
+      redactions: [],
     }
     const session = makeSession({
-      loadedFile: { version: 1, recordings: [recording] },
+      loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
     setActiveCassette(session)
     process.env.SHELL_CASSETTE_MODE = 'replay'
@@ -186,9 +188,10 @@ describe('tinyexec adapter', () => {
         durationMs: 0,
         aborted: false,
       },
+      redactions: [],
     }
     const session = makeSession({
-      loadedFile: { version: 1, recordings: [recording] },
+      loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
     setActiveCassette(session)
     process.env.SHELL_CASSETTE_MODE = 'replay'
@@ -208,9 +211,10 @@ describe('tinyexec adapter', () => {
         durationMs: 0,
         aborted: false,
       },
+      redactions: [],
     }
     const session = makeSession({
-      loadedFile: { version: 1, recordings: [recording] },
+      loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
     setActiveCassette(session)
     process.env.SHELL_CASSETTE_MODE = 'replay'
@@ -231,9 +235,10 @@ describe('tinyexec adapter', () => {
         durationMs: 0,
         aborted: false,
       },
+      redactions: [],
     }
     const session = makeSession({
-      loadedFile: { version: 1, recordings: [recording] },
+      loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
     setActiveCassette(session)
     process.env.SHELL_CASSETTE_MODE = 'replay'
@@ -254,9 +259,10 @@ describe('tinyexec adapter', () => {
         durationMs: 0,
         aborted: false,
       },
+      redactions: [],
     }
     const session = makeSession({
-      loadedFile: { version: 1, recordings: [recording] },
+      loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
     setActiveCassette(session)
     process.env.SHELL_CASSETTE_MODE = 'replay'
@@ -277,9 +283,10 @@ describe('tinyexec adapter', () => {
         durationMs: 0,
         aborted: false,
       },
+      redactions: [],
     }
     const session = makeSession({
-      loadedFile: { version: 1, recordings: [recording] },
+      loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
     setActiveCassette(session)
     process.env.SHELL_CASSETTE_MODE = 'replay'

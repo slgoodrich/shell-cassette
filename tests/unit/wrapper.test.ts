@@ -141,9 +141,10 @@ describe('runWrapped (envelope)', () => {
         durationMs: 0,
         aborted: false,
       },
+      redactions: [],
     }
     const session = makeSession({
-      loadedFile: { version: 1, recordings: [recording] },
+      loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
     setActiveCassette(session)
     process.env.SHELL_CASSETTE_MODE = 'replay'
@@ -157,7 +158,7 @@ describe('runWrapped (envelope)', () => {
 
   test('replay path throws ReplayMissError when no match', async () => {
     const session = makeSession({
-      loadedFile: { version: 1, recordings: [] },
+      loadedFile: { version: 1, recordedBy: null, recordings: [] },
     })
     setActiveCassette(session)
     process.env.SHELL_CASSETTE_MODE = 'replay'
@@ -215,10 +216,11 @@ describe('runWrapped (envelope)', () => {
         durationMs: 0,
         aborted: false,
       },
+      redactions: [],
     }
     const session = makeSession({
       scopeDefault: 'auto',
-      loadedFile: { version: 1, recordings: [recording] },
+      loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
     setActiveCassette(session)
     // ack intentionally NOT set

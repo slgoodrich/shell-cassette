@@ -61,14 +61,14 @@ describe('tinyexec error paths', () => {
   })
 
   test('ReplayMissError when cassette empty in replay mode', async () => {
-    setActiveCassette(makeSession({ loadedFile: { version: 1, recordings: [] } }))
+    setActiveCassette(makeSession({ loadedFile: { version: 1, recordedBy: null, recordings: [] } }))
     process.env.SHELL_CASSETTE_MODE = 'replay'
 
     await expect(x('echo', ['unrecorded'])).rejects.toBeInstanceOf(ReplayMissError)
   })
 
   test('ReplayMissError message includes the call signature', async () => {
-    setActiveCassette(makeSession({ loadedFile: { version: 1, recordings: [] } }))
+    setActiveCassette(makeSession({ loadedFile: { version: 1, recordedBy: null, recordings: [] } }))
     process.env.SHELL_CASSETTE_MODE = 'replay'
 
     try {
