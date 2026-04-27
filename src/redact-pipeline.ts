@@ -176,6 +176,11 @@ function applyRegexRule(
 // instances from this string so lastIndex state never leaks between callers.
 const COUNTER_PLACEHOLDER_PATTERN = '<redacted:([^:>]+):([^:>]+):(\\d+)>'
 
+// Hoisted to module level: String.prototype.replace resets lastIndex to 0
+// after completion (per ECMAScript spec), so reusing this regex across calls
+// is safe. Avoids one RegExp allocation per arg per findMatch call.
+const STRIP_COUNTER_REGEX = new RegExp(COUNTER_PLACEHOLDER_PATTERN, 'g')
+
 /**
  * Replace counter-tagged placeholders with their counter-stripped form.
  * Used by the canonicalize pipeline at match time so cassette args containing
@@ -183,7 +188,7 @@ const COUNTER_PLACEHOLDER_PATTERN = '<redacted:([^:>]+):([^:>]+):(\\d+)>'
  * in stripped mode. Stripped placeholders pass through unchanged.
  */
 export function stripCounter(s: string): string {
-  return s.replace(new RegExp(COUNTER_PLACEHOLDER_PATTERN, 'g'), '<redacted:$1:$2>')
+  return s.replace(STRIP_COUNTER_REGEX, '<redacted:$1:$2>')
 }
 
 /**

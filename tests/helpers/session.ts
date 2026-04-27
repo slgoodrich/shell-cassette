@@ -25,7 +25,11 @@ export const makeSession = (overrides: Partial<CassetteSession> = {}): CassetteS
     ...overrides,
   }
   if (base.loadedFile !== null && base.matcher === null) {
-    base.matcher = new MatcherState(base.loadedFile.recordings, base.canonicalize)
+    base.matcher = new MatcherState(
+      base.loadedFile.recordings,
+      base.canonicalize,
+      base.redactConfig,
+    )
   }
   return base
 }
