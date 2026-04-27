@@ -32,7 +32,13 @@ export type CassetteFile = {
   recordings: Recording[]
 }
 
-export type MatcherFn = (call: Call, recording: Recording) => boolean
+// v0.3: replaces MatcherFn. The matcher compares deep-equal canonical forms.
+export type Canonicalize = (call: Call) => Partial<Call>
+
+// v0.3: per-call options for useCassette.
+export type UseCassetteOptions = {
+  canonicalize?: Canonicalize
+}
 
 export type CassetteSession = {
   name: string
@@ -40,6 +46,7 @@ export type CassetteSession = {
   scopeDefault: 'auto' | 'passthrough'
   loadedFile: CassetteFile | null
   matcher: MatcherStateLike | null // built lazily; defined in matcher.ts
+  canonicalize: Canonicalize // v0.3: resolved per-session canonicalize
   newRecordings: Recording[]
   // Accumulated across record() calls in this scope. Emitted as an
   // end-of-run summary by the vitest plugin and useCassette finally.

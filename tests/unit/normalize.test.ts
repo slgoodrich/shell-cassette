@@ -37,9 +37,9 @@ describe('normalizeTmpPath - macOS /private/tmp', () => {
 
 describe('normalizeTmpPath - Windows', () => {
   test('replaces C:\\Users\\<u>\\AppData\\Local\\Temp\\<dir> with <tmp>', () => {
-    expect(
-      normalizeTmpPath('C:\\Users\\steve\\AppData\\Local\\Temp\\foo-AbC\\bar\\baz.txt'),
-    ).toBe('<tmp>\\bar\\baz.txt')
+    expect(normalizeTmpPath('C:\\Users\\steve\\AppData\\Local\\Temp\\foo-AbC\\bar\\baz.txt')).toBe(
+      '<tmp>\\bar\\baz.txt',
+    )
   })
 })
 

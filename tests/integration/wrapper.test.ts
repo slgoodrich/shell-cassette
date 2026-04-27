@@ -4,6 +4,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { execa as wrappedExeca } from '../../src/execa.js'
 import { writeCassetteFile } from '../../src/io.js'
+import { defaultCanonicalize } from '../../src/matcher.js'
 import { serialize } from '../../src/serialize.js'
 import { clearActiveCassette, setActiveCassette } from '../../src/state.js'
 import type { CassetteSession } from '../../src/types.js'
@@ -14,7 +15,10 @@ const sessionAt = (sessionPath: string): CassetteSession => ({
   scopeDefault: 'auto',
   loadedFile: null,
   matcher: null,
+  canonicalize: defaultCanonicalize,
   newRecordings: [],
+  redactedKeys: [],
+  warnings: [],
 })
 
 const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION

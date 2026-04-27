@@ -13,6 +13,7 @@ import {
   UnsupportedOptionError,
 } from '../../src/errors.js'
 import { execa } from '../../src/execa.js'
+import { defaultCanonicalize } from '../../src/matcher.js'
 import { cassettePath } from '../../src/paths.js'
 import { deriveCassettePathFromTask } from '../../src/plugin.js'
 import { deserialize } from '../../src/serialize.js'
@@ -54,7 +55,10 @@ describe('all error classes are instanceof ShellCassetteError', () => {
         scopeDefault: 'auto',
         loadedFile: null,
         matcher: null,
+        canonicalize: defaultCanonicalize,
         newRecordings: [],
+        redactedKeys: [],
+        warnings: [],
       })
       try {
         await execa('node', ['-v'])
@@ -89,7 +93,10 @@ describe('all error classes are instanceof ShellCassetteError', () => {
         scopeDefault: 'auto',
         loadedFile: null,
         matcher: null,
+        canonicalize: defaultCanonicalize,
         newRecordings: [],
+        redactedKeys: [],
+        warnings: [],
       })
       try {
         await execa('node', ['-v'])

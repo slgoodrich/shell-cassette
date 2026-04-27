@@ -58,7 +58,7 @@ export async function runWrapped<Opts, ResultShape>(
   const config = getConfig()
   if (session.loadedFile === null) {
     session.loadedFile = await loadCassette(session.path)
-    session.matcher = new MatcherState(session.loadedFile?.recordings ?? [], config.matcher)
+    session.matcher = new MatcherState(session.loadedFile?.recordings ?? [], session.canonicalize)
   }
 
   const mode = resolveMode(
@@ -143,16 +143,24 @@ function ensureMatcher(matcher: MatcherStateLike | null): MatcherStateLike {
 }
 
 function buildReplayMissError(call: Call, session: CassetteSession): ReplayMissError {
+  const canonical = session.canonicalize(call)
   const recordedCalls = session.loadedFile?.recordings
     .map((r) => formatCallSignature(r.call))
     .join('\n  - ')
+  const recordedCanonical = session.loadedFile?.recordings
+    .map((r) => JSON.stringify(session.canonicalize(r.call)))
+    .join('\n  - ')
   return new ReplayMissError(
     `no matching recording for \`${formatCallSignature(call)}\`
-  cassette: ${session.path}
-  matcher:  default (command + deep-equal args)
+  cassette:        ${session.path}
+  matcher:         canonicalize-then-equal (default normalizes mkdtemp paths in args)
+  call canonical:  ${JSON.stringify(canonical)}
 
 Recorded calls in this cassette:
   - ${recordedCalls ?? '(none)'}
+
+Recorded canonical forms:
+  - ${recordedCanonical ?? '(none)'}
 
 To re-record: delete the cassette file and run tests again.`,
   )

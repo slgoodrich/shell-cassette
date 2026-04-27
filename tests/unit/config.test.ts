@@ -11,21 +11,9 @@ describe('DEFAULT_CONFIG', () => {
     expect(DEFAULT_CONFIG.redactEnvKeys).toEqual([])
   })
 
-  test('default matcher matches command + args', () => {
+  test('default canonicalize returns command + args', () => {
     const call = { command: 'git', args: ['status'], cwd: null, env: {}, stdin: null } as const
-    const rec = {
-      call,
-      result: {
-        stdoutLines: [''],
-        stderrLines: [''],
-        allLines: null,
-        exitCode: 0,
-        signal: null,
-        durationMs: 1,
-        aborted: false,
-      },
-    }
-    expect(DEFAULT_CONFIG.matcher(call, rec)).toBe(true)
+    expect(DEFAULT_CONFIG.canonicalize(call)).toEqual({ command: 'git', args: ['status'] })
   })
 })
 
@@ -76,7 +64,7 @@ describe('validateConfig', () => {
     expect(() => validateConfig({ redactEnvKeys: [1, 2] })).toThrow(CassetteConfigError)
   })
 
-  test('throws if matcher is not function', () => {
-    expect(() => validateConfig({ matcher: 'foo' })).toThrow(CassetteConfigError)
+  test('throws if canonicalize is not function', () => {
+    expect(() => validateConfig({ canonicalize: 'foo' })).toThrow(CassetteConfigError)
   })
 })
