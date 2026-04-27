@@ -45,10 +45,7 @@ export type CassetteFile = {
   recordings: Recording[]
 }
 
-export type Canonicalize = (
-  call: Call,
-  opts?: { redactConfig?: Readonly<RedactConfig> },
-) => Partial<Call>
+export type Canonicalize = (call: Call, redactConfig: Readonly<RedactConfig>) => Partial<Call>
 
 export type RedactSource = 'env' | 'args' | 'stdout' | 'stderr' | 'allLines'
 

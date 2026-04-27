@@ -158,8 +158,7 @@ function ensureMatcher(matcher: MatcherStateLike | null): MatcherStateLike {
 const REPLAY_MISS_DIAGNOSTIC_LIMIT = 10
 
 function buildReplayMissError(call: Call, session: CassetteSession): ReplayMissError {
-  const opts = session.redactConfig ? { redactConfig: session.redactConfig } : undefined
-  const canonical = session.canonicalize(call, opts)
+  const canonical = session.canonicalize(call, session.redactConfig)
   const recordings = session.loadedFile?.recordings ?? []
   const shown = recordings.slice(0, REPLAY_MISS_DIAGNOSTIC_LIMIT)
   const truncated =
@@ -170,8 +169,9 @@ function buildReplayMissError(call: Call, session: CassetteSession): ReplayMissE
     ? shown.map((r) => formatCallSignature(r.call)).join('\n  - ') + truncated
     : '(none)'
   const recordedCanonical = shown.length
-    ? shown.map((r) => JSON.stringify(session.canonicalize(r.call, opts))).join('\n  - ') +
-      truncated
+    ? shown
+        .map((r) => JSON.stringify(session.canonicalize(r.call, session.redactConfig)))
+        .join('\n  - ') + truncated
     : '(none)'
   return new ReplayMissError(
     `no matching recording for \`${formatCallSignature(call)}\`

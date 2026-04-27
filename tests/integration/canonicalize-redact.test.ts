@@ -11,30 +11,30 @@ describe('canonicalize-time redact for args', () => {
     const freshCall = callOf('curl', [
       'Authorization: Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
     ])
-    const cassetteCanon = defaultCanonicalize(cassetteCall, { redactConfig: DEFAULT_CONFIG.redact })
-    const freshCanon = defaultCanonicalize(freshCall, { redactConfig: DEFAULT_CONFIG.redact })
+    const cassetteCanon = defaultCanonicalize(cassetteCall, DEFAULT_CONFIG.redact)
+    const freshCanon = defaultCanonicalize(freshCall, DEFAULT_CONFIG.redact)
     expect(cassetteCanon).toEqual(freshCanon)
   })
 
   test('two different real credentials canonicalize to same form (both redacted to placeholder)', () => {
     const a = callOf('curl', ['Authorization: Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'])
     const b = callOf('curl', ['Authorization: Bearer ghp_ZYXwvuTSRqponMLKjihgfeDCBA0987654321'])
-    const ac = defaultCanonicalize(a, { redactConfig: DEFAULT_CONFIG.redact })
-    const bc = defaultCanonicalize(b, { redactConfig: DEFAULT_CONFIG.redact })
+    const ac = defaultCanonicalize(a, DEFAULT_CONFIG.redact)
+    const bc = defaultCanonicalize(b, DEFAULT_CONFIG.redact)
     expect(ac).toEqual(bc)
   })
 
   test('args with NO credential do not get touched by redact (idempotent on benign args)', () => {
     const call = callOf('echo', ['hello', 'world'])
-    const canon = defaultCanonicalize(call, { redactConfig: DEFAULT_CONFIG.redact })
+    const canon = defaultCanonicalize(call, DEFAULT_CONFIG.redact)
     expect(canon.args).toEqual(['hello', 'world'])
   })
 
-  test('canonicalize without redactConfig: counter-strip still applies (idempotent on stripped form)', () => {
+  test('counter-strip applies regardless of redactConfig (idempotent on stripped form)', () => {
     const cassetteCall = callOf('curl', [
       'Authorization: Bearer <redacted:args:github-pat-classic:5>',
     ])
-    const canon = defaultCanonicalize(cassetteCall)
+    const canon = defaultCanonicalize(cassetteCall, DEFAULT_CONFIG.redact)
     expect(canon.args).toEqual(['Authorization: Bearer <redacted:args:github-pat-classic>'])
   })
 
@@ -90,7 +90,7 @@ describe('canonicalize-time redact for args', () => {
     const call = callOf('curl', [
       '/tmp/test-abc/file.txt --header Authorization: Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
     ])
-    const canon = defaultCanonicalize(call, { redactConfig: DEFAULT_CONFIG.redact })
+    const canon = defaultCanonicalize(call, DEFAULT_CONFIG.redact)
     // Both transforms applied: <tmp> for the path, placeholder for the credential
     expect(canon.args?.[0]).toContain('<tmp>')
     expect(canon.args?.[0]).toContain('<redacted:args:github-pat-classic>')
@@ -120,7 +120,7 @@ describe('canonicalize-time redact for args', () => {
     expect(matcher.findMatch(freshCall)).toBe(null)
 
     // Verify the canonical form that buildReplayMissError would stringify is credential-free.
-    const canonical = defaultCanonicalize(freshCall, { redactConfig: DEFAULT_CONFIG.redact })
+    const canonical = defaultCanonicalize(freshCall, DEFAULT_CONFIG.redact)
     const stringified = JSON.stringify(canonical)
     expect(stringified).not.toContain('ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890')
     expect(stringified).toContain('<redacted:args:github-pat-classic>')

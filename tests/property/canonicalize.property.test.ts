@@ -1,5 +1,6 @@
 import * as fc from 'fast-check'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
+import { DEFAULT_CONFIG } from '../../src/config.js'
 import { defaultCanonicalize, MatcherState } from '../../src/matcher.js'
 import { normalizeTmpPath, TMP_TOKEN } from '../../src/normalize.js'
 import type { Call, Recording, Result } from '../../src/types.js'
@@ -82,7 +83,9 @@ describe('defaultCanonicalize properties', () => {
   test('determinism: same input produces same output', () => {
     fc.assert(
       fc.property(genCall, (call) => {
-        expect(defaultCanonicalize(call)).toEqual(defaultCanonicalize(call))
+        expect(defaultCanonicalize(call, DEFAULT_CONFIG.redact)).toEqual(
+          defaultCanonicalize(call, DEFAULT_CONFIG.redact),
+        )
       }),
       { numRuns: 100 },
     )
@@ -91,7 +94,7 @@ describe('defaultCanonicalize properties', () => {
   test('omits cwd, env, stdin from canonical form', () => {
     fc.assert(
       fc.property(genCall, (call) => {
-        const c = defaultCanonicalize(call)
+        const c = defaultCanonicalize(call, DEFAULT_CONFIG.redact)
         expect(c.cwd).toBeUndefined()
         expect(c.env).toBeUndefined()
         expect(c.stdin).toBeUndefined()
@@ -129,7 +132,7 @@ describe('MatcherState properties', () => {
         fc.string({ maxLength: 30 }).filter((s) => !s.includes('\n')),
         (callA, otherCwd) => {
           const callB: Call = { ...callA, cwd: otherCwd, env: { OTHER: 'value' } }
-          const state = new MatcherState([recOf(callA)], defaultCanonicalize)
+          const state = new MatcherState([recOf(callA)], defaultCanonicalize, DEFAULT_CONFIG.redact)
           const matched = state.findMatch(callB)
           expect(matched).not.toBeNull()
         },
@@ -142,7 +145,7 @@ describe('MatcherState properties', () => {
     fc.assert(
       fc.property(genCall, fc.integer({ min: 1, max: 8 }), (call, n) => {
         const recordings = Array.from({ length: n }, () => recOf(call))
-        const state = new MatcherState(recordings, defaultCanonicalize)
+        const state = new MatcherState(recordings, defaultCanonicalize, DEFAULT_CONFIG.redact)
         for (let i = 0; i < n; i++) {
           expect(state.findMatch(call)).not.toBeNull()
         }

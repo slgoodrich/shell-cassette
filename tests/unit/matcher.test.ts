@@ -1,11 +1,12 @@
 import { describe, expect, test, vi } from 'vitest'
+import { DEFAULT_CONFIG } from '../../src/config.js'
 import { defaultCanonicalize, MatcherState } from '../../src/matcher.js'
-import type { Canonicalize } from '../../src/types.js'
+import type { Call, Canonicalize } from '../../src/types.js'
 import { callOf, recordingOf } from '../helpers/fixtures.js'
 
 describe('defaultCanonicalize', () => {
   test('includes command and args', () => {
-    const canonical = defaultCanonicalize(callOf('git', ['status']))
+    const canonical = defaultCanonicalize(callOf('git', ['status']), DEFAULT_CONFIG.redact)
     expect(canonical.command).toBe('git')
     expect(canonical.args).toEqual(['status'])
   })
@@ -13,6 +14,7 @@ describe('defaultCanonicalize', () => {
   test('omits cwd, env, stdin from canonical form', () => {
     const canonical = defaultCanonicalize(
       callOf('git', ['status'], { cwd: '/some/dir', env: { FOO: 'bar' } }),
+      DEFAULT_CONFIG.redact,
     )
     expect(canonical.cwd).toBeUndefined()
     expect(canonical.env).toBeUndefined()
@@ -22,43 +24,46 @@ describe('defaultCanonicalize', () => {
   test('normalizes mkdtemp paths in args', () => {
     const canonical = defaultCanonicalize(
       callOf('git', ['remote', 'set-url', 'origin', '/tmp/test-abc/remote.git']),
+      DEFAULT_CONFIG.redact,
     )
     expect(canonical.args).toEqual(['remote', 'set-url', 'origin', '<tmp>/remote.git'])
   })
 
   test('is deterministic — same input produces same output', () => {
     const c = callOf('git', ['log'])
-    expect(defaultCanonicalize(c)).toEqual(defaultCanonicalize(c))
+    expect(defaultCanonicalize(c, DEFAULT_CONFIG.redact)).toEqual(
+      defaultCanonicalize(c, DEFAULT_CONFIG.redact),
+    )
   })
 })
 
 describe('MatcherState — basic matching', () => {
   test('returns null when no recordings', () => {
-    const m = new MatcherState([], defaultCanonicalize)
+    const m = new MatcherState([], defaultCanonicalize, DEFAULT_CONFIG.redact)
     expect(m.findMatch(callOf('git', []))).toBeNull()
   })
 
   test('matches on command + args', () => {
     const recs = [recordingOf('git', ['status'], 'output')]
-    const m = new MatcherState(recs, defaultCanonicalize)
+    const m = new MatcherState(recs, defaultCanonicalize, DEFAULT_CONFIG.redact)
     expect(m.findMatch(callOf('git', ['status']))?.result.stdoutLines[0]).toBe('output')
   })
 
   test('does not match on different command', () => {
     const recs = [recordingOf('git', ['status'])]
-    const m = new MatcherState(recs, defaultCanonicalize)
+    const m = new MatcherState(recs, defaultCanonicalize, DEFAULT_CONFIG.redact)
     expect(m.findMatch(callOf('hg', ['status']))).toBeNull()
   })
 
   test('does not match on different args', () => {
     const recs = [recordingOf('git', ['status'])]
-    const m = new MatcherState(recs, defaultCanonicalize)
+    const m = new MatcherState(recs, defaultCanonicalize, DEFAULT_CONFIG.redact)
     expect(m.findMatch(callOf('git', ['log']))).toBeNull()
   })
 
   test('args order matters under default', () => {
     const recs = [recordingOf('git', ['a', 'b'])]
-    const m = new MatcherState(recs, defaultCanonicalize)
+    const m = new MatcherState(recs, defaultCanonicalize, DEFAULT_CONFIG.redact)
     expect(m.findMatch(callOf('git', ['b', 'a']))).toBeNull()
   })
 
@@ -66,7 +71,7 @@ describe('MatcherState — basic matching', () => {
     const recs = [
       recordingOf('git', ['remote', 'set-url', 'origin', '/tmp/test-RECORD/remote.git']),
     ]
-    const m = new MatcherState(recs, defaultCanonicalize)
+    const m = new MatcherState(recs, defaultCanonicalize, DEFAULT_CONFIG.redact)
     const matched = m.findMatch(
       callOf('git', ['remote', 'set-url', 'origin', '/tmp/test-REPLAY/remote.git']),
     )
@@ -77,14 +82,14 @@ describe('MatcherState — basic matching', () => {
 describe('MatcherState — sequential consumption', () => {
   test('first call gets first match, second call gets second match', () => {
     const recs = [recordingOf('git', ['status'], 'first'), recordingOf('git', ['status'], 'second')]
-    const m = new MatcherState(recs, defaultCanonicalize)
+    const m = new MatcherState(recs, defaultCanonicalize, DEFAULT_CONFIG.redact)
     expect(m.findMatch(callOf('git', ['status']))?.result.stdoutLines[0]).toBe('first')
     expect(m.findMatch(callOf('git', ['status']))?.result.stdoutLines[0]).toBe('second')
   })
 
   test('returns null when consumption exhausted', () => {
     const recs = [recordingOf('git', ['status'])]
-    const m = new MatcherState(recs, defaultCanonicalize)
+    const m = new MatcherState(recs, defaultCanonicalize, DEFAULT_CONFIG.redact)
     m.findMatch(callOf('git', ['status']))
     expect(m.findMatch(callOf('git', ['status']))).toBeNull()
   })
@@ -95,7 +100,7 @@ describe('MatcherState — sequential consumption', () => {
       recordingOf('git', ['log'], 'l1'),
       recordingOf('git', ['status'], 's2'),
     ]
-    const m = new MatcherState(recs, defaultCanonicalize)
+    const m = new MatcherState(recs, defaultCanonicalize, DEFAULT_CONFIG.redact)
     expect(m.findMatch(callOf('git', ['status']))?.result.stdoutLines[0]).toBe('s1')
     expect(m.findMatch(callOf('git', ['log']))?.result.stdoutLines[0]).toBe('l1')
     expect(m.findMatch(callOf('git', ['status']))?.result.stdoutLines[0]).toBe('s2')
@@ -107,7 +112,7 @@ describe('MatcherState — ambiguity warning', () => {
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
     try {
       const recs = [recordingOf('git', ['status'], 'a'), recordingOf('git', ['status'], 'b')]
-      const m = new MatcherState(recs, defaultCanonicalize)
+      const m = new MatcherState(recs, defaultCanonicalize, DEFAULT_CONFIG.redact)
       m.findMatch(callOf('git', ['status']))
       const warnCalls = stderrSpy.mock.calls
         .map((c) => c[0] as string)
@@ -123,7 +128,7 @@ describe('MatcherState — custom canonicalize', () => {
   test('uses provided canonicalize fn (e.g., command-only matching)', () => {
     const commandOnly: Canonicalize = (call) => ({ command: call.command })
     const recs = [recordingOf('git', ['status'])]
-    const m = new MatcherState(recs, commandOnly)
+    const m = new MatcherState(recs, commandOnly, DEFAULT_CONFIG.redact)
     expect(m.findMatch(callOf('git', ['anything']))).not.toBeNull()
   })
 
@@ -134,7 +139,7 @@ describe('MatcherState — custom canonicalize', () => {
       return { command: c.command, args: c.args }
     }
     const recs = [recordingOf('git', ['a']), recordingOf('git', ['b'])]
-    new MatcherState(recs, tracking)
+    new MatcherState(recs, tracking, DEFAULT_CONFIG.redact)
     expect(calls).toHaveLength(2)
   })
 })

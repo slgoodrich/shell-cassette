@@ -9,7 +9,10 @@ describe('DEFAULT_CONFIG', () => {
 
   test('default canonicalize returns command + args', () => {
     const call = { command: 'git', args: ['status'], cwd: null, env: {}, stdin: null } as const
-    expect(DEFAULT_CONFIG.canonicalize(call)).toEqual({ command: 'git', args: ['status'] })
+    expect(DEFAULT_CONFIG.canonicalize(call, DEFAULT_CONFIG.redact)).toEqual({
+      command: 'git',
+      args: ['status'],
+    })
   })
 })
 
