@@ -1,25 +1,8 @@
 import { describe, expect, test } from 'vitest'
-import { DEFAULT_CONFIG } from '../../src/config.js'
 import { record } from '../../src/recorder.js'
 import { seedCountersFromCassette } from '../../src/redact-pipeline.js'
-import type { Call, CassetteSession, Result } from '../../src/types.js'
-
-function makeSession(): CassetteSession {
-  return {
-    name: 'test',
-    path: '/tmp/test.json',
-    scopeDefault: 'auto',
-    loadedFile: null,
-    matcher: null,
-    canonicalize: DEFAULT_CONFIG.canonicalize,
-    redactConfig: DEFAULT_CONFIG.redact,
-    redactEnabled: true,
-    redactCounters: new Map(),
-    redactionEntries: [],
-    newRecordings: [],
-    warnings: [],
-  }
-}
+import type { Call, Result } from '../../src/types.js'
+import { makeSession } from '../helpers/session.js'
 
 const benignResult: Result = {
   stdoutLines: [],

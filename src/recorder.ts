@@ -1,14 +1,8 @@
 import { CURATED_ENV_KEYS } from './curated-env-keys.js'
 import { log } from './log.js'
 import { redact } from './redact.js'
-import type {
-  Call,
-  CassetteSession,
-  Recording,
-  RedactionEntry,
-  RedactSource,
-  Result,
-} from './types.js'
+import { aggregateEntries, ENV_KEY_MATCH_RULE, formatPlaceholder } from './redact-pipeline.js'
+import type { Call, CassetteSession, Recording, RedactSource, Result } from './types.js'
 
 export function record(call: Call, result: Result, session: CassetteSession): void {
   if (!session.redactEnabled) {
@@ -39,11 +33,11 @@ function redactCall(call: Call, session: CassetteSession): Call {
   for (const [key, value] of Object.entries(call.env)) {
     if (matchesEnvKeyList(key, session.redactConfig.envKeys)) {
       // Curated key match: whole value is sensitive; use the env-key-match rule.
-      const counterKey = 'env:env-key-match'
+      const counterKey = `env:${ENV_KEY_MATCH_RULE}`
       const next = (session.redactCounters.get(counterKey) ?? 0) + 1
       session.redactCounters.set(counterKey, next)
-      env[key] = `<redacted:env:env-key-match:${next}>`
-      session.redactionEntries.push({ rule: 'env-key-match', source: 'env', count: 1 })
+      env[key] = formatPlaceholder('env', ENV_KEY_MATCH_RULE, next)
+      session.redactionEntries.push({ rule: ENV_KEY_MATCH_RULE, source: 'env', count: 1 })
       log(`redacted env var ${key} → ${session.path}`)
     } else {
       // Value-based: run through the pipeline for pattern-based detection.
@@ -98,20 +92,6 @@ function matchesEnvKeyList(key: string, userKeys: readonly string[]): boolean {
     if (upper.includes(k.toUpperCase())) return true
   }
   return false
-}
-
-function aggregateEntries(entries: readonly RedactionEntry[]): RedactionEntry[] {
-  const map = new Map<string, RedactionEntry>()
-  for (const e of entries) {
-    const mapKey = `${e.source}:${e.rule}`
-    const existing = map.get(mapKey)
-    if (existing) {
-      existing.count += e.count
-    } else {
-      map.set(mapKey, { ...e })
-    }
-  }
-  return [...map.values()]
 }
 
 // Re-export Recording type for callers that previously imported it from here.

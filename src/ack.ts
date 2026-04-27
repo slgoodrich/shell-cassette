@@ -1,11 +1,12 @@
 import { AckRequiredError } from './errors.js'
+import { BUNDLED_PATTERNS } from './redact-patterns.js'
 
 const HELP_TEXT = `shell-cassette is about to RECORD subprocess calls into a cassette file.
 
 What gets redacted (default ON):
   * Curated env-key values (TOKEN, SECRET, PASSWORD, JWT, etc., case-insensitive substring)
   * User-extended env-key list (config.redact.envKeys)
-  * 25 bundled credential patterns (GitHub, AWS access key ID, Stripe, OpenAI, Anthropic,
+  * ${BUNDLED_PATTERNS.length} bundled credential patterns (GitHub, AWS access key ID, Stripe, OpenAI, Anthropic,
     Google API, Slack, GitLab, npm, DigitalOcean, SendGrid, Mailgun, Hugging Face, PyPI,
     Discord, Square) across env values, args, stdout, stderr, allLines
   * User-supplied custom rules (config.redact.customPatterns)
