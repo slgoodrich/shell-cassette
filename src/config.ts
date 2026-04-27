@@ -12,14 +12,11 @@ export type Config = {
    * @deprecated Use Config.redact.envKeys. This field is kept for v0.3
    * backward compatibility through v0.4 and will be removed in v0.5
    * (when v0.4 M6 ships and the recorder/redact.ts rewrite no longer needs it).
-   * mergeWithDefaults populates both this field and Config.redact.envKeys with
-   * the same value so existing callers keep working.
    */
   redactEnvKeys: string[]
   /**
-   * v0.4 composed redaction config. Bundled patterns, custom rules, suppress
-   * list, env-key extension, length warning tuning. See RedactConfig in
-   * src/types.ts for field-level docs.
+   * v0.4 composed redaction config: bundled patterns, custom rules, suppress
+   * list, env-key extension, length warning tuning.
    */
   redact: RedactConfig
 }
@@ -74,11 +71,22 @@ export function mergeWithDefaults(input: PartialConfig | undefined): Readonly<Co
   return Object.freeze({
     canonicalize: input?.canonicalize ?? DEFAULT_CONFIG.canonicalize,
     cassetteDir: input?.cassetteDir ?? DEFAULT_CONFIG.cassetteDir,
-    redactEnvKeys: [...resolvedEnvKeys],
+    // Config.redactEnvKeys is typed string[] for v0.3 API compat but the
+    // underlying array is the frozen readonly array from resolvedRedact.envKeys.
+    // The cast widens the type; runtime mutability is still locked by Object.freeze.
+    redactEnvKeys: resolvedRedact.envKeys as string[],
     redact: Object.freeze(resolvedRedact),
   })
 }
 
+/**
+ * Validates a single user-supplied RedactRule.
+ *
+ * `seenNames` must be a single Set shared across all calls for the same
+ * customPatterns array; the function adds each validated rule's name to it
+ * to detect duplicates within the array. Passing a fresh Set per call
+ * silently disables duplicate detection.
+ */
 function validateRule(rule: unknown, fieldPath: string, seenNames: Set<string>): void {
   if (typeof rule !== 'object' || rule === null) {
     throw new CassetteConfigError(`${fieldPath} must be an object`)

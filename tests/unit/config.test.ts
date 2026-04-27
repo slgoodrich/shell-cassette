@@ -294,6 +294,8 @@ describe('validateConfig: redact field', () => {
 
   test('user can opt out of bundle by setting bundledPatterns: false', () => {
     expect(() => validateConfig({ redact: { bundledPatterns: false } })).not.toThrow()
+    const merged = mergeWithDefaults({ redact: { bundledPatterns: false } })
+    expect(merged.redact.bundledPatterns).toBe(false)
   })
 
   test('accepts custom rule with valid description', () => {
