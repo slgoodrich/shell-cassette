@@ -79,8 +79,11 @@ try {
       loadedFile: null,
       matcher: null,
       canonicalize: config.canonicalize,
+      redactConfig: config.redact,
+      redactEnabled: true,
+      redactCounters: new Map(),
+      redactionEntries: [],
       newRecordings: [],
-      redactedKeys: [],
       warnings: [],
     }
     setActiveCassette(session)

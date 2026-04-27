@@ -16,8 +16,11 @@ export const makeSession = (overrides: Partial<CassetteSession> = {}): CassetteS
     loadedFile: { version: 2, recordedBy: null, recordings: [] },
     matcher: null,
     canonicalize,
+    redactConfig: DEFAULT_CONFIG.redact,
+    redactEnabled: true,
+    redactCounters: new Map(),
+    redactionEntries: [],
     newRecordings: [],
-    redactedKeys: [],
     warnings: [],
     ...overrides,
   }

@@ -11,7 +11,7 @@ import type { CassetteSession } from './types.js'
  */
 export function summarizeSession(session: CassetteSession): void {
   const recCount = session.newRecordings.length
-  const redCount = session.redactedKeys.length
+  const redCount = session.redactionEntries.reduce((sum, e) => sum + e.count, 0)
   const warnCount = session.warnings.length
 
   if (recCount === 0 && redCount === 0 && warnCount === 0) {
@@ -24,10 +24,10 @@ export function summarizeSession(session: CassetteSession): void {
       `${warnCount} warning${warnCount === 1 ? '' : 's'}): ${session.path}`,
   )
 
-  for (const key of session.redactedKeys) {
-    log(`  redacted: ${key}`)
+  for (const entry of session.redactionEntries) {
+    log(`  redacted: ${entry.source}:${entry.rule} (${entry.count})`)
   }
   for (const warning of session.warnings) {
-    log(`  ⚠️  ${warning}`)
+    log(`  warning: ${warning}`)
   }
 }
