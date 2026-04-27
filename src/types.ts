@@ -46,7 +46,7 @@ export type RedactRule = {
   /**
    * Either a global regex (most rules) or a transform function (for advanced
    * cases where the user wants full control over the replacement). Regex rules
-   * use `String.prototype.matchAll` semantics — the regex MUST have the `g` flag.
+   * use `String.prototype.matchAll` semantics; the regex MUST have the `g` flag.
    */
   pattern: RegExp | ((s: string) => string)
   /**
@@ -58,7 +58,8 @@ export type RedactRule = {
 
 /**
  * One entry per (source, rule) combination that fired during a redaction pass.
- * Stored on `Recording._redactions` in the cassette and on
+ * Persisted as the `_redactions` JSON field on each cassette recording (wire
+ * format) and mapped to `Recording.redactions` in memory. Accumulated on
  * `CassetteSession.redactionEntries` during a recording session.
  */
 export type RedactionEntry = {
@@ -113,7 +114,7 @@ export type UseCassetteOptions = {
    * Set false for cassettes that legitimately need raw stdout/args (e.g.,
    * tests asserting on CLI output that happens to contain credential-shaped
    * strings as test fixtures, NOT real credentials). The boolean is
-   * intentionally coarse-grained — per-stream toggles (env: false, stdout: true)
+   * intentionally coarse-grained. Per-stream toggles (env: false, stdout: true)
    * are explicitly out of scope for v0.4.
    */
   redact?: boolean
