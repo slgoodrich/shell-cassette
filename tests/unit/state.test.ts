@@ -9,15 +9,10 @@ import {
   withCassette,
 } from '../../src/state.js'
 import type { CassetteSession } from '../../src/types.js'
+import { makeSession } from '../helpers/session.js'
 
-const sessionAt = (path: string): CassetteSession => ({
-  name: `s-${path}`,
-  path,
-  scopeDefault: 'auto',
-  loadedFile: null,
-  matcher: null,
-  newRecordings: [],
-})
+const sessionAt = (path: string): CassetteSession =>
+  makeSession({ name: `s-${path}`, path, loadedFile: null, matcher: null })
 
 afterEach(() => {
   clearActiveCassette()

@@ -24,7 +24,6 @@ export async function useCassette<T>(
   maybeFn?: () => Promise<T>,
 ): Promise<T> {
   const options: UseCassetteOptions = typeof fnOrOptions === 'function' ? {} : fnOrOptions
-  // maybeFn is always defined when fnOrOptions is not a function (enforced by overloads)
   const fn: () => Promise<T> =
     typeof fnOrOptions === 'function' ? fnOrOptions : (maybeFn as () => Promise<T>)
   const canonicalize: Canonicalize = options.canonicalize ?? defaultCanonicalize

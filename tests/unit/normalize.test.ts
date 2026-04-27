@@ -1,51 +1,53 @@
 import { describe, expect, test } from 'vitest'
-import { basenameCommand, normalizeTmpPath } from '../../src/normalize.js'
+import { basenameCommand, normalizeTmpPath, TMP_TOKEN } from '../../src/normalize.js'
 
 describe('normalizeTmpPath - Linux /tmp', () => {
   test('replaces /tmp/<dir> with <tmp>', () => {
-    expect(normalizeTmpPath('/tmp/test-abc/foo.git')).toBe('<tmp>/foo.git')
+    expect(normalizeTmpPath('/tmp/test-abc/foo.git')).toBe(`${TMP_TOKEN}/foo.git`)
   })
 
   test('replaces multiple occurrences', () => {
-    expect(normalizeTmpPath('/tmp/a/x.txt /tmp/b/y.txt')).toBe('<tmp>/x.txt <tmp>/y.txt')
+    expect(normalizeTmpPath('/tmp/a/x.txt /tmp/b/y.txt')).toBe(
+      `${TMP_TOKEN}/x.txt ${TMP_TOKEN}/y.txt`,
+    )
   })
 
   test('preserves path beyond first component', () => {
-    expect(normalizeTmpPath('/tmp/abc/sub/file.json')).toBe('<tmp>/sub/file.json')
+    expect(normalizeTmpPath('/tmp/abc/sub/file.json')).toBe(`${TMP_TOKEN}/sub/file.json`)
   })
 })
 
 describe('normalizeTmpPath - Linux /var/tmp', () => {
   test('replaces /var/tmp/<dir> with <tmp>', () => {
-    expect(normalizeTmpPath('/var/tmp/x/y')).toBe('<tmp>/y')
+    expect(normalizeTmpPath('/var/tmp/x/y')).toBe(`${TMP_TOKEN}/y`)
   })
 })
 
 describe('normalizeTmpPath - macOS /var/folders', () => {
   test('replaces /var/folders/<a>/<b>/T/<dir> with <tmp>', () => {
     expect(normalizeTmpPath('/var/folders/qw/abc123/T/release-test-AbCdEf/remote.git')).toBe(
-      '<tmp>/remote.git',
+      `${TMP_TOKEN}/remote.git`,
     )
   })
 })
 
 describe('normalizeTmpPath - macOS /private/tmp', () => {
   test('replaces /private/tmp/<dir> with <tmp>', () => {
-    expect(normalizeTmpPath('/private/tmp/test/x.txt')).toBe('<tmp>/x.txt')
+    expect(normalizeTmpPath('/private/tmp/test/x.txt')).toBe(`${TMP_TOKEN}/x.txt`)
   })
 })
 
 describe('normalizeTmpPath - Windows', () => {
   test('replaces C:\\Users\\<u>\\AppData\\Local\\Temp\\<dir> with <tmp>', () => {
     expect(normalizeTmpPath('C:\\Users\\steve\\AppData\\Local\\Temp\\foo-AbC\\bar\\baz.txt')).toBe(
-      '<tmp>\\bar\\baz.txt',
+      `${TMP_TOKEN}\\bar\\baz.txt`,
     )
   })
 })
 
 describe('normalizeTmpPath - embedded substring', () => {
   test('replaces tmp prefix appearing inside an arg', () => {
-    expect(normalizeTmpPath('--config=/tmp/abc/x.json')).toBe('--config=<tmp>/x.json')
+    expect(normalizeTmpPath('--config=/tmp/abc/x.json')).toBe(`--config=${TMP_TOKEN}/x.json`)
   })
 })
 

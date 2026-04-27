@@ -2,10 +2,11 @@ import { log } from './log.js'
 import { normalizeTmpPath } from './normalize.js'
 import type { Call, Canonicalize, MatcherStateLike, Recording } from './types.js'
 
+// cwd/env/stdin are omitted: their values vary per-machine and would break
+// cross-machine replay. Users who need them must opt in via custom canonicalize.
 export const defaultCanonicalize: Canonicalize = (call) => ({
   command: call.command,
   args: call.args.map(normalizeTmpPath),
-  // cwd, env, stdin: omitted from default canonical form
 })
 
 export class MatcherState implements MatcherStateLike {

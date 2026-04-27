@@ -13,12 +13,12 @@ import {
   UnsupportedOptionError,
 } from '../../src/errors.js'
 import { execa } from '../../src/execa.js'
-import { defaultCanonicalize } from '../../src/matcher.js'
 import { cassettePath } from '../../src/paths.js'
 import { deriveCassettePathFromTask } from '../../src/plugin.js'
 import { deserialize } from '../../src/serialize.js'
 import { clearActiveCassette, setActiveCassette } from '../../src/state.js'
 import { useCassette } from '../../src/use-cassette.js'
+import { makeSession } from '../helpers/session.js'
 
 const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
 const originalMode = process.env.SHELL_CASSETTE_MODE
@@ -49,17 +49,9 @@ describe('all error classes are instanceof ShellCassetteError', () => {
     delete process.env.SHELL_CASSETTE_ACK_REDACTION
     const tmp = await mkdtemp(path.join(tmpdir(), 'sc-test-'))
     try {
-      setActiveCassette({
-        name: 'x',
-        path: path.join(tmp, 'a.json'),
-        scopeDefault: 'auto',
-        loadedFile: null,
-        matcher: null,
-        canonicalize: defaultCanonicalize,
-        newRecordings: [],
-        redactedKeys: [],
-        warnings: [],
-      })
+      setActiveCassette(
+        makeSession({ name: 'x', path: path.join(tmp, 'a.json'), loadedFile: null, matcher: null }),
+      )
       try {
         await execa('node', ['-v'])
         throw new Error('should not reach')
@@ -87,17 +79,14 @@ describe('all error classes are instanceof ShellCassetteError', () => {
     process.env.SHELL_CASSETTE_MODE = 'replay'
     const tmp = await mkdtemp(path.join(tmpdir(), 'sc-test-'))
     try {
-      setActiveCassette({
-        name: 'x',
-        path: path.join(tmp, 'missing.json'),
-        scopeDefault: 'auto',
-        loadedFile: null,
-        matcher: null,
-        canonicalize: defaultCanonicalize,
-        newRecordings: [],
-        redactedKeys: [],
-        warnings: [],
-      })
+      setActiveCassette(
+        makeSession({
+          name: 'x',
+          path: path.join(tmp, 'missing.json'),
+          loadedFile: null,
+          matcher: null,
+        }),
+      )
       try {
         await execa('node', ['-v'])
         throw new Error('should not reach')
