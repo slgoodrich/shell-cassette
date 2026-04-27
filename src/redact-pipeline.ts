@@ -24,6 +24,8 @@ const G_FLAGGED_BUNDLE: { name: string; pattern: RegExp }[] = BUNDLED_PATTERNS.f
   pattern: new RegExp((r.pattern as RegExp).source, `${(r.pattern as RegExp).flags}g`),
 }))
 
+const PATH_OR_WHITESPACE_REGEX = /[/\\: ]/
+
 export function runPipeline(
   input: RedactInput,
   config: Readonly<RedactConfig>,
@@ -61,6 +63,18 @@ export function runPipeline(
         : new RegExp(rule.pattern.source, `${rule.pattern.flags}g`)
       output = applyRegexRule(output, rule.name, gPattern, input.source, options, entries)
     }
+  }
+
+  if (
+    output === value &&
+    output.length > config.warnLengthThreshold &&
+    !(config.warnPathHeuristic && PATH_OR_WHITESPACE_REGEX.test(output))
+  ) {
+    warnings.push(
+      `${input.source} value (${output.length} chars) exceeds threshold ${config.warnLengthThreshold} ` +
+        `and contains no path/whitespace characters; may be a credential not in any rule. ` +
+        `Review or add a pattern to config.redact.customPatterns.`,
+    )
   }
 
   return { output, entries, warnings }
