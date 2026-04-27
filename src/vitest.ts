@@ -90,7 +90,8 @@ try {
     if (session && session.newRecordings.length > 0) {
       const existingRecordings = session.loadedFile?.recordings ?? []
       const merged = {
-        version: 1 as const,
+        version: 2 as const,
+        recordedBy: null,
         recordings: [...existingRecordings, ...session.newRecordings],
       }
       await writeCassetteFile(session.path, serialize(merged))

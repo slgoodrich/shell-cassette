@@ -25,10 +25,23 @@ export type Result = {
 export type Recording = {
   call: Call
   result: Result
+  /**
+   * Per-recording redaction summary. v2 schema. v1 cassettes load with `[]`.
+   * Aggregated by (rule, source) at record time. Used by CLI tooling
+   * (scan, show, re-redact) for header summaries and counter ceiling
+   * computation without walking the body.
+   */
+  redactions: RedactionEntry[]
 }
 
 export type CassetteFile = {
-  version: 1
+  version: 1 | 2
+  /**
+   * Top-level metadata: which shell-cassette version recorded this cassette.
+   * v0.4+ writes `{ name, version }`; loaded as `null` for v1 cassettes that
+   * predate the field.
+   */
+  recordedBy: { name: string; version: string } | null
   recordings: Recording[]
 }
 

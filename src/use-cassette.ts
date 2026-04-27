@@ -61,7 +61,8 @@ async function persistSession(session: CassetteSession): Promise<void> {
 
   const existingRecordings = session.loadedFile?.recordings ?? []
   const merged: CassetteFile = {
-    version: 1,
+    version: 2,
+    recordedBy: null,
     recordings: [...existingRecordings, ...session.newRecordings],
   }
   const json = serialize(merged)
