@@ -1,3 +1,5 @@
+import path from 'node:path'
+
 // Per-OS regex table for absolute mkdtemp prefixes.
 // Each pattern matches a tmp prefix followed by exactly one path component.
 // `g` flag so substring-anywhere replacement works (e.g., `--config=/tmp/abc/x.json`).
@@ -24,4 +26,12 @@ export function normalizeTmpPath(s: string): string {
     out = out.replace(re, TMP_TOKEN)
   }
   return out
+}
+
+export function basenameCommand(cmd: string): string {
+  const base = path.basename(cmd)
+  if (process.platform === 'win32' && base.toLowerCase().endsWith('.exe')) {
+    return base.slice(0, -4)
+  }
+  return base
 }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { normalizeTmpPath } from '../../src/normalize.js'
+import { basenameCommand, normalizeTmpPath } from '../../src/normalize.js'
 
 describe('normalizeTmpPath - Linux /tmp', () => {
   test('replaces /tmp/<dir> with <tmp>', () => {
@@ -89,5 +89,37 @@ describe('normalizeTmpPath - idempotence', () => {
       const twice = normalizeTmpPath(once)
       expect(twice).toBe(once)
     }
+  })
+})
+
+describe('basenameCommand', () => {
+  test('absolute path returns basename', () => {
+    expect(basenameCommand('/usr/bin/git')).toBe('git')
+  })
+
+  test('bare command returns itself', () => {
+    expect(basenameCommand('git')).toBe('git')
+  })
+
+  test('Windows-style path returns basename', () => {
+    expect(basenameCommand('C:\\Program Files\\Git\\bin\\git.exe')).toMatch(/^git(\.exe)?$/)
+  })
+})
+
+describe('basenameCommand - Windows .exe strip', () => {
+  // These behavior tests assume process.platform === 'win32'.
+  // Skipped on non-Windows runners but documented for cross-platform clarity.
+  const isWindows = process.platform === 'win32'
+
+  test.skipIf(!isWindows)('strips lowercase .exe on Windows', () => {
+    expect(basenameCommand('git.exe')).toBe('git')
+  })
+
+  test.skipIf(!isWindows)('strips uppercase .EXE on Windows (case-insensitive)', () => {
+    expect(basenameCommand('node.EXE')).toBe('node')
+  })
+
+  test.skipIf(isWindows)('does NOT strip .exe on non-Windows', () => {
+    expect(basenameCommand('foo.exe')).toBe('foo.exe')
   })
 })
