@@ -9,17 +9,33 @@
 
 ## Why
 
-Tests that shell out are flaky in subtle ways. `git log` returns different output every commit. CI runs `npm publish --dry-run` against a registry that occasionally times out. `gh` and `aws` calls don't work on a plane. The CLI you're wrapping isn't installed on the CI image.
+Tests that shell out are flaky in subtle ways. `git log` returns different output every commit. CI hits a registry that occasionally times out. `gh` and `aws` calls don't work on a plane. The CLI you're wrapping isn't installed on the CI image.
 
-shell-cassette records subprocess calls once and replays them deterministically. The output is whatever the real subprocess produced when you recorded - frozen, committed to your repo, replayed on every test run thereafter.
+You're choosing between two bad options:
+
+- **Run real subprocesses every test.** Slow, flaky, depends on your machine, doesn't work offline.
+- **Hand-roll mocks.** Fast and deterministic, but you're guessing what the real subprocess returns. Mocks drift; the test passes when reality wouldn't.
+
+shell-cassette is the third option: **real subprocess output captured once, replayed deterministically forever.** Real like a subprocess, fast like a mock.
 
 What this unlocks:
 
-- **Reproducible CI failures.** A test fails in CI; replay the exact recorded subprocess outputs locally. Debug the real failure, not "what would have happened with my git version on my OS."
+- **Reproducible CI failures.** A test fails in CI; replay the exact recorded subprocess output locally. Debug the real failure, not "what would have happened with my git version on my OS."
 - **Determinism.** Tests stop depending on system state, network, or upstream services.
 - **Offline development.** Tests work on a plane, in a coffee shop, when GitHub is down.
-- **Failure-path testing.** Hand-edit a cassette to set `exitCode: 137` and watch your error handling run, every time.
-- **Speed, as a side effect.** [88x faster on cac](https://github.com/slgoodrich/shell-cassette#real-world-results), 373x on heavier suites, by replacing real subprocess spawns with cassette reads.
+- **Failure-path testing.** Hand-edit `exitCode: 137` in the cassette and watch your error handler run, every time.
+- **Speed, as a side effect.** Cassette reads are milliseconds; real subprocesses are seconds. The multiplier scales with how heavy your subprocess work is. See [Real-world results](#real-world-results) for measurements on specific projects.
+
+### Is this for you?
+
+shell-cassette fits tests that **assert on subprocess output** (stdout, stderr, exit code, signal).
+
+It is NOT for:
+
+- Tests asserting on **which command was called** (`expect(execMock).toHaveBeenCalledWith(...)`). That's mock-for-assertion. Use `vi.mock` instead; different problem.
+- Tests where the subprocess **mutates state** (creates a commit, installs packages, writes files) that non-mocked downstream code then reads. Replay returns recorded output but doesn't perform the mutation; downstream sees an unset-up state.
+
+See [What this doesn't do](#what-this-doesnt-do-yet) for the full incompatibility list.
 
 ## Install
 
@@ -268,6 +284,8 @@ There's no pattern-based detection for tokens / API keys in stdout, stderr, or a
 
 **Tooling.** No CLI for inspecting / pruning / reviewing cassettes (`shell-cassette show`, `shell-cassette prune`, etc.). The cassette JSON is human-readable; for now you read and edit by hand.
 
+**Mock-for-assertion patterns.** shell-cassette captures and replays subprocess **output**, not subprocess invocations. Tests that assert on **which command was called** (`expect(execMock).toHaveBeenCalledWith('git', ['commit', ...])`) are testing the wrong abstraction layer for shell-cassette. Use `vi.mock` for that pattern; it's a different concern. Examples in the wild: `prettier/pretty-quick`, `antfu/ni`, `jinghaihan/pncat`.
+
 **Subprocess as state mutator.** shell-cassette mocks subprocess **outputs** on replay; it does NOT actually re-execute the subprocess. Tests that use a subprocess to mutate state (`git commit` to make a real commit, `mkdir`/`touch` to create files, `npm install` to populate node_modules), then have downstream code that depends on that mutation, will fail in replay mode: setup is mocked, no real mutation happens, downstream sees an unset-up state. Two patterns to watch for:
 
 - Setup uses wrapped `exec` for state changes; a non-wrapped library (or a `vi.mock` chain that calls real `actual.x`) reads the resulting state. The wrapped calls return mocked output but the state never changed. The unwrapped reads see the true (unmutated) state.
@@ -277,12 +295,15 @@ shell-cassette is for **output-assertion** tests: spawn a subprocess, capture st
 
 ## Real-world results
 
+Three projects measured so far. Numbers are point measurements on a single machine (Windows, Node 23), not benchmarks. They illustrate that the speedup multiplier scales with subprocess weight; treat them as "what to expect" rather than "what shell-cassette guarantees." A broader validation pass against more diverse projects is planned for v1.0 launch.
+
 | Project | Test execution speedup | Wall speedup | Notes |
 |---|---:|---:|---|
-| [cacjs/cac](https://github.com/cacjs/cac) | ~88x | ~4x | 17 tests, drop-in integration |
-| [import-js/eslint-import-resolver-typescript](https://github.com/import-js/eslint-import-resolver-typescript) | ~373x | ~55x | 15 tests, heavy `yarn eslint` per fixture |
+| [cacjs/cac](https://github.com/cacjs/cac) | ~90x | ~4x | 17 tests, light subprocess (`node example.ts`) |
+| [antfu/taze](https://github.com/antfu/taze) | ~200x | ~5x | 2 tests, medium subprocess (CLI with network fetch) |
+| [import-js/eslint-import-resolver-typescript](https://github.com/import-js/eslint-import-resolver-typescript) | ~1700x | ~55x | 13 tests, heavy subprocess (`yarn eslint` per fixture) |
 
-Wall-time speedup is bounded by vitest startup (~300-400ms regardless of mode). Test execution speedup scales with subprocess work per test.
+Wall-time speedup is bounded by vitest startup (~300-400ms regardless of mode). Test execution speedup scales with subprocess work per test - the heavier the subprocess, the bigger the multiplier.
 
 ## License
 
