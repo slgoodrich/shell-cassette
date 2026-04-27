@@ -1,51 +1,36 @@
-const LONG_VALUE_THRESHOLD = 100
+import { BUNDLED_PATTERNS as _BUNDLED } from './redact-patterns.js'
+import { type RedactOptions, type RedactOutput, runPipeline } from './redact-pipeline.js'
+import type { RedactConfig, RedactionEntry, RedactRule, RedactSource } from './types.js'
 
-export const CURATED_KEYS = [
-  'TOKEN',
-  'SECRET',
-  'PASSWORD',
-  'PASSWD',
-  'APIKEY',
-  'API_KEY',
-  'CREDENTIAL',
-  'PRIVATE_KEY',
-  'AUTH_TOKEN',
-  'BEARER_TOKEN',
-  'JWT',
-] as const
+export const BUNDLED_PATTERNS: readonly RedactRule[] = _BUNDLED
 
-export type RedactConfig = {
-  redactEnvKeys: string[]
+export type RedactInput = {
+  source: RedactSource
+  value: string
 }
 
-export type RedactResult = {
-  redacted: Record<string, string>
-  redactedKeys: string[]
-  warnings: string[]
+export type { RedactOptions, RedactOutput }
+
+/**
+ * Apply the redact pipeline to a single value.
+ *
+ * The recorder calls this at record time with `counted: true` to produce
+ * counter-tagged placeholders persisted to the cassette. The canonicalize
+ * pipeline calls this at match time with `counted: false` so deep-equal
+ * works across cassette args containing redacted credentials.
+ *
+ * Custom rules in `config.customPatterns` may use either a global regex
+ * (matched via String.prototype.replace) or a transform function (called
+ * once with the input value, returning the replacement). Suppress patterns
+ * checked first; bundled patterns next; custom patterns last; length warning
+ * fires only when no rule fired.
+ */
+export function redact(
+  input: RedactInput,
+  config: Readonly<RedactConfig>,
+  options: RedactOptions,
+): RedactOutput {
+  return runPipeline(input, config, options)
 }
 
-export function redactEnv(env: Record<string, string>, config: RedactConfig): RedactResult {
-  const allKeys = [...CURATED_KEYS, ...config.redactEnvKeys]
-  const redacted: Record<string, string> = {}
-  const redactedKeys: string[] = []
-  const warnings: string[] = []
-
-  for (const [key, value] of Object.entries(env)) {
-    const upper = key.toUpperCase()
-    const isSensitive = allKeys.some((k) => upper.includes(k.toUpperCase()))
-
-    if (isSensitive) {
-      redacted[key] = '<redacted>'
-      redactedKeys.push(key)
-    } else {
-      redacted[key] = value
-      if (value.length > LONG_VALUE_THRESHOLD) {
-        warnings.push(
-          `${key}: long value (${value.length} chars), not in curated/configured list - may contain a credential. shell-cassette matches by key name only, not value pattern. Review cassette, or add ${key} to config.redactEnvKeys.`,
-        )
-      }
-    }
-  }
-
-  return { redacted, redactedKeys, warnings }
-}
+export type { RedactConfig, RedactionEntry, RedactRule, RedactSource }
