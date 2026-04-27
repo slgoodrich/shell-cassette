@@ -22,5 +22,6 @@ export function record(
   session.newRecordings.push({
     call: { ...call, env: redacted },
     result,
+    redactions: [],
   })
 }

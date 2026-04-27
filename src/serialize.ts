@@ -1,13 +1,25 @@
 import { BinaryOutputError, CassetteCorruptError } from './errors.js'
-import type { CassetteFile, Recording } from './types.js'
+import type { CassetteFile, Recording, RedactionEntry } from './types.js'
 
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 
 const REVIEW_WARNING =
-  'REVIEW BEFORE COMMITTING. shell-cassette redacts curated env-key values; ' +
-  'it does NOT redact stdout, stderr, args, or env vars with non-curated names. ' +
-  'See https://github.com/slgoodrich/shell-cassette/blob/main/docs/troubleshooting.md#what-shell-cassette-does-not-redact'
+  'REVIEW BEFORE COMMITTING. shell-cassette redacts bundled credential patterns + ' +
+  'curated env-key values + your custom rules. It does NOT redact: AWS Secret Access Keys, ' +
+  'JWTs (without opt-in), encoded credentials, binary output, cwd, stdin (until v0.5 ships ' +
+  'option parity). Run `shell-cassette scan <path>` to verify before committing. ' +
+  'See https://github.com/slgoodrich/shell-cassette/blob/main/docs/troubleshooting.md'
 
+/**
+ * Serialize a CassetteFile to JSON. Always emits SCHEMA_VERSION (currently 2)
+ * regardless of `file.version` — serialize is upgrade-on-write. A v1 cassette
+ * passed in is materialized as v2 on disk; deserialize handles the inverse
+ * by accepting v1 input and normalizing missing fields.
+ *
+ * `file.recordedBy` is the single source of truth for the cassette's recorder
+ * identity. Production callers populate it with { name, version } from
+ * package.json; tools constructing cassettes manually may set it to null.
+ */
 export function serialize(file: CassetteFile): string {
   validateBeforeSerialize(file)
   // Build object in canonical key order for stable diffs.
@@ -16,8 +28,9 @@ export function serialize(file: CassetteFile): string {
   // even if they never saw the stderr log when it was recorded.
   // Underscore prefix marks it as metadata (deserialize ignores unknown fields).
   const ordered = {
-    version: file.version,
+    version: SCHEMA_VERSION,
     _warning: REVIEW_WARNING,
+    _recorded_by: file.recordedBy,
     recordings: file.recordings.map(orderRecording),
   }
   return `${JSON.stringify(ordered, null, 2)}\n`
@@ -41,6 +54,7 @@ function orderRecording(rec: Recording) {
       durationMs: rec.result.durationMs,
       aborted: rec.result.aborted,
     },
+    _redactions: rec.redactions,
   }
 }
 
@@ -88,39 +102,55 @@ export function deserialize(text: string): CassetteFile {
   if (!('version' in obj)) {
     throw new CassetteCorruptError('cassette missing `version` field')
   }
-  if (obj.version !== SCHEMA_VERSION) {
+  const version = obj.version
+  if (version !== 1 && version !== 2) {
     throw new CassetteCorruptError(
-      `cassette version ${obj.version} unknown; expected ${SCHEMA_VERSION}. Delete and re-record.`,
+      `cassette version ${version} unknown; expected 1 or 2. ` +
+        `If recorded with a newer shell-cassette, upgrade. Otherwise delete and re-record.`,
     )
   }
   if (!Array.isArray(obj.recordings)) {
     throw new CassetteCorruptError('cassette `recordings` must be an array')
   }
 
-  const recordings = (obj.recordings as LegacyRecording[]).map(normalizeLegacyRecording)
+  const recordings = (obj.recordings as LegacyRecording[]).map(normalizeRecording)
+  const recordedByObj =
+    version === 2 && obj._recorded_by && typeof obj._recorded_by === 'object'
+      ? (obj._recorded_by as Record<string, unknown>)
+      : null
+  const recordedBy =
+    recordedByObj &&
+    typeof recordedByObj.name === 'string' &&
+    typeof recordedByObj.version === 'string'
+      ? { name: recordedByObj.name, version: recordedByObj.version }
+      : null
+
   return {
-    version: SCHEMA_VERSION,
+    version: version as 1 | 2,
+    recordedBy,
     recordings,
   }
 }
 
-// On disk, `allLines` and `aborted` may be absent (cassettes recorded before
-// either field existed). Both default during normalization: allLines → null,
-// aborted → false. New optional fields go here, not as a schema bump.
-type LegacyRecording = Omit<Recording, 'result'> & {
+// On disk, `allLines`, `aborted`, and `_redactions` may be absent (cassettes
+// recorded before those fields existed). All default during normalization.
+type LegacyRecording = {
+  call: Recording['call']
   result: Omit<Recording['result'], 'allLines' | 'aborted'> & {
     allLines?: string[] | null
     aborted?: boolean
   }
+  _redactions?: RedactionEntry[]
 }
 
-function normalizeLegacyRecording(rec: LegacyRecording): Recording {
+function normalizeRecording(rec: LegacyRecording): Recording {
   return {
-    ...rec,
+    call: rec.call,
     result: {
       ...rec.result,
       allLines: rec.result.allLines ?? null,
       aborted: rec.result.aborted ?? false,
     },
+    redactions: rec._redactions ?? [],
   }
 }

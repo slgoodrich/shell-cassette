@@ -53,13 +53,44 @@ const genResult: fc.Arbitrary<Result> = fc.record({
   aborted: fc.boolean(),
 })
 
+const genRedactionEntry = fc.record({
+  rule: fc.string({ minLength: 1, maxLength: 20 }).filter((s) => s.trim().length > 0),
+  source: fc.constantFrom(
+    'env' as const,
+    'args' as const,
+    'stdout' as const,
+    'stderr' as const,
+    'allLines' as const,
+  ),
+  count: fc.integer({ min: 1, max: 10 }),
+})
+
 const genRecording: fc.Arbitrary<Recording> = fc.record({
   call: genCall,
   result: genResult,
+  redactions: fc.array(genRedactionEntry, { maxLength: 3 }),
 })
 
+// fc.tuple(int, int, int).map(([M, m, p]) => `${M}.${m}.${p}`) generates
+// semver strings directly. Earlier versions used fc.string().filter() which
+// rejected ~99% of generations and caused test runs to hit the 60s timeout.
+const genSemver = fc
+  .tuple(
+    fc.integer({ min: 0, max: 9 }),
+    fc.integer({ min: 0, max: 9 }),
+    fc.integer({ min: 0, max: 9 }),
+  )
+  .map(([major, minor, patch]) => `${major}.${minor}.${patch}`)
+
 const genCassetteFile: fc.Arbitrary<CassetteFile> = fc.record({
-  version: fc.constant(1 as const),
+  version: fc.constant(2 as const),
+  recordedBy: fc.option(
+    fc.record({
+      name: fc.constant('shell-cassette'),
+      version: genSemver,
+    }),
+    { nil: null },
+  ),
   recordings: fc.array(genRecording, { maxLength: 5 }),
 })
 

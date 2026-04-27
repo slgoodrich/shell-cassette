@@ -22,6 +22,7 @@ const recordingOf = (command: string, args: string[], stdout = ''): Recording =>
     durationMs: 1,
     aborted: false,
   },
+  redactions: [],
 })
 
 describe('defaultCanonicalize', () => {

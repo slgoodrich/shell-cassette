@@ -9,6 +9,7 @@ import {
 } from './state.js'
 import { summarizeSession } from './summary.js'
 import type { Canonicalize, CassetteFile, CassetteSession, UseCassetteOptions } from './types.js'
+import { RECORDED_BY } from './version.js'
 
 // Public overloads
 export function useCassette<T>(cassettePath: string, fn: () => Promise<T>): Promise<T>
@@ -61,7 +62,8 @@ async function persistSession(session: CassetteSession): Promise<void> {
 
   const existingRecordings = session.loadedFile?.recordings ?? []
   const merged: CassetteFile = {
-    version: 1,
+    version: 2,
+    recordedBy: RECORDED_BY,
     recordings: [...existingRecordings, ...session.newRecordings],
   }
   const json = serialize(merged)

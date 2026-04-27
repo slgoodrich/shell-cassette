@@ -97,7 +97,7 @@ describe('wrapped execa', () => {
 
       await writeCassetteFile(
         cassettePath,
-        serialize({ version: 1, recordings: recordSession.newRecordings }),
+        serialize({ version: 2, recordedBy: null, recordings: recordSession.newRecordings }),
       )
 
       // Replay

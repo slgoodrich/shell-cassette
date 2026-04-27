@@ -25,6 +25,7 @@ import {
 } from './state.js'
 import { summarizeSession } from './summary.js'
 import type { CassetteSession } from './types.js'
+import { RECORDED_BY } from './version.js'
 import { wrapRegistrationError } from './vitest-error.js'
 
 // Resolve vitest via dynamic import so we can wrap "Cannot find module" with
@@ -90,7 +91,8 @@ try {
     if (session && session.newRecordings.length > 0) {
       const existingRecordings = session.loadedFile?.recordings ?? []
       const merged = {
-        version: 1 as const,
+        version: 2 as const,
+        recordedBy: RECORDED_BY,
         recordings: [...existingRecordings, ...session.newRecordings],
       }
       await writeCassetteFile(session.path, serialize(merged))

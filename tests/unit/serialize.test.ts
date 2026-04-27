@@ -37,7 +37,8 @@ describe('deserialize', () => {
 describe('serialize', () => {
   test('round-trip for single recording', () => {
     const file: CassetteFile = {
-      version: 1,
+      version: 2,
+      recordedBy: null,
       recordings: [
         {
           call: {
@@ -56,6 +57,7 @@ describe('serialize', () => {
             durationMs: 5,
             aborted: false,
           },
+          redactions: [],
         },
       ],
     }
@@ -66,16 +68,18 @@ describe('serialize', () => {
 
   test('output uses 2-space indent and canonical key order', () => {
     const file: CassetteFile = {
-      version: 1,
+      version: 2,
+      recordedBy: null,
       recordings: [],
     }
     const json = serialize(file)
-    expect(json.startsWith('{\n  "version": 1')).toBe(true)
+    expect(json.startsWith('{\n  "version": 2')).toBe(true)
   })
 
   test('preserves trailing newline via empty string at end of stdoutLines', () => {
     const file: CassetteFile = {
-      version: 1,
+      version: 2,
+      recordedBy: null,
       recordings: [
         {
           call: { command: 'x', args: [], cwd: null, env: {}, stdin: null },
@@ -88,6 +92,7 @@ describe('serialize', () => {
             durationMs: 1,
             aborted: false,
           },
+          redactions: [],
         },
       ],
     }
@@ -97,7 +102,8 @@ describe('serialize', () => {
 
   test('round-trip preserves aborted: true', () => {
     const file: CassetteFile = {
-      version: 1,
+      version: 2,
+      recordedBy: null,
       recordings: [
         {
           call: { command: 'sleep', args: ['10'], cwd: null, env: {}, stdin: null },
@@ -110,6 +116,7 @@ describe('serialize', () => {
             durationMs: 42,
             aborted: true,
           },
+          redactions: [],
         },
       ],
     }
@@ -141,7 +148,8 @@ describe('serialize', () => {
 
   test('round-trip preserves allLines when populated', () => {
     const file: CassetteFile = {
-      version: 1,
+      version: 2,
+      recordedBy: null,
       recordings: [
         {
           call: { command: 'x', args: [], cwd: null, env: {}, stdin: null },
@@ -154,6 +162,7 @@ describe('serialize', () => {
             durationMs: 1,
             aborted: false,
           },
+          redactions: [],
         },
       ],
     }
@@ -163,7 +172,8 @@ describe('serialize', () => {
 
   test('throws BinaryOutputError if attempting to serialize non-string in stdoutLines', () => {
     const bad = {
-      version: 1,
+      version: 2,
+      recordedBy: null,
       recordings: [
         {
           call: { command: 'x', args: [], cwd: null, env: {}, stdin: null },
@@ -176,6 +186,7 @@ describe('serialize', () => {
             durationMs: 1,
             aborted: false,
           },
+          redactions: [],
         },
       ],
     } as CassetteFile

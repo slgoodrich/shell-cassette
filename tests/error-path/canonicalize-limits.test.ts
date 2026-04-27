@@ -14,6 +14,7 @@ import { useCassette } from '../../src/use-cassette.js'
 function makeCassette(args: string[]): CassetteFile {
   return {
     version: 1,
+    recordedBy: null,
     recordings: [
       {
         call: {
@@ -32,6 +33,7 @@ function makeCassette(args: string[]): CassetteFile {
           durationMs: 1,
           aborted: false,
         },
+        redactions: [],
       },
     ],
   }

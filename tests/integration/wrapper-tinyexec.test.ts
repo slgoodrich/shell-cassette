@@ -49,7 +49,7 @@ describe('tinyexec integration', () => {
 
     const content = await readFile(cassettePath, 'utf8')
     const parsed = JSON.parse(content)
-    expect(parsed.version).toBe(1)
+    expect(parsed.version).toBe(2)
     expect(parsed.recordings).toHaveLength(1)
     expect(parsed.recordings[0].call.command).toBe('echo')
     expect(parsed.recordings[0].result.stdoutLines).toEqual(['recorded-output'])
@@ -60,6 +60,7 @@ describe('tinyexec integration', () => {
 
     const cassetteJson = serialize({
       version: 1,
+      recordedBy: null,
       recordings: [
         {
           call: { command: 'echo', args: ['canned'], cwd: null, env: {}, stdin: null },
@@ -72,6 +73,7 @@ describe('tinyexec integration', () => {
             durationMs: 0,
             aborted: false,
           },
+          redactions: [],
         },
       ],
     })
@@ -110,6 +112,7 @@ describe('tinyexec integration', () => {
 
     const cassetteJson = serialize({
       version: 1,
+      recordedBy: null,
       recordings: [
         {
           call: { command: 'echo', args: ['hi'], cwd: null, env: {}, stdin: null },
@@ -122,6 +125,7 @@ describe('tinyexec integration', () => {
             durationMs: 0,
             aborted: false,
           },
+          redactions: [],
         },
       ],
     })
