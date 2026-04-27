@@ -190,4 +190,47 @@ describe('canonicalize-time redact for args', () => {
     expect(canon.args?.[0]).toContain('<tmp>')
     expect(canon.args?.[0]).toContain('<redacted:args:github-pat-classic>')
   })
+
+  test('replay-miss error message does not contain raw credential from fresh-call args', () => {
+    // Regression guard for the buildReplayMissError credential-leak fix.
+    // The error message is built from session.canonicalize(call, opts) where
+    // opts carries redactConfig. This test verifies the canonical form (which
+    // is what gets stringified into the error message) is credential-free.
+    const recording: Recording = {
+      call: {
+        command: 'curl',
+        args: ['-H', 'Authorization: Bearer <redacted:args:github-pat-classic:1>'],
+        cwd: null,
+        env: {},
+        stdin: null,
+      },
+      result: {
+        stdoutLines: [],
+        stderrLines: [],
+        allLines: null,
+        exitCode: 0,
+        signal: null,
+        durationMs: 0,
+        aborted: false,
+      },
+      redactions: [{ rule: 'github-pat-classic', source: 'args', count: 1 }],
+    }
+    const matcher = new MatcherState([recording], defaultCanonicalize, DEFAULT_CONFIG.redact)
+
+    // Different command so it won't match (credential is still present in args).
+    const freshCall: Call = {
+      command: 'wget',
+      args: ['-H', 'Authorization: Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'],
+      cwd: null,
+      env: {},
+      stdin: null,
+    }
+    expect(matcher.findMatch(freshCall)).toBe(null)
+
+    // Verify the canonical form that buildReplayMissError would stringify is credential-free.
+    const canonical = defaultCanonicalize(freshCall, { redactConfig: DEFAULT_CONFIG.redact })
+    const stringified = JSON.stringify(canonical)
+    expect(stringified).not.toContain('ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890')
+    expect(stringified).toContain('<redacted:args:github-pat-classic>')
+  })
 })
