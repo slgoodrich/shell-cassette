@@ -108,6 +108,15 @@ export type RedactConfig = {
 
 export type UseCassetteOptions = {
   canonicalize?: Canonicalize
+  /**
+   * Per-cassette redaction toggle. Default true (redaction applies).
+   * Set false for cassettes that legitimately need raw stdout/args (e.g.,
+   * tests asserting on CLI output that happens to contain credential-shaped
+   * strings as test fixtures, NOT real credentials). The boolean is
+   * intentionally coarse-grained — per-stream toggles (env: false, stdout: true)
+   * are explicitly out of scope for v0.4.
+   */
+  redact?: boolean
 }
 
 export type CassetteSession = {
