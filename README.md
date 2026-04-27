@@ -166,6 +166,8 @@ Each cassette JSON also contains a `_warning` field reminding code reviewers to 
 Optional `shell-cassette.config.{js,mjs}` walked up from cwd:
 
 ```js
+import { basenameCommand, defaultCanonicalize } from 'shell-cassette'
+
 export default {
   // Where cassettes live (default '__cassettes__', relative to test file)
   cassetteDir: '__cassettes__',
@@ -173,10 +175,63 @@ export default {
   // Adds to the curated env-key redaction list (substring, case-insensitive)
   redactEnvKeys: ['STRIPE_API_KEY', 'OPENAI_API_KEY'],
 
-  // Custom matcher (default: command + deep-equal args)
-  matcher: (call, rec) => call.command === rec.call.command,
+  // Custom canonicalize fn (default: defaultCanonicalize — command exact +
+  // args with absolute mkdtemp paths normalized to <tmp>; cwd, env, stdin
+  // omitted from the canonical form so cassettes are portable across machines)
+  canonicalize: (call) => ({
+    ...defaultCanonicalize(call),
+    command: basenameCommand(call.command),  // /usr/bin/git matches git
+  }),
 }
 ```
+
+## Customizing matching
+
+shell-cassette matches a call to a recording by deep-equality of their canonical forms. The default canonical form covers the common case (command + tmp-normalized args). For everything else, write a `canonicalize` function.
+
+```ts
+import { basenameCommand, defaultCanonicalize, useCassette } from 'shell-cassette'
+import type { Canonicalize } from 'shell-cassette'
+
+// Cross-machine command portability — /usr/bin/git matches git
+const basenameMatching: Canonicalize = (call) => ({
+  ...defaultCanonicalize(call),
+  command: basenameCommand(call.command),
+})
+
+// Ignore version numbers in args (e.g. `npm publish --tag v1.2.3`)
+const ignoreVersions: Canonicalize = (call) => {
+  const c = defaultCanonicalize(call)
+  return { ...c, args: c.args!.map((a) => a.replace(/v\d+\.\d+\.\d+/, '<v>')) }
+}
+
+// Order-insensitive args (`--flag-a --flag-b` matches `--flag-b --flag-a`)
+const sortedArgs: Canonicalize = (call) => ({
+  command: call.command,
+  args: [...call.args].sort(),
+})
+```
+
+Apply per-call via `useCassette`'s optional middle argument:
+
+```ts
+useCassette('./cassettes/foo.json', { canonicalize: basenameMatching }, async () => {
+  await execa('git', ['status'])
+})
+```
+
+Or globally via `shell-cassette.config.js` (see Configuration above).
+
+### Documented limitations
+
+The default canonicalize is conservative. Patterns NOT normalized — write a custom canonicalize if you hit one:
+
+| Pattern | Workaround |
+|---|---|
+| Nested mkdtemp (mkdtemp inside an mkdtemp dir) | Custom canonicalize that strips the inner mkdtemp suffix |
+| Relative tmp paths via `path.relative(cwd, tmpPath)` | Custom canonicalize that resolves to absolute first |
+| Custom `$TMPDIR` outside the standard set (e.g., `/scratch/...`) | Compose your own pattern alongside `defaultCanonicalize` |
+| `process.cwd()` substrings inside args | Custom canonicalize that replaces `call.cwd ?? ''` with a token |
 
 ## Common gotchas
 
@@ -191,14 +246,14 @@ If you hit one of these, see [docs/troubleshooting.md](docs/troubleshooting.md):
 
 ## What this doesn't do (yet)
 
-If you're evaluating shell-cassette for your project, here's what users hit. Each is something you might expect to work and doesn't.
+If you're evaluating shell-cassette for your project, here are some things you might run into.
 
 **Adapter feature parity.** shell-cassette doesn't wrap every option of execa or tinyexec.
 
 - execa: `buffer: false` (streaming), `ipc: true` (IPC), `inputFile` / `input: 'string'` (stdin), `node: true` (execaNode) all throw `UnsupportedOptionError` at the wrapper. See [docs/execa.md](docs/execa.md).
 - tinyexec: `result.process` is `null` on replay, `result.pipe()` and `for await (line of result)` throw, `result.kill()` is a no-op, sync field reads before `await` return undefined. The exact signal name on `kill` is lost (only `killed: boolean` preserved). See [docs/tinyexec.md](docs/tinyexec.md).
 
-**Matcher flexibility.** The default matcher is `command + deep-equal args`. There's no per-call override and no path-normalization, so ephemeral temp dirs (e.g., `/tmp/sandbox-1234`) in args break replay across runs. Configurable via `shell-cassette.config.{js,mjs}` if you want to write a custom matcher today, but the built-in is minimal on purpose.
+**Matcher coverage.** The default canonicalize handles the common case: command + args with absolute mkdtemp paths normalized to `<tmp>`. cwd, env, and stdin are excluded from the canonical form so cassettes replay across machines. Patterns it does NOT handle (nested mkdtemp, relative tmp paths, custom `$TMPDIR`, `process.cwd()` substrings in args) are documented under [Customizing matching](#customizing-matching) with one-line workarounds.
 
 **Redaction coverage.** shell-cassette redacts env-var values when KEY matches a curated list. It does NOT redact:
 
@@ -221,12 +276,6 @@ There's no pattern-based detection for tokens / API keys in stdout, stderr, or a
 | [import-js/eslint-import-resolver-typescript](https://github.com/import-js/eslint-import-resolver-typescript) | ~373x | ~55x | 15 tests, heavy `yarn eslint` per fixture |
 
 Wall-time speedup is bounded by vitest startup (~300-400ms regardless of mode). Test execution speedup scales with subprocess work per test.
-
-## Status
-
-Stable enough for solo and small-team use. Cassette schema won't break before v1.0 - new fields land additively, legacy cassettes keep replaying.
-
-Priority follows signal: when something blocks a real adoption, it moves up. Open an issue if you hit a gap from the section above.
 
 ## License
 
