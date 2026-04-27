@@ -107,7 +107,7 @@ CI:
 npm test  # CI=true forces replay-strict
 ```
 
-Cassettes land at `__cassettes__/<test-file>/<test-name>.json` - commit them.
+Cassettes land at `__cassettes__/<test-file>/<test-name>.json`. Commit them.
 
 ## Adapters
 
@@ -118,7 +118,7 @@ shell-cassette ships drop-in replacements for two subprocess libraries:
 
 Each adapter has its own page covering supported options, replay limits, and any quirks.
 
-If you use both, install both peer deps. shell-cassette's main entry exports only `useCassette` (the explicit-scope API) and shared types - adapters live on sub-paths.
+If you use both, install both peer deps. shell-cassette's main entry exports only `useCassette` (the explicit-scope API) and shared types. Adapters live on sub-paths.
 
 ## Auto-cassette via the vitest plugin
 
@@ -162,17 +162,17 @@ shell-cassette does **NOT** redact:
 
 - stdout / stderr content
 - command args
-- env vars with non-curated names (`STRIPE_KEY`, `OPENAI_KEY`, etc. - extend via `redactEnvKeys` config)
+- env vars with non-curated names (`STRIPE_KEY`, `OPENAI_KEY`, etc.; extend via `redactEnvKeys` config)
 - paths in cwd
 
-**Always review cassettes before committing.** Pattern-based detection for stdout/stderr/args (GitHub PATs, AWS keys, Stripe keys, etc.) isn't built yet - review by eye.
+**Always review cassettes before committing.** Pattern-based detection for stdout/stderr/args (GitHub PATs, AWS keys, Stripe keys, etc.) isn't built yet. Review by eye.
 
 End-of-run summaries surface redaction events on every record:
 
 ```
 shell-cassette: cassette saved (3 recordings, 1 redaction, 2 warnings): /path/to/cassette.json
   redacted: GH_TOKEN
-  ⚠️  STRIPE_API_KEY: long value (104 chars), not in curated/configured list - may contain a credential...
+  ⚠️  STRIPE_API_KEY: long value (104 chars), not in curated/configured list; may contain a credential...
 ```
 
 Each cassette JSON also contains a `_warning` field reminding code reviewers to check before committing.
@@ -191,7 +191,7 @@ export default {
   // Adds to the curated env-key redaction list (substring, case-insensitive)
   redactEnvKeys: ['STRIPE_API_KEY', 'OPENAI_API_KEY'],
 
-  // Custom canonicalize fn (default: defaultCanonicalize - command exact +
+  // Custom canonicalize fn (default: defaultCanonicalize, command exact +
   // args with absolute mkdtemp paths normalized to <tmp>; cwd, env, stdin
   // omitted from the canonical form so cassettes are portable across machines)
   canonicalize: (call) => ({
@@ -209,7 +209,7 @@ shell-cassette matches a call to a recording by deep-equality of their canonical
 import { basenameCommand, defaultCanonicalize, useCassette } from 'shell-cassette'
 import type { Canonicalize } from 'shell-cassette'
 
-// Cross-machine command portability - /usr/bin/git matches git
+// Cross-machine command portability: /usr/bin/git matches git
 const basenameMatching: Canonicalize = (call) => ({
   ...defaultCanonicalize(call),
   command: basenameCommand(call.command),
@@ -240,7 +240,7 @@ Or globally via `shell-cassette.config.js` (see Configuration above).
 
 ### Documented limitations
 
-The default canonicalize is conservative. Patterns NOT normalized - write a custom canonicalize if you hit one:
+The default canonicalize is conservative. These patterns are NOT normalized. Write a custom canonicalize if you hit one:
 
 | Pattern | Workaround |
 |---|---|
@@ -275,7 +275,7 @@ shell-cassette is for **output-assertion** tests: spawn a subprocess, capture st
 
 ## Real-world results
 
-Three projects measured so far on Windows + Node 23. Point measurements, not benchmarks - directional only.
+Three projects measured so far on Windows + Node 23. Point measurements, not benchmarks: directional only.
 
 | Project | Test execution speedup | Wall speedup | Notes |
 |---|---:|---:|---|
@@ -283,8 +283,8 @@ Three projects measured so far on Windows + Node 23. Point measurements, not ben
 | [antfu/taze](https://github.com/antfu/taze) | ~200x | ~5x | 2 tests, medium subprocess (CLI with network fetch) |
 | [import-js/eslint-import-resolver-typescript](https://github.com/import-js/eslint-import-resolver-typescript) | ~1700x | ~55x | 13 tests, heavy subprocess (`yarn eslint` per fixture) |
 
-Wall-time speedup is bounded by vitest startup (~300-400ms regardless of mode). Test execution speedup scales with subprocess work per test - the heavier the subprocess, the bigger the multiplier.
+Wall-time speedup is bounded by vitest startup (~300-400ms regardless of mode). Test execution speedup scales with subprocess work per test: the heavier the subprocess, the bigger the multiplier.
 
 ## License
 
-MIT - see `LICENSE`.
+MIT, see `LICENSE`.
