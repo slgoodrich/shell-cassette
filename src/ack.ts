@@ -5,7 +5,7 @@ const HELP_TEXT = `refusing to record without redaction acknowledgment.
 shell-cassette v0.1 redacts env var values when KEY matches:
   TOKEN, SECRET, PASSWORD, PASSWD, APIKEY, API_KEY, CREDENTIAL,
   PRIVATE_KEY, AUTH_TOKEN, BEARER_TOKEN, JWT
-(extensible via shell-cassette.config.{js,mjs} \`redactEnvKeys\`)
+(extensible via shell-cassette.config.{js,mjs} \`redact.envKeys\`)
 
 It does NOT redact:
   - stdout / stderr content

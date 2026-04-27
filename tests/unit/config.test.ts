@@ -7,10 +7,6 @@ describe('DEFAULT_CONFIG', () => {
     expect(DEFAULT_CONFIG.cassetteDir).toBe('__cassettes__')
   })
 
-  test('has empty redactEnvKeys', () => {
-    expect(DEFAULT_CONFIG.redactEnvKeys).toEqual([])
-  })
-
   test('default canonicalize returns command + args', () => {
     const call = { command: 'git', args: ['status'], cwd: null, env: {}, stdin: null } as const
     expect(DEFAULT_CONFIG.canonicalize(call)).toEqual({ command: 'git', args: ['status'] })
@@ -33,11 +29,6 @@ describe('mergeWithDefaults', () => {
     expect(result.cassetteDir).toBe('cassettes')
   })
 
-  test('overrides redactEnvKeys', () => {
-    const result = mergeWithDefaults({ redactEnvKeys: ['STRIPE_KEY'] })
-    expect(result.redactEnvKeys).toEqual(['STRIPE_KEY'])
-  })
-
   test('result is frozen', () => {
     const result = mergeWithDefaults({})
     expect(Object.isFrozen(result)).toBe(true)
@@ -57,11 +48,6 @@ describe('validateConfig', () => {
 
   test('throws if cassetteDir is not string', () => {
     expect(() => validateConfig({ cassetteDir: 42 })).toThrow(CassetteConfigError)
-  })
-
-  test('throws if redactEnvKeys is not array of strings', () => {
-    expect(() => validateConfig({ redactEnvKeys: 'foo' })).toThrow(CassetteConfigError)
-    expect(() => validateConfig({ redactEnvKeys: [1, 2] })).toThrow(CassetteConfigError)
   })
 
   test('throws if canonicalize is not function', () => {
@@ -90,22 +76,6 @@ describe('Config defaults: redact field', () => {
 })
 
 describe('mergeWithDefaults: redact field', () => {
-  test('user-provided redact.envKeys takes precedence over redactEnvKeys', () => {
-    const merged = mergeWithDefaults({
-      redact: { envKeys: ['FROM_REDACT'] },
-      redactEnvKeys: ['FROM_FLAT'],
-    })
-    expect(merged.redact.envKeys).toEqual(['FROM_REDACT'])
-    // Both fields stay in sync; deprecated field reflects the resolved value.
-    expect(merged.redactEnvKeys).toEqual(['FROM_REDACT'])
-  })
-
-  test('user-provided redactEnvKeys without redact.envKeys: both fields populated', () => {
-    const merged = mergeWithDefaults({ redactEnvKeys: ['STRIPE_KEY'] })
-    expect(merged.redactEnvKeys).toEqual(['STRIPE_KEY'])
-    expect(merged.redact.envKeys).toEqual(['STRIPE_KEY'])
-  })
-
   test('user-provided redact: { bundledPatterns: false }: only that field overridden', () => {
     const merged = mergeWithDefaults({ redact: { bundledPatterns: false } })
     expect(merged.redact.bundledPatterns).toBe(false)
