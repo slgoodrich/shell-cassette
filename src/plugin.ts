@@ -1,4 +1,4 @@
-import { ConcurrencyError } from './errors.js'
+import { ConcurrencyError, ShellCassetteError } from './errors.js'
 import { cassettePath } from './paths.js'
 
 type VitestSuiteLike = {
@@ -25,7 +25,12 @@ Options:
 
   const filepath = task.file?.filepath
   if (!filepath) {
-    throw new Error('shell-cassette: vitest task missing file.filepath')
+    // task.file comes from vitest's task type which we don't own; we can't
+    // restructure vitest's types to prove this branch is unreachable. Throw a
+    // typed ShellCassetteError so programmatic instanceof catches still work.
+    throw new ShellCassetteError(
+      'shell-cassette: vitest task missing file.filepath (internal bug; should be unreachable)',
+    )
   }
 
   const describePath: string[] = []
