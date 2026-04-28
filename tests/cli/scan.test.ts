@@ -1,3 +1,5 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { runScan } from '../../src/cli-scan.js'
@@ -210,5 +212,121 @@ describe('runScan: summary line', () => {
     await runScan([path.join(FIXTURES, 'v2-clean.json'), path.join(FIXTURES, 'v2-dirty.json')])
     expect(stdoutBuf).toContain('2 cassette(s) scanned')
     expect(stdoutBuf).toContain('1 dirty')
+  })
+})
+
+describe('runScan: env-key-match coverage', () => {
+  test('env value with curated key but no pattern match: reported as unredacted', async () => {
+    const tmp = await mkdtemp(path.join(tmpdir(), 'scan-envkey-'))
+    try {
+      const cassettePath = path.join(tmp, 'envkey.json')
+      await writeFile(
+        cassettePath,
+        JSON.stringify({
+          version: 2,
+          _recorded_by: { name: 'shell-cassette', version: '0.4.0' },
+          recordings: [
+            {
+              call: {
+                command: 'curl',
+                args: [],
+                cwd: null,
+                env: { GITHUB_TOKEN: 'opaque-internal-format-no-known-shape' },
+                stdin: null,
+              },
+              result: {
+                stdoutLines: [],
+                stderrLines: [],
+                allLines: null,
+                exitCode: 0,
+                signal: null,
+                durationMs: 0,
+                aborted: false,
+              },
+              _redactions: [],
+            },
+          ],
+        }),
+        'utf8',
+      )
+      captureOutput()
+      const code = await runScan([cassettePath, '--json'])
+      expect(code).toBe(1)
+      const parsed = JSON.parse(stdoutBuf)
+      expect(parsed.cassettes[0].findings[0].rule).toBe('env-key-match')
+      expect(parsed.cassettes[0].findings[0].source).toBe('env')
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
+
+  test('env value already redacted as placeholder: not reported', async () => {
+    const tmp = await mkdtemp(path.join(tmpdir(), 'scan-envkey-'))
+    try {
+      const cassettePath = path.join(tmp, 'envkey.json')
+      await writeFile(
+        cassettePath,
+        JSON.stringify({
+          version: 2,
+          _recorded_by: { name: 'shell-cassette', version: '0.4.0' },
+          recordings: [
+            {
+              call: {
+                command: 'curl',
+                args: [],
+                cwd: null,
+                env: { GITHUB_TOKEN: '<redacted:env:env-key-match:1>' },
+                stdin: null,
+              },
+              result: {
+                stdoutLines: [],
+                stderrLines: [],
+                allLines: null,
+                exitCode: 0,
+                signal: null,
+                durationMs: 0,
+                aborted: false,
+              },
+              _redactions: [{ rule: 'env-key-match', source: 'env', count: 1 }],
+            },
+          ],
+        }),
+        'utf8',
+      )
+      captureOutput()
+      const code = await runScan([cassettePath, '--json'])
+      expect(code).toBe(0)
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('runScan: --config <path>', () => {
+  test('--config <path> loads explicit config file', async () => {
+    const tmp = await mkdtemp(path.join(tmpdir(), 'scan-config-'))
+    try {
+      const configPath = path.join(tmp, 'shell-cassette.config.mjs')
+      // Custom config with bundled patterns disabled
+      await writeFile(configPath, `export default { redact: { bundledPatterns: false } }`, 'utf8')
+      captureOutput()
+      const code = await runScan([path.join(FIXTURES, 'v2-dirty.json'), '--config', configPath])
+      // With bundled patterns disabled, the dirty cassette is clean
+      expect(code).toBe(0)
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('runScan: --json + --quiet interaction', () => {
+  test('--json --quiet: --json takes precedence; JSON still emitted', async () => {
+    captureOutput()
+    const code = await runScan([path.join(FIXTURES, 'v2-clean.json'), '--json', '--quiet'])
+    expect(code).toBe(0)
+    // --json overrides --quiet (matches plan reference impl)
+    expect(stdoutBuf.length).toBeGreaterThan(0)
+    const parsed = JSON.parse(stdoutBuf)
+    expect(parsed.scanVersion).toBe(1)
   })
 })

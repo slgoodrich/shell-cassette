@@ -1,9 +1,29 @@
+/**
+ * `shell-cassette scan` subcommand. Walks cassette files (or directories)
+ * and reports any unredacted findings — credentials that record mode would
+ * have redacted but are present in cassette content (env values, args,
+ * stdout/stderr/allLines).
+ *
+ * Two coverage paths:
+ *   1. env-key-match: env value with a key in the curated or user envKeys
+ *      list. Whole value is reported regardless of pattern.
+ *   2. pattern match: bundled or custom regex rules. Position-precise via
+ *      String.prototype.matchAll.
+ *
+ * Function-typed custom rules are skipped (can't report exact positions).
+ *
+ * Output format is locked at scanVersion: 1. See spec Section 4 for the
+ * complete --json shape.
+ */
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { color, isTty, stderr, stdout } from './cli-output.js'
 import { walkCassettes } from './cli-walk.js'
-import { loadConfigFromDir } from './config.js'
+import { loadConfigFromDir, loadConfigFromFile } from './config.js'
+import { CassetteConfigError } from './errors.js'
+import { matchesEnvKeyList } from './recorder.js'
 import { BUNDLED_PATTERNS } from './redact-patterns.js'
+import { ENV_KEY_MATCH_RULE } from './redact-pipeline.js'
 import { deserialize } from './serialize.js'
 import type { CassetteFile, Recording, RedactConfig, RedactSource } from './types.js'
 
@@ -94,12 +114,12 @@ function parseScanArgs(args: readonly string[]): ScanFlags {
       flags.colorOverride = 'always'
     } else if (arg === '--config') {
       const next = args[++i]
-      if (next === undefined) throw new Error('--config requires a path argument')
+      if (next === undefined) throw new CassetteConfigError('--config requires a path argument')
       flags.configPath = next
     } else if (arg.startsWith('--config=')) {
       flags.configPath = arg.slice('--config='.length)
     } else if (arg.startsWith('--')) {
-      throw new Error(`unknown flag: ${arg}`)
+      throw new CassetteConfigError(`unknown flag: ${arg}`)
     } else {
       flags.paths.push(arg)
     }
@@ -107,6 +127,10 @@ function parseScanArgs(args: readonly string[]): ScanFlags {
   return flags
 }
 
+/**
+ * Scan one or more cassette files or directories for unredacted credentials.
+ * Returns 0 if all clean, 1 if any dirty, 2 on error.
+ */
 export async function runScan(args: readonly string[]): Promise<number> {
   let flags: ScanFlags
   try {
@@ -130,7 +154,9 @@ export async function runScan(args: readonly string[]): Promise<number> {
     isTty.shouldUseColor({ tty: isTty.detectStdoutTty(), override: flags.colorOverride }),
   )
 
-  const config = await loadConfigFromDir(flags.configPath ?? process.cwd())
+  const config = flags.configPath
+    ? await loadConfigFromFile(flags.configPath)
+    : await loadConfigFromDir(process.cwd())
   const effectiveRedact: Readonly<RedactConfig> = flags.noBundled
     ? Object.freeze({ ...config.redact, bundledPatterns: false })
     : config.redact
@@ -175,10 +201,8 @@ async function scanOne(
   }
 
   const findings: Finding[] = []
-  for (let i = 0; i < cassette.recordings.length; i++) {
-    // recordings[i] is always defined here since i < recordings.length
-    // biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index is valid
-    findings.push(...findingsForRecording(cassette.recordings[i]!, i, config, includeMatch))
+  for (const [i, rec] of cassette.recordings.entries()) {
+    findings.push(...findingsForRecording(rec, i, config, includeMatch))
   }
 
   const redactionsApplied = cassette.recordings.reduce(
@@ -194,8 +218,11 @@ async function scanOne(
   }
 }
 
-// Build g-flagged regex copies for each scan invocation. Bundled patterns are
-// stored without the g flag (stateless for .test()/.exec()); scan needs matchAll.
+/**
+ * Build g-flagged regex copies of bundled + custom rules for matchAll usage.
+ * Built once per recording (not per-value) to amortize the allocation cost.
+ * Function-typed custom rules are skipped — they can't report match positions.
+ */
 function buildGFlaggedRules(
   config: Readonly<RedactConfig>,
 ): readonly { name: string; pattern: RegExp }[] {
@@ -230,6 +257,16 @@ function isSuppressed(value: string, config: Readonly<RedactConfig>): boolean {
   return false
 }
 
+/** Returns true if value is already a redaction placeholder (counter-tagged or counter-stripped). */
+function isPlaceholder(value: string): boolean {
+  return /^<redacted:[^:>]+:[^:>]+(:\d+)?>$/.test(value)
+}
+
+/**
+ * Iterate all 5 sources in a recording (env, args, stdout, stderr, allLines)
+ * and produce a list of unredacted Finding objects. Each finding includes
+ * source-specific position info embedded in its id.
+ */
 function findingsForRecording(
   rec: Recording,
   index: number,
@@ -239,8 +276,25 @@ function findingsForRecording(
   const rules = buildGFlaggedRules(config)
   const findings: Finding[] = []
 
-  // env: scan each value, use key as position label
+  // env: env-key-match check first, then pattern scan on non-matching keys
   for (const [key, value] of Object.entries(rec.call.env)) {
+    // env-key-match: if the key matches the curated/user envKeys list, the
+    // recorder would have redacted the whole value regardless of pattern.
+    // Scan must report this so cassettes that would have been redacted by
+    // record mode aren't falsely reported as clean.
+    if (matchesEnvKeyList(key, config.envKeys) && !isPlaceholder(value)) {
+      findings.push({
+        id: `rec${index}-env-${key}:0-${ENV_KEY_MATCH_RULE}`,
+        recordingIndex: index,
+        source: 'env',
+        rule: ENV_KEY_MATCH_RULE,
+        match: includeMatch ? value : undefined,
+        matchHash: `sha256:${createHash('sha256').update(value).digest('hex')}`,
+        matchLength: value.length,
+        matchPreview: previewMatch(value),
+      })
+      continue // don't also pattern-scan; whole value is already sensitive
+    }
     findings.push(...scanValue(value, 'env', key, index, rules, config, includeMatch))
   }
 
