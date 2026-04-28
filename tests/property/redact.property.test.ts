@@ -298,3 +298,68 @@ describe('seedCountersFromCassette', () => {
     )
   })
 })
+
+const PATH_OR_WHITESPACE_REGEX = /[/\\: ]/
+
+describe('redact: length-warning threshold and path heuristic', () => {
+  test('warning fires iff (no rule fired) AND (output > threshold) AND NOT path-heuristic-suppressed', () => {
+    fc.assert(
+      fc.property(
+        sourceArb,
+        fc.string({ maxLength: 200 }),
+        fc.boolean(),
+        (source, value, pathHeuristic) => {
+          const config: RedactConfig = { ...baseConfig, warnPathHeuristic: pathHeuristic }
+          const r = redact({ source, value }, config, { counted: false })
+
+          const noRuleFired = r.output === value
+          if (!noRuleFired) {
+            // Mutual exclusion: rule fired, so warnings must be empty.
+            return r.warnings.length === 0
+          }
+
+          const exceedsThreshold = r.output.length > config.warnLengthThreshold
+          const suppressedByHeuristic = pathHeuristic && PATH_OR_WHITESPACE_REGEX.test(r.output)
+          const expectWarning = exceedsThreshold && !suppressedByHeuristic
+          return r.warnings.length > 0 === expectWarning
+        },
+      ),
+    )
+  })
+
+  test('warning never fires when a bundled rule matches (mutual exclusion, explicit)', () => {
+    fc.assert(
+      fc.property(sourceArb, (source) => {
+        const r = redact({ source, value: SAMPLE_GITHUB_PAT_CLASSIC }, baseConfig, {
+          counted: false,
+        })
+        return r.entries.length > 0 && r.warnings.length === 0
+      }),
+    )
+  })
+
+  test('value contains a path-or-whitespace char + heuristic enabled: no warning even when long', () => {
+    const safeAlphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_'.split(
+      '',
+    )
+    const safeChunkArb = fc
+      .array(fc.constantFrom(...safeAlphabet), { minLength: 50, maxLength: 100 })
+      .map((cs) => cs.join(''))
+    const pathCharArb = fc.constantFrom('/', '\\', ':', ' ')
+    fc.assert(
+      fc.property(sourceArb, safeChunkArb, pathCharArb, (source, chunk, pathChar) => {
+        const value = chunk + pathChar + chunk
+        const r = redact(
+          { source, value },
+          { ...baseConfig, warnPathHeuristic: true },
+          {
+            counted: false,
+          },
+        )
+        const noRuleFired = r.output === value
+        if (!noRuleFired) return true
+        return r.warnings.length === 0
+      }),
+    )
+  })
+})
