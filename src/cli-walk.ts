@@ -1,6 +1,8 @@
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { CassetteIOError } from './errors.js'
+import { readCassetteFile } from './io.js'
+import { deserialize } from './serialize.js'
 
 /**
  * Resolve cassette paths from user-provided input.
@@ -18,52 +20,51 @@ import { CassetteIOError } from './errors.js'
  */
 export async function walkCassettes(inputs: readonly string[]): Promise<string[]> {
   const out = new Set<string>()
-  for (const input of inputs) {
-    const abs = path.resolve(input)
-    let st: Awaited<ReturnType<typeof stat>>
-    try {
-      st = await stat(abs)
-    } catch (e) {
-      throw new CassetteIOError(`cassette path not found: ${input}`, e as Error)
-    }
-    if (st.isFile()) {
-      out.add(abs)
-    } else if (st.isDirectory()) {
-      for (const found of await walkDir(abs)) {
-        out.add(found)
+  const results = await Promise.all(
+    inputs.map(async (input) => {
+      const abs = path.resolve(input)
+      let st: Awaited<ReturnType<typeof stat>>
+      try {
+        st = await stat(abs)
+      } catch (e) {
+        throw new CassetteIOError(`cassette path not found: ${input}`, e as Error)
       }
+      if (st.isFile()) return [abs]
+      if (st.isDirectory()) return walkDir(abs)
+      return [] as string[]
+    }),
+  )
+  for (const paths of results) {
+    for (const p of paths) {
+      out.add(p)
     }
   }
   return [...out]
 }
 
 async function walkDir(dir: string): Promise<string[]> {
-  const out: string[] = []
   const entries = await readdir(dir, { withFileTypes: true })
-  for (const entry of entries) {
-    const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) {
-      out.push(...(await walkDir(full)))
-    } else if (entry.isFile() && entry.name.endsWith('.json')) {
-      if (await isCassette(full)) {
-        out.push(full)
+  const results = await Promise.all(
+    entries.map(async (entry) => {
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        return walkDir(full)
       }
-    }
-  }
-  return out
+      if (entry.isFile() && entry.name.endsWith('.json') && (await isCassette(full))) {
+        return [full]
+      }
+      return [] as string[]
+    }),
+  )
+  return results.flat()
 }
 
 async function isCassette(filePath: string): Promise<boolean> {
   try {
-    const text = await readFile(filePath, 'utf8')
-    const parsed = JSON.parse(text) as unknown
-    return (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      'version' in parsed &&
-      ((parsed as Record<string, unknown>).version === 1 ||
-        (parsed as Record<string, unknown>).version === 2)
-    )
+    const text = await readCassetteFile(filePath)
+    if (text === null) return false
+    deserialize(text) // throws CassetteCorruptError on bad JSON, missing version, unknown version
+    return true
   } catch {
     return false
   }

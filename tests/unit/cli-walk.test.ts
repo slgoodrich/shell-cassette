@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { walkCassettes } from '../../src/cli-walk.js'
+import { CassetteIOError } from '../../src/errors.js'
 
 let tmp: string
 
@@ -50,8 +51,8 @@ describe('walkCassettes', () => {
     expect(result[0]).toBe(a)
   })
 
-  test('non-existent path throws', async () => {
-    await expect(walkCassettes([path.join(tmp, 'nope.json')])).rejects.toThrow()
+  test('non-existent path throws CassetteIOError', async () => {
+    await expect(walkCassettes([path.join(tmp, 'nope.json')])).rejects.toThrow(CassetteIOError)
   })
 
   test('non-cassette JSON in dir is silently skipped', async () => {
