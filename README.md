@@ -516,15 +516,19 @@ shell-cassette is for **output-assertion** tests: spawn a subprocess, capture st
 
 ## Real-world results
 
-Three projects measured so far on Windows + Node 23. Point measurements, not benchmarks: directional only.
+Three projects measured on Windows + Node 23.11 against v0.4. Point measurements, not benchmarks: directional only.
 
-| Project | Test execution speedup | Wall speedup | Notes |
-|---|---:|---:|---|
-| [cacjs/cac](https://github.com/cacjs/cac) | ~90x | ~4x | 17 tests, light subprocess (`node example.ts`) |
-| [antfu/taze](https://github.com/antfu/taze) | ~200x | ~5x | 2 tests, medium subprocess (CLI with network fetch) |
-| [import-js/eslint-import-resolver-typescript](https://github.com/import-js/eslint-import-resolver-typescript) | ~1700x | ~55x | 13 tests, heavy subprocess (`yarn eslint` per fixture) |
+| Project | Tests / cassettes | Test-phase speedup | Wall speedup | Notes |
+|---|---:|---:|---:|---|
+| [unjs/nypm](https://github.com/unjs/nypm) | 161 / 91 | ~800x | ~110x | Full vitest suite under the auto-cassette plugin. 8 package-manager fixtures (npm, pnpm, yarn-classic, yarn-berry, deno, plus workspace variants). 22 env-key-match redactions caught on the host's `LM_STUDIO_API_KEY`. |
+| [lerna-lite/lerna-lite](https://github.com/lerna-lite/lerna-lite) | 13 / 12 | ~6x | n/a | SC-wrapped subset across `core` and `version` packages. The broader 1656-test monorepo suite passes **99.5%** unchanged with the SC alias active in passthrough; the remaining 0.48% trace to a documented `child.process` streaming-access mismatch. |
+| [sveltejs/cli](https://github.com/sveltejs/cli) (`sv` cli pkg) | 4 / 4 | ~17x | ~17x | Smallest measured. Proves the vitest plugin auto-binds without source patching when the project's source has a usable DI seam. One well-designed test replayed at ~40x. |
 
-Wall-time speedup is bounded by vitest startup (~300-400ms regardless of mode). Test execution speedup scales with subprocess work per test: the heavier the subprocess, the bigger the multiplier.
+Wall-time speedup is bounded by vitest startup (~300-400ms regardless of mode). Test-phase speedup scales with subprocess work per test: the heavier the subprocess, the bigger the multiplier.
+
+**What "speedup" means here.** Record runs the real subprocess once, replay reads the cassette. The multiplier is record test-phase divided by replay test-phase. Wall-time speedup includes vitest startup and is the smaller number. Both numbers vary with machine state, Node version, and background load.
+
+**What "tests / cassettes" means here.** Not every test in a project's suite cleanly cassettes: tests that assert on subprocess side effects (filesystem state, network calls outside subprocess) can't replay because the side effect didn't happen. Tests reading `result.process.stdout` synchronously hit the same limit. The test count is the suite's full execution count under SC; the cassette count is what records cleanly. Tests outside the cassettable surface either fall to passthrough or fail in replay with actionable errors. See [docs/troubleshooting.md](docs/troubleshooting.md) for patterns and workarounds.
 
 ## License
 
