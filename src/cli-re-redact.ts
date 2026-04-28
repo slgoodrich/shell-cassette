@@ -15,7 +15,11 @@ import { CassetteConfigError, CassetteNotFoundError } from './errors.js'
 import { writeCassetteFile } from './io.js'
 import { loadCassette } from './loader.js'
 import { redact } from './redact.js'
-import { aggregateEntries, seedCountersFromCassette } from './redact-pipeline.js'
+import {
+  aggregateEntries,
+  collectSuppressedHashes,
+  seedCountersFromCassette,
+} from './redact-pipeline.js'
 import { serialize } from './serialize.js'
 import type { CassetteFile, Recording, RedactConfig, RedactionEntry } from './types.js'
 import { RECORDED_BY } from './version.js'
@@ -193,11 +197,20 @@ export async function reRedactOne(
   // Seed counters from existing placeholders so new findings continue the
   // per-(source, rule) sequence rather than restarting at 1.
   const counters = seedCountersFromCassette(cassette)
+  // User-suppressed match hashes (from `shell-cassette review` skip decisions)
+  // bypass the pipeline so re-redact never re-flags a value the user explicitly
+  // chose to leave verbatim.
+  const suppressedHashes = collectSuppressedHashes(cassette)
   let newCount = 0
   const updatedRecordings: Recording[] = []
 
   for (const rec of cassette.recordings) {
-    const { recording, newCountInRecording } = reRedactRecording(rec, config, counters)
+    const { recording, newCountInRecording } = reRedactRecording(
+      rec,
+      config,
+      counters,
+      suppressedHashes,
+    )
     updatedRecordings.push(recording)
     newCount += newCountInRecording
   }
@@ -218,34 +231,51 @@ function reRedactRecording(
   rec: Recording,
   config: Readonly<RedactConfig>,
   counters: Map<string, number>,
+  suppressedHashes: ReadonlySet<string>,
 ): { recording: Recording; newCountInRecording: number } {
   const newEntries: RedactionEntry[] = []
   let newCount = 0
 
   const env: Record<string, string> = {}
   for (const [key, value] of Object.entries(rec.call.env)) {
-    const r = redact({ source: 'env', value }, config, { counted: true, counters })
+    const r = redact({ source: 'env', value }, config, {
+      counted: true,
+      counters,
+      suppressedHashes,
+    })
     env[key] = r.output
     newEntries.push(...r.entries)
     newCount += r.entries.reduce((s, e) => s + e.count, 0)
   }
 
   const args = rec.call.args.map((arg) => {
-    const r = redact({ source: 'args', value: arg }, config, { counted: true, counters })
+    const r = redact({ source: 'args', value: arg }, config, {
+      counted: true,
+      counters,
+      suppressedHashes,
+    })
     newEntries.push(...r.entries)
     newCount += r.entries.reduce((s, e) => s + e.count, 0)
     return r.output
   })
 
   const stdoutLines = rec.result.stdoutLines.map((line) => {
-    const r = redact({ source: 'stdout', value: line }, config, { counted: true, counters })
+    const r = redact({ source: 'stdout', value: line }, config, {
+      counted: true,
+      counters,
+      suppressedHashes,
+    })
     newEntries.push(...r.entries)
     newCount += r.entries.reduce((s, e) => s + e.count, 0)
     return r.output
   })
 
   const stderrLines = rec.result.stderrLines.map((line) => {
-    const r = redact({ source: 'stderr', value: line }, config, { counted: true, counters })
+    const r = redact({ source: 'stderr', value: line }, config, {
+      counted: true,
+      counters,
+      suppressedHashes,
+    })
     newEntries.push(...r.entries)
     newCount += r.entries.reduce((s, e) => s + e.count, 0)
     return r.output
@@ -253,7 +283,11 @@ function reRedactRecording(
 
   const allLines =
     rec.result.allLines?.map((line) => {
-      const r = redact({ source: 'allLines', value: line }, config, { counted: true, counters })
+      const r = redact({ source: 'allLines', value: line }, config, {
+        counted: true,
+        counters,
+        suppressedHashes,
+      })
       newEntries.push(...r.entries)
       newCount += r.entries.reduce((s, e) => s + e.count, 0)
       return r.output

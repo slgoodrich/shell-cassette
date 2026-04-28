@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { ShellCassetteError } from './errors.js'
 import { BUNDLED_PATTERNS } from './redact-patterns.js'
 import type {
@@ -22,8 +23,16 @@ export type RedactInput = {
  * Per `.claude/rules/error_handling.md` "Internal Invariants": restructure
  * types so unreachable states can't be expressed in preference to runtime
  * non-null assertions.
+ *
+ * `suppressedHashes` is optional. When provided, the pipeline computes
+ * sha256 of each match span and skips emission if the hash is in the
+ * set. The recorder and canonicalize callers pass undefined; re-redact
+ * and review's pre-scan pass populated sets built from cassette
+ * `_suppressed` entries.
  */
-export type RedactOptions = { counted: false } | { counted: true; counters: Map<string, number> }
+export type RedactOptions =
+  | { counted: false; suppressedHashes?: ReadonlySet<string> }
+  | { counted: true; counters: Map<string, number>; suppressedHashes?: ReadonlySet<string> }
 
 export type RedactOutput = {
   output: string
@@ -109,6 +118,9 @@ export function runPipeline(
   }
 
   for (const rule of config.customPatterns) {
+    // Function-typed custom rules can't expose individual match spans, so
+    // suppressedHashes does not apply to them. Users who need per-match
+    // skip semantics must use regex-typed rules.
     if (typeof rule.pattern === 'function') {
       const transformed = rule.pattern(output)
       if (transformed !== output) {
@@ -156,7 +168,12 @@ function applyRegexRule(
 ): string {
   let count = 0
   // pattern is guaranteed to have g flag (caller ensures it)
-  const result = text.replace(pattern, () => {
+  const result = text.replace(pattern, (match) => {
+    if (options.suppressedHashes !== undefined) {
+      if (options.suppressedHashes.has(matchHash(match))) {
+        return match // leave verbatim; do not increment counter, do not emit entry
+      }
+    }
     count++
     if (options.counted) {
       const key = `${source}:${ruleName}`
@@ -292,4 +309,33 @@ export function aggregateEntries(entries: readonly RedactionEntry[]): RedactionE
     }
   }
   return [...map.values()]
+}
+
+/**
+ * Content-addressed identity for a redaction match. Producers (scan,
+ * review's pre-scan) write this format into cassette `_suppressed` entries;
+ * consumers (re-redact, review's pre-scan, the pipeline's per-match skip
+ * check) compare against the same format. Single source of truth so
+ * producer and consumer can never drift.
+ */
+export function matchHash(value: string): string {
+  return `sha256:${createHash('sha256').update(value).digest('hex')}`
+}
+
+/**
+ * Build a `Set<string>` of `matchHash` values across every recording's
+ * `suppressed` array. Returned set is suitable to pass into
+ * `RedactOptions.suppressedHashes` so the pipeline skips emission for
+ * matches the user previously chose to skip during `shell-cassette review`.
+ *
+ * Callers: re-redact (every recording's pass) and review (pre-scan + applyDecisions).
+ */
+export function collectSuppressedHashes(cassette: CassetteFile): Set<string> {
+  const out = new Set<string>()
+  for (const rec of cassette.recordings) {
+    for (const entry of rec.suppressed) {
+      out.add(entry.matchHash)
+    }
+  }
+  return out
 }

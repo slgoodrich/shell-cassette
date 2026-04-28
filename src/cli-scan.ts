@@ -15,7 +15,6 @@
  * Output format is locked at scanVersion: 1. See spec Section 4 for the
  * complete --json shape.
  */
-import { createHash } from 'node:crypto'
 import { color, isTty, previewMatch, stderr, stdout } from './cli-output.js'
 import { walkCassettes } from './cli-walk.js'
 import { loadConfigFromDir, loadConfigFromFile } from './config.js'
@@ -23,7 +22,7 @@ import { CassetteConfigError, CassetteNotFoundError } from './errors.js'
 import { loadCassette } from './loader.js'
 import { matchesEnvKeyList } from './recorder.js'
 import { BUNDLED_PATTERNS } from './redact-patterns.js'
-import { ENV_KEY_MATCH_RULE, REDACTION_PLACEHOLDER_PATTERN } from './redact-pipeline.js'
+import { ENV_KEY_MATCH_RULE, matchHash, REDACTION_PLACEHOLDER_PATTERN } from './redact-pipeline.js'
 import type { CassetteFile, Recording, RedactConfig, RedactSource } from './types.js'
 
 const SCAN_VERSION = 1
@@ -300,7 +299,7 @@ function findingsForRecording(
         source: 'env',
         rule: ENV_KEY_MATCH_RULE,
         match: includeMatch ? value : undefined,
-        matchHash: `sha256:${createHash('sha256').update(value).digest('hex')}`,
+        matchHash: matchHash(value),
         matchLength: value.length,
         matchPreview: previewMatch(value),
       })
@@ -375,7 +374,7 @@ function scanValue(
         source,
         rule: rule.name,
         match: includeMatch ? matchStr : undefined,
-        matchHash: `sha256:${createHash('sha256').update(matchStr).digest('hex')}`,
+        matchHash: matchHash(matchStr),
         matchLength: matchStr.length,
         matchPreview: previewMatch(matchStr),
       })

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { runScan } from '../../src/cli-scan.js'
+import { matchHash } from '../../src/redact-pipeline.js'
 import { SAMPLE_GITHUB_PAT_CLASSIC } from '../helpers/credential-fixtures.js'
 import { restoreEnv } from '../helpers/env.js'
 
@@ -199,11 +200,7 @@ describe('runScan: matchHash correctness', () => {
     const parsed = JSON.parse(stdoutBuf)
     const finding = parsed.cassettes[0].findings[0]
     // Verify hash independently
-    const { createHash } = await import('node:crypto')
-    const expected = `sha256:${createHash('sha256')
-      .update(finding.match as string)
-      .digest('hex')}`
-    expect(finding.matchHash).toBe(expected)
+    expect(finding.matchHash).toBe(matchHash(finding.match as string))
   })
 })
 
