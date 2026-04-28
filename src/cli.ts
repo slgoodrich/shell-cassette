@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-import { fileURLToPath } from 'node:url'
 import { stderr, stdout } from './cli-output.js'
 import { runReRedact } from './cli-re-redact.js'
 import { runScan } from './cli-scan.js'
@@ -61,16 +59,4 @@ export async function main(argv: readonly string[]): Promise<number> {
       stderr(`error: unknown command '${args.command}'\n${HELP}`)
       return 2
   }
-}
-
-// Auto-execute when invoked as the entry point (not when imported by tests)
-const isMain = process.argv[1] === fileURLToPath(import.meta.url)
-
-if (isMain) {
-  main(process.argv.slice(2))
-    .then((code) => process.exit(code))
-    .catch((e) => {
-      stderr(`error: ${(e as Error).message}`)
-      process.exit(2)
-    })
 }

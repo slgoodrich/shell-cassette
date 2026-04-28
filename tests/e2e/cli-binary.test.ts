@@ -3,7 +3,7 @@ import path from 'node:path'
 import { execa } from 'execa'
 import { describe, expect, test } from 'vitest'
 
-const CLI_BIN = path.resolve('dist/cli.js')
+const CLI_BIN = path.resolve('dist/bin.js')
 const FIXTURES = path.resolve('tests/fixtures/cassettes')
 
 // Skip the suite if dist isn't built so local `npm test` works without a prior
