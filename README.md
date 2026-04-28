@@ -503,7 +503,7 @@ If you hit one of these, see [docs/troubleshooting.md](docs/troubleshooting.md):
 
 ## What this doesn't do
 
-Two patterns shell-cassette is not a fit for. These aren't on a roadmap. They're outside the design.
+Two patterns shell-cassette is not a fit for. 
 
 **Mock-for-assertion patterns.** shell-cassette captures and replays subprocess **output**, not subprocess invocations. Tests that assert on **which command was called** (`expect(execMock).toHaveBeenCalledWith('git', ['commit', ...])`) are testing the wrong abstraction layer. Use `vi.mock` for that pattern; it's a different concern. Examples in the wild: `prettier/pretty-quick`, `antfu/ni`, `jinghaihan/pncat`.
 
