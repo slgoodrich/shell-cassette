@@ -12,7 +12,7 @@
 // See docs/vitest-plugin.md for details.
 
 import { getConfig } from './config.js'
-import { ConcurrencyError, MissingPeerDependencyError } from './errors.js'
+import { MissingPeerDependencyError } from './errors.js'
 import { writeCassetteFile } from './io.js'
 import { deriveCassettePathFromTask } from './plugin.js'
 import { serialize } from './serialize.js'
@@ -60,15 +60,11 @@ try {
     if (!task) return
 
     const config = getConfig()
-    let cassettePath: string
-    try {
-      cassettePath = deriveCassettePathFromTask(task, config.cassetteDir)
-    } catch (e) {
-      if (e instanceof ConcurrencyError) {
-        throw e
-      }
-      return
-    }
+    // deriveCassettePathFromTask throws ConcurrencyError on test.concurrent and
+    // CassetteIOError on path-too-long. Both must propagate: the user needs to
+    // see them or recording silently fails (test passes via wrapper passthrough,
+    // no cassette written, no warning). See issue #73.
+    const cassettePath = deriveCassettePathFromTask(task, config.cassetteDir)
 
     registerSessionPath(cassettePath, `vitest-plugin:${task.name}`)
 
