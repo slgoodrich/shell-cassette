@@ -11,7 +11,12 @@
  * Action keys (a/s/r/d/b/q/?) are API-locked. Renames would be a breaking
  * change. Prompt strings are NOT API.
  */
-import { previewMatch } from './cli-output.js'
+import { applyTruncation, color, isTty, previewMatch, stderr, stdout } from './cli-output.js'
+import { promptAction, promptText, promptYesNo } from './cli-prompt.js'
+import { loadConfigFromDir, loadConfigFromFile } from './config.js'
+import { CassetteConfigError, CassetteNotFoundError } from './errors.js'
+import { writeCassetteFile } from './io.js'
+import { loadCassette } from './loader.js'
 import { matchesEnvKeyList } from './recorder.js'
 import { redact } from './redact.js'
 import { BUNDLED_PATTERNS } from './redact-patterns.js'
@@ -23,6 +28,7 @@ import {
   REDACTION_PLACEHOLDER_PATTERN,
   seedCountersFromCassette,
 } from './redact-pipeline.js'
+import { serialize } from './serialize.js'
 import type {
   CassetteFile,
   Recording,
@@ -31,6 +37,7 @@ import type {
   RedactSource,
   SuppressedEntry,
 } from './types.js'
+import { RECORDED_BY } from './version.js'
 
 export type Finding = {
   /** Stable ID: `rec<recordingIndex>-<source>-<position>-<rule>` */
@@ -586,4 +593,279 @@ function applyReplace(rec: Recording, finding: Finding, replacement: string): Re
   }
   if (rec.result.allLines === null) return rec
   return { ...rec, result: { ...rec.result, allLines: replaceInLines(rec.result.allLines) } }
+}
+
+const REVIEW_VERSION = 1
+
+const REVIEW_HELP = `\
+Usage:
+  shell-cassette review <path> [options]
+
+Walks unredacted findings interactively. For each finding the user picks:
+  (a) accept     apply default redaction (counter-tagged placeholder)
+  (s) skip       leave match in body, persist via _suppressed
+  (r) replace    substitute user-provided string (NOT for args)
+  (d) delete     remove the entire recording
+  (b) back       revisit previous finding
+  (q) quit       discard all decisions
+  (?) help       print key reference
+
+Decisions are batched and applied on confirm. Quit discards everything.
+
+Exit codes:
+  0   reviewed (with or without changes)
+  2   error (missing path, malformed cassette, conflicting flags)
+
+Options:
+  --json              read-only structured output (no prompts)
+  --include-match     [with --json] include raw match values (UNSAFE for piping)
+  --config <path>     override config discovery
+  --no-color
+  --color=always
+  --help
+`
+
+type ColorOverride = 'auto' | 'always' | 'never'
+
+type ReviewFlags = {
+  path: string | null
+  json: boolean
+  includeMatch: boolean
+  configPath?: string
+  colorOverride: ColorOverride
+  help: boolean
+}
+
+function parseReviewArgs(args: readonly string[]): ReviewFlags {
+  const flags: ReviewFlags = {
+    path: null,
+    json: false,
+    includeMatch: false,
+    colorOverride: 'auto',
+    help: false,
+  }
+  for (let i = 0; i < args.length; i++) {
+    // biome-ignore lint/style/noNonNullAssertion: loop bound
+    const arg = args[i]!
+    if (arg === '--help' || arg === '-h') flags.help = true
+    else if (arg === '--json') flags.json = true
+    else if (arg === '--include-match') flags.includeMatch = true
+    else if (arg === '--no-color') flags.colorOverride = 'never'
+    else if (arg === '--color=always') flags.colorOverride = 'always'
+    else if (arg === '--config') {
+      const next = args[++i]
+      if (next === undefined) throw new CassetteConfigError('--config requires a path argument')
+      flags.configPath = next
+    } else if (arg.startsWith('--config=')) {
+      flags.configPath = arg.slice('--config='.length)
+    } else if (arg.startsWith('--')) {
+      throw new CassetteConfigError(`unknown flag: ${arg}`)
+    } else {
+      if (flags.path !== null) throw new CassetteConfigError('review takes exactly one path')
+      flags.path = arg
+    }
+  }
+  return flags
+}
+
+export async function runReview(args: readonly string[]): Promise<number> {
+  let flags: ReviewFlags
+  try {
+    flags = parseReviewArgs(args)
+  } catch (e) {
+    stderr(`error: ${(e as Error).message}\n${REVIEW_HELP}`)
+    return 2
+  }
+
+  if (flags.help) {
+    stdout(REVIEW_HELP)
+    return 0
+  }
+  if (flags.path === null) {
+    stderr(`error: review requires a path\n${REVIEW_HELP}`)
+    return 2
+  }
+
+  color.setEnabled(
+    isTty.shouldUseColor({ tty: isTty.detectStdoutTty(), override: flags.colorOverride }),
+  )
+
+  let cassette: CassetteFile
+  try {
+    const loaded = await loadCassette(flags.path)
+    if (loaded === null) throw new CassetteNotFoundError(flags.path)
+    cassette = loaded
+  } catch (e) {
+    stderr(`error: ${(e as Error).message}`)
+    return 2
+  }
+
+  const config = flags.configPath
+    ? await loadConfigFromFile(flags.configPath)
+    : await loadConfigFromDir(process.cwd())
+
+  const findings = preScan(cassette, config.redact)
+
+  if (flags.json) {
+    return runJsonMode(findings, flags.includeMatch)
+  }
+
+  if (findings.length === 0) {
+    stdout('No new findings under current rules. Cassette is clean.')
+    return 0
+  }
+
+  let state: ReviewState = {
+    findings,
+    cursor: 0,
+    history: [],
+    decisions: new Map(),
+    step: 'reviewing',
+  }
+  while (state.step === 'reviewing') {
+    // biome-ignore lint/style/noNonNullAssertion: cursor in range when reviewing
+    renderFinding(state.findings[state.cursor]!, state.cursor, state.findings.length)
+    const action = await readNextAction(state)
+    state = applyAction(state, action)
+  }
+
+  if (state.step === 'confirming') {
+    renderSummary(state)
+    const apply = await promptYesNo(`Apply changes to ${flags.path}?`)
+    state = applyAction(state, apply ? { kind: 'apply' } : { kind: 'discard' })
+  }
+
+  if (state.step === 'aborted' || state.decisions.size === 0) {
+    stdout('No changes written.')
+    return 0
+  }
+
+  const updated = applyDecisions(cassette, state.findings, state.decisions, config.redact)
+  // Stamp recordedBy with current shell-cassette identity on write.
+  const stamped: CassetteFile = { ...updated, recordedBy: RECORDED_BY }
+  await writeCassetteFile(flags.path, serialize(stamped))
+  const counts = countDecisions(state)
+  stdout(
+    `Wrote 1 cassette. ${counts.accept} accept, ${counts.skip} skip, ${counts.replace} replace, ${counts.delete} deleted.`,
+  )
+  return 0
+}
+
+function runJsonMode(findings: readonly Finding[], includeMatch: boolean): number {
+  const byRule: Record<string, number> = {}
+  const bySource: Record<string, number> = {}
+  for (const f of findings) {
+    byRule[f.rule] = (byRule[f.rule] ?? 0) + 1
+    bySource[f.source] = (bySource[f.source] ?? 0) + 1
+  }
+  const out = {
+    reviewVersion: REVIEW_VERSION,
+    summary: { totalFindings: findings.length, byRule, bySource },
+    findings: findings.map((f) => ({
+      id: f.id,
+      recordingIndex: f.recordingIndex,
+      source: f.source,
+      rule: f.rule,
+      ...(includeMatch ? { match: f.match } : {}),
+      matchHash: f.matchHash,
+      matchLength: f.matchLength,
+      matchPreview: f.matchPreview,
+      position: f.position,
+      context: f.context,
+    })),
+  }
+  stdout(JSON.stringify(out, null, 2))
+  return 0
+}
+
+function renderFinding(finding: Finding, cursor: number, total: number): void {
+  stdout('')
+  stdout(`${color.bold(`[Finding ${cursor + 1}/${total}]`)} ${finding.rule} in ${finding.source}`)
+  stdout(`Recording ${finding.recordingIndex + 1}: ${finding.id}`)
+  stdout(
+    `Match: ${color.cyan(finding.matchPreview)} (${finding.matchLength} chars, ${finding.matchHash})`,
+  )
+  stdout('')
+  stdout('Context:')
+  for (const before of finding.context.before) {
+    stdout(`  ${applyTruncation(before, 80)}`)
+  }
+  stdout(`  ${color.red(applyTruncation(finding.context.line, 80))}`)
+  for (const after of finding.context.after) {
+    stdout(`  ${applyTruncation(after, 80)}`)
+  }
+  stdout('')
+}
+
+function renderSummary(state: ReviewState): void {
+  const c = countDecisions(state)
+  stdout('')
+  stdout(color.bold('Summary:'))
+  stdout(
+    `  ${c.accept} accept, ${c.skip} skip, ${c.replace} replace, ${c.delete} deleted recording(s)`,
+  )
+}
+
+function countDecisions(state: ReviewState): {
+  accept: number
+  skip: number
+  replace: number
+  delete: number
+} {
+  const out = { accept: 0, skip: 0, replace: 0, delete: 0 }
+  // Multiple findings inside one deleted recording collapse into a single
+  // user-visible "deleted recording" in the summary count.
+  const seenDeletedRecs = new Set<number>()
+  for (const d of state.decisions.values()) {
+    if (d.kind === 'accept') out.accept++
+    else if (d.kind === 'skip') out.skip++
+    else if (d.kind === 'replace') out.replace++
+    else if (d.kind === 'delete') {
+      if (!seenDeletedRecs.has(d.recordingIndex)) {
+        seenDeletedRecs.add(d.recordingIndex)
+        out.delete++
+      }
+    }
+  }
+  return out
+}
+
+async function readNextAction(state: ReviewState): Promise<ReviewAction> {
+  // biome-ignore lint/style/noNonNullAssertion: cursor in range when reviewing
+  const finding = state.findings[state.cursor]!
+  // (r)eplace is unavailable for args (canonicalize-incompatible).
+  const allowed =
+    finding.source === 'args' ? ['a', 's', 'd', 'b', 'q', '?'] : ['a', 's', 'r', 'd', 'b', 'q', '?']
+  while (true) {
+    const key = await promptAction(allowed)
+    if (key === '?') {
+      printActionHelp()
+      continue
+    }
+    if (key === 'a') return { kind: 'accept' }
+    if (key === 's') return { kind: 'skip' }
+    if (key === 'b') return { kind: 'back' }
+    if (key === 'q') return { kind: 'quit' }
+    if (key === 'r') {
+      const replacement = await promptText('Replacement value:')
+      return { kind: 'replace', with: replacement }
+    }
+    if (key === 'd') {
+      const ok = await promptYesNo(`Delete entire recording ${finding.recordingIndex + 1}?`)
+      if (ok) return { kind: 'delete' }
+      // user declined; loop will re-prompt for a different action
+    }
+  }
+}
+
+function printActionHelp(): void {
+  stdout(`
+  (a) accept     apply default redaction
+  (s) skip       leave verbatim, persist via _suppressed
+  (r) replace    substitute custom string (NOT for args)
+  (d) delete     remove entire recording
+  (b) back       revisit previous finding
+  (q) quit       discard all decisions
+  (?) help       this listing
+`)
 }

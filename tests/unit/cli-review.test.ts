@@ -1,6 +1,10 @@
-import { describe, expect, test } from 'vitest'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { type Reader, setReader } from '../../src/cli-prompt.js'
 import type { Finding, ReviewState } from '../../src/cli-review.js'
-import { applyAction, preScan } from '../../src/cli-review.js'
+import { applyAction, preScan, runReview } from '../../src/cli-review.js'
 import { ENV_KEY_MATCH_RULE, matchHash } from '../../src/redact-pipeline.js'
 import type { CassetteFile, RedactConfig } from '../../src/types.js'
 import { makeRecording } from '../helpers/recording.js'
@@ -305,5 +309,231 @@ describe('applyAction', () => {
     state = applyAction(state, { kind: 'discard' })
     expect(state.step).toBe('done')
     expect(state.decisions.size).toBe(0)
+  })
+})
+
+describe('runReview --json', () => {
+  let tmp: string
+  let outBuf: string[]
+  let errBuf: string[]
+  const origStdout = process.stdout.write.bind(process.stdout)
+  const origStderr = process.stderr.write.bind(process.stderr)
+
+  beforeEach(async () => {
+    tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-review-json-'))
+    outBuf = []
+    errBuf = []
+    process.stdout.write = ((s: string) => {
+      outBuf.push(s)
+      return true
+    }) as typeof process.stdout.write
+    process.stderr.write = ((s: string) => {
+      errBuf.push(s)
+      return true
+    }) as typeof process.stderr.write
+  })
+  afterEach(async () => {
+    process.stdout.write = origStdout
+    process.stderr.write = origStderr
+    await rm(tmp, { recursive: true, force: true })
+  })
+
+  test('emits reviewVersion: 1 with summary and findings (default-safe match)', async () => {
+    const PAT = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789'
+    const cassette = {
+      version: 2,
+      _warning: '',
+      _recorded_by: null,
+      recordings: [
+        {
+          call: { command: 'gh', args: [], cwd: null, env: {}, stdin: null },
+          result: {
+            stdoutLines: [`Token: ${PAT}`],
+            stderrLines: [],
+            allLines: null,
+            exitCode: 0,
+            signal: null,
+            durationMs: 0,
+            aborted: false,
+          },
+          _redactions: [],
+        },
+      ],
+    }
+    const fixturePath = path.join(tmp, 'fix.json')
+    await writeFile(fixturePath, `${JSON.stringify(cassette, null, 2)}\n`)
+
+    const exit = await runReview([fixturePath, '--json', '--no-color'])
+    expect(exit).toBe(0)
+    const out = JSON.parse(outBuf.join(''))
+    expect(out.reviewVersion).toBe(1)
+    expect(out.summary.totalFindings).toBe(1)
+    expect(out.findings).toHaveLength(1)
+    // default-safe: match field absent
+    expect(out.findings[0].match).toBeUndefined()
+    expect(out.findings[0].matchHash).toMatch(/^sha256:/)
+    expect(out.findings[0].matchPreview).toMatch(/^ghp_/)
+  })
+
+  test('--include-match adds raw match field', async () => {
+    const PAT = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789'
+    const cassette = {
+      version: 2,
+      _warning: '',
+      _recorded_by: null,
+      recordings: [
+        {
+          call: { command: 'gh', args: [], cwd: null, env: {}, stdin: null },
+          result: {
+            stdoutLines: [PAT],
+            stderrLines: [],
+            allLines: null,
+            exitCode: 0,
+            signal: null,
+            durationMs: 0,
+            aborted: false,
+          },
+          _redactions: [],
+        },
+      ],
+    }
+    const fixturePath = path.join(tmp, 'fix.json')
+    await writeFile(fixturePath, `${JSON.stringify(cassette, null, 2)}\n`)
+
+    const exit = await runReview([fixturePath, '--json', '--include-match', '--no-color'])
+    expect(exit).toBe(0)
+    const out = JSON.parse(outBuf.join(''))
+    expect(out.findings[0].match).toBe(PAT)
+  })
+
+  test('returns 2 on missing path', async () => {
+    const exit = await runReview([])
+    expect(exit).toBe(2)
+    expect(errBuf.join('')).toContain('review requires a path')
+  })
+
+  test('--help returns 0', async () => {
+    const exit = await runReview(['--help'])
+    expect(exit).toBe(0)
+    expect(outBuf.join('')).toContain('Usage:')
+  })
+})
+
+describe('runReview interactive (driven via fake reader)', () => {
+  let tmp: string
+
+  beforeEach(async () => {
+    tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-review-int-'))
+  })
+  afterEach(async () => {
+    setReader(null)
+    await rm(tmp, { recursive: true, force: true })
+  })
+
+  function makeReader(answers: string[]): Reader {
+    const queue = [...answers]
+    return {
+      question: async () => {
+        const next = queue.shift()
+        if (next === undefined) return ''
+        return next
+      },
+      close: () => {},
+    }
+  }
+
+  test('clean cassette (no findings) exits 0 immediately', async () => {
+    const cassette = {
+      version: 2,
+      _warning: '',
+      _recorded_by: null,
+      recordings: [
+        {
+          call: { command: 'echo', args: ['hi'], cwd: null, env: {}, stdin: null },
+          result: {
+            stdoutLines: ['hi'],
+            stderrLines: [],
+            allLines: null,
+            exitCode: 0,
+            signal: null,
+            durationMs: 0,
+            aborted: false,
+          },
+          _redactions: [],
+        },
+      ],
+    }
+    const fixturePath = path.join(tmp, 'clean.json')
+    await writeFile(fixturePath, `${JSON.stringify(cassette, null, 2)}\n`)
+
+    const exit = await runReview([fixturePath, '--no-color'])
+    expect(exit).toBe(0)
+  })
+
+  test('accept-all-then-confirm writes redacted cassette', async () => {
+    const PAT = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789'
+    const cassette = {
+      version: 2,
+      _warning: '',
+      _recorded_by: null,
+      recordings: [
+        {
+          call: { command: 'gh', args: [], cwd: null, env: {}, stdin: null },
+          result: {
+            stdoutLines: [`A: ${PAT}`],
+            stderrLines: [],
+            allLines: null,
+            exitCode: 0,
+            signal: null,
+            durationMs: 0,
+            aborted: false,
+          },
+          _redactions: [],
+        },
+      ],
+    }
+    const fixturePath = path.join(tmp, 'dirty.json')
+    await writeFile(fixturePath, `${JSON.stringify(cassette, null, 2)}\n`)
+
+    setReader(makeReader(['a', 'y'])) // accept finding 1, then confirm yes
+    const exit = await runReview([fixturePath, '--no-color'])
+    expect(exit).toBe(0)
+    const after = await readFile(fixturePath, 'utf8')
+    expect(JSON.parse(after).recordings[0].result.stdoutLines[0]).toContain(
+      '<redacted:stdout:github-pat-classic',
+    )
+  })
+
+  test('quit discards decisions; cassette unchanged', async () => {
+    const PAT = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789'
+    const cassette = {
+      version: 2,
+      _warning: '',
+      _recorded_by: null,
+      recordings: [
+        {
+          call: { command: 'gh', args: [], cwd: null, env: {}, stdin: null },
+          result: {
+            stdoutLines: [`A: ${PAT}`],
+            stderrLines: [],
+            allLines: null,
+            exitCode: 0,
+            signal: null,
+            durationMs: 0,
+            aborted: false,
+          },
+          _redactions: [],
+        },
+      ],
+    }
+    const fixturePath = path.join(tmp, 'quit.json')
+    const before = `${JSON.stringify(cassette, null, 2)}\n`
+    await writeFile(fixturePath, before)
+
+    setReader(makeReader(['q'])) // quit on the first finding
+    const exit = await runReview([fixturePath, '--no-color'])
+    expect(exit).toBe(0)
+    const after = await readFile(fixturePath, 'utf8')
+    expect(after).toBe(before)
   })
 })
