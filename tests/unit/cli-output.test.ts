@@ -32,16 +32,13 @@ describe('color helpers', () => {
 
 describe('isTty.shouldUseColor', () => {
   const originalNoColor = process.env.NO_COLOR
-  const originalForceColor = process.env.FORCE_COLOR
 
   beforeEach(() => {
     delete process.env.NO_COLOR
-    delete process.env.FORCE_COLOR
   })
 
   afterEach(() => {
     restoreEnv('NO_COLOR', originalNoColor)
-    restoreEnv('FORCE_COLOR', originalForceColor)
   })
 
   test('NO_COLOR env disables colors even on TTY', () => {
