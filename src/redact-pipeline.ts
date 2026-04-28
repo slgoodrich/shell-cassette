@@ -311,3 +311,21 @@ export function aggregateEntries(entries: readonly RedactionEntry[]): RedactionE
   }
   return [...map.values()]
 }
+
+/**
+ * Build a `Set<string>` of `matchHash` values across every recording's
+ * `suppressed` array. Returned set is suitable to pass into
+ * `RedactOptions.suppressedHashes` so the pipeline skips emission for
+ * matches the user previously chose to skip during `shell-cassette review`.
+ *
+ * Callers: re-redact (every recording's pass) and review (pre-scan + applyDecisions).
+ */
+export function collectSuppressedHashes(cassette: CassetteFile): Set<string> {
+  const out = new Set<string>()
+  for (const rec of cassette.recordings) {
+    for (const entry of rec.suppressed) {
+      out.add(entry.matchHash)
+    }
+  }
+  return out
+}

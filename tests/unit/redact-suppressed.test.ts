@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, test } from 'vitest'
-import { runPipeline } from '../../src/redact-pipeline.js'
-import type { RedactConfig } from '../../src/types.js'
+import { collectSuppressedHashes, runPipeline } from '../../src/redact-pipeline.js'
+import type { CassetteFile, RedactConfig } from '../../src/types.js'
+import { makeRecording } from '../helpers/recording.js'
 
 const minimalConfig: Readonly<RedactConfig> = Object.freeze({
   bundledPatterns: true,
@@ -53,5 +54,56 @@ describe('runPipeline: suppressedHashes', () => {
       suppressedHashes: new Set([sha256(pat)]),
     })
     expect(counters.get('stdout:github-pat-classic')).toBe(5) // unchanged
+  })
+})
+
+describe('collectSuppressedHashes', () => {
+  test('returns empty set for cassette with no _suppressed entries', () => {
+    const file: CassetteFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [makeRecording()],
+    }
+    expect(collectSuppressedHashes(file).size).toBe(0)
+  })
+
+  test('collects hashes across all recordings', () => {
+    const file: CassetteFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [
+        makeRecording({
+          suppressed: [
+            { source: 'stdout', rule: 'r1', position: '1:0', matchHash: 'sha256:aaa' },
+            { source: 'stdout', rule: 'r2', position: '2:0', matchHash: 'sha256:bbb' },
+          ],
+        }),
+        makeRecording({
+          suppressed: [{ source: 'args', rule: 'r3', position: '0:0', matchHash: 'sha256:ccc' }],
+        }),
+      ],
+    }
+    const set = collectSuppressedHashes(file)
+    expect(set.size).toBe(3)
+    expect(set.has('sha256:aaa')).toBe(true)
+    expect(set.has('sha256:bbb')).toBe(true)
+    expect(set.has('sha256:ccc')).toBe(true)
+  })
+
+  test('deduplicates the same hash appearing in multiple recordings', () => {
+    const file: CassetteFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [
+        makeRecording({
+          suppressed: [{ source: 'stdout', rule: 'r', position: '1:0', matchHash: 'sha256:dup' }],
+        }),
+        makeRecording({
+          suppressed: [{ source: 'args', rule: 'r', position: '0:0', matchHash: 'sha256:dup' }],
+        }),
+      ],
+    }
+    const set = collectSuppressedHashes(file)
+    expect(set.size).toBe(1)
   })
 })
