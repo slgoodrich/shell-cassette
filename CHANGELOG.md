@@ -4,6 +4,49 @@ All notable changes to shell-cassette are documented here. The format is based o
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-XX-XX
+
+### BREAKING CHANGES
+
+- **Cassette schema bumped from version 1 to version 2.** v0.3 readers reject v2 cassettes with `CassetteCorruptError`; v0.4 readers accept both v1 and v2. v1 cassettes are upgradeable in place via `shell-cassette re-redact <path>`.
+- **The v0.2/v0.3 `redactEnv()` function is removed.** Use `redact()` for the unified pipeline, or rely on the recorder to apply redaction transparently at record time.
+- **`Config.redactEnvKeys` is renamed to `Config.redact.envKeys`** under the new composed `RedactConfig` shape. Migration:
+  ```diff
+  - export default { redactEnvKeys: ['STRIPE_API_KEY'] }
+  + export default { redact: { envKeys: ['STRIPE_API_KEY'] } }
+  ```
+- The cassette `_warning` field message is updated to reflect new coverage and residual risks.
+
+### Added
+
+- **25 bundled credential pattern rules** (see `docs/redact-patterns.md`). Default ON. Applies to env values, args, stdout lines, stderr lines, and `allLines`. Covers GitHub (6 token shapes), AWS access key IDs, Stripe (4), OpenAI, Anthropic, Google, Slack (token + webhook URL), GitLab, npm, DigitalOcean, SendGrid, Mailgun, Hugging Face, PyPI, Discord, Square. Rule names are API-stable: locked at v0.4 and never renamed.
+- **User-supplied custom rules** via `Config.redact.customPatterns: RedactRule[]`. Each rule has a kebab-case `name`, a `pattern` (regex or `(s) => string` function), and an optional `description`. Same five-source coverage as the bundle.
+- **Suppress list** via `Config.redact.suppressPatterns: RegExp[]`. Checked first, before bundle and custom rules. A suppressed value is exempt from all rules and from the long-value warning.
+- **Per-cassette redaction override**: `useCassette(name, { redact: false }, fn)`. Coarse-grained; per-stream toggling not supported.
+- **Long-value warning threshold tuned from 100 to 40 chars** with a new `warnPathHeuristic` (default true) that suppresses warnings on values containing `/`, `\`, `:`, or whitespace. Both tunable via `Config.redact.warnLengthThreshold` and `Config.redact.warnPathHeuristic`.
+- **Rule-tagged placeholders with counters**: `<redacted:source:rule-name:N>`. Counter scope is per-cassette per (source, rule), incremented per occurrence.
+- **Schema v2 fields**: top-level `recordedBy: { name, version }` and per-recording `redactions: [{ rule, source, count }]`. Both are additive; v0.3 readers ignore unknown top-level fields but reject the version bump (hence the breaking change).
+- **`BUNDLED_PATTERNS` constant exported** from the main entry for user composition.
+- **New CLI binary `shell-cassette`** with `scan` and `re-redact` subcommands. `scan` is read-only and reports unredacted findings; `re-redact` re-applies the current rules to existing cassettes (idempotent). Exit codes per command are documented in `--help`.
+- **`shell-cassette/vite-plugin` export** with `shellCassetteAlias({ adapters })`. Vite/Vitest plugin that redirects bare `tinyexec` / `execa` imports to shell-cassette's adapters with an importer guard so shell-cassette's own internal imports resolve to the real package. Closes [#84](https://github.com/slgoodrich/shell-cassette/issues/84).
+- **`shell-cassette/tinyexec` exports `exec` as an alias for `x`.** Mirrors tinyexec's own dual export; users who import `{ exec }` from `tinyexec` can redirect without renaming. Closes [#77](https://github.com/slgoodrich/shell-cassette/issues/77).
+- **`shell-cassette/tinyexec` exports `xSync` as a stub** that throws a clear error pointing to async `x` or v0.5. Sync subprocess wrapping requires synchronous lazy-load support; tracked in [#82](https://github.com/slgoodrich/shell-cassette/issues/82).
+- **Property-based tests** for redaction idempotence, scan/record symmetry, and re-redact determinism.
+
+### Changed
+
+- **The default redaction pipeline now runs against env values, args, stdout, stderr, and `allLines`** (was env-only in v0.2/v0.3). Existing cassettes recorded under v0.2/v0.3 retain their original (unredacted) content; run `shell-cassette re-redact <path>` to apply v0.4 rules in place.
+- **The canonicalize pipeline strips counter-tagged placeholders for args before deep-equal matching.** Cassettes with redacted args replay correctly across runs (placeholder counters can drift between cassette versions; the canonical form is counter-stripped).
+- **The ack-gate message enumerates coverage** (bundled rules, curated env keys, custom rules) and explicit residual-risk gaps (AWS Secret Access Keys, JWTs, encoded credentials, binary, cwd, stdin).
+- **`result.process` on tinyexec replay throws a clear `ShellCassetteError`** instead of silently returning `null`. Tests that read `result.process.stdout` / `.stderr` / `.stdin` get pointed at `result.stdout` / `result.stderr` (the buffered fields) or `SHELL_CASSETTE_MODE=passthrough`. Closes [#83](https://github.com/slgoodrich/shell-cassette/issues/83).
+- **Cassette path-too-long errors propagate loudly** instead of being swallowed by the path resolver. Closes [#73](https://github.com/slgoodrich/shell-cassette/issues/73).
+
+### Notes
+
+- **Documented residual gaps** in the redaction surface: AWS Secret Access Keys (caught only by length warning), JWTs (default-off; opt-in via custom rule), encoded credentials (`Authorization: Basic ...`, base64 YAML/JSON), binary output (`BinaryOutputError`), `cwd` values, subprocess `stdin` (until v0.5). See README's "Not redacted (residual risks)" section and `docs/troubleshooting.md` "Residual risks and gaps in v0.4 redaction".
+- **v0.5 will add `show`, `review`, `prune` CLIs** to the same binary, plus the `_suppressed` schema field for `review`'s persistent skip semantics.
+- **Cassettes recorded by v0.4 are NOT loadable by v0.3.** v0.3's deserializer rejects the schema version. v0.4 still loads v0.3 cassettes; mixed-version teams should pin to v0.4 across the team.
+
 ## [0.3.0] - 2026-04-26
 
 ### BREAKING CHANGES
