@@ -17,6 +17,7 @@ import { stat } from 'node:fs/promises'
 import { applyTruncation, color, formatBytes, isTty, stderr, stdout } from './cli-output.js'
 import { CassetteConfigError, CassetteNotFoundError } from './errors.js'
 import { loadCassette } from './loader.js'
+import { REDACTION_PLACEHOLDER_PATTERN } from './redact-pipeline.js'
 import type { CassetteFile, Recording } from './types.js'
 
 const SHOW_VERSION = 1
@@ -183,7 +184,7 @@ function printTerminal(cassette: CassetteFile, summary: ShowSummary, flags: Show
       `Version: ${summary.version} (recorded by ${summary.recordedBy.name}@${summary.recordedBy.version})`,
     )
   } else {
-    stdout(`Version: ${summary.version} (recorder unknown - likely v0.3 era)`)
+    stdout(`Version: ${summary.version} (recorder unknown)`)
   }
   if (summary.redactions.total > 0) {
     const byRuleList = Object.entries(summary.redactions.byRule)
@@ -191,7 +192,9 @@ function printTerminal(cassette: CassetteFile, summary: ShowSummary, flags: Show
       .join(', ')
     stdout(`Redactions: ${summary.redactions.total} total - ${byRuleList}`)
   } else if (summary.version === 1) {
-    stdout('Redactions: (none - v1 cassette without metadata; consider re-redact to upgrade)')
+    stdout(
+      'Redactions: (none recorded; v1 cassette - run `shell-cassette re-redact` to capture them)',
+    )
   } else {
     stdout('Redactions: 0')
   }
@@ -207,9 +210,8 @@ function printRecording(rec: Recording, index: number, total: number, flags: Sho
   stdout(color.bold(`[${index + 1}/${total}] ${rec.call.command} ${rec.call.args.join(' ')}`))
   stdout(`  cwd: ${rec.call.cwd ?? '(null)'}`)
 
-  // Env: only show keys whose value is a redaction placeholder
-  const redactedEnvKeys = Object.entries(rec.call.env).filter(([_, v]) =>
-    v.startsWith('<redacted:'),
+  const redactedEnvKeys = Object.entries(rec.call.env).filter(([, v]) =>
+    REDACTION_PLACEHOLDER_PATTERN.test(v),
   )
   if (redactedEnvKeys.length > 0) {
     stdout('  env (redacted):')

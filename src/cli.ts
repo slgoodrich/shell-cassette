@@ -14,8 +14,6 @@ Commands:
   scan        Verify cassettes have no unredacted credentials.
   re-redact   Re-apply current redaction rules to existing cassettes.
   show        Pretty-print a cassette for human inspection.
-  review      Walk un-redacted findings interactively (a/s/r/d/b/q/?).
-  prune       Remove recordings by index (--delete <indexes>) or list (--json).
 
 Options:
   --version   Print shell-cassette version and exit.
