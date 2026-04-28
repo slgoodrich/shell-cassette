@@ -1,10 +1,11 @@
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { readFile, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { serialize } from '../../src/serialize.js'
 import { _resetForTesting, clearActiveCassette } from '../../src/state.js'
 import { useCassette } from '../../src/use-cassette.js'
+import { makeRecording } from '../helpers/recording.js'
+import { useTmpDir } from '../helpers/tmp-dir.js'
 
 vi.mock('tinyexec', () => ({
   x: vi.fn(),
@@ -13,10 +14,9 @@ vi.mock('tinyexec', () => ({
 const { x: realXMock } = await import('tinyexec')
 const { x } = await import('../../src/tinyexec.js')
 
-let tmp: string
+const tmpDir = useTmpDir()
 
-beforeEach(async () => {
-  tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-test-'))
+beforeEach(() => {
   _resetForTesting()
   vi.mocked(realXMock).mockReset()
   process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
@@ -24,10 +24,9 @@ beforeEach(async () => {
   delete process.env.CI
 })
 
-afterEach(async () => {
+afterEach(() => {
   _resetForTesting()
   clearActiveCassette()
-  await rm(tmp, { recursive: true, force: true })
   delete process.env.SHELL_CASSETTE_ACK_REDACTION
 })
 
@@ -42,7 +41,7 @@ describe('tinyexec integration', () => {
       killed: false,
     } as never)
 
-    const cassettePath = path.join(tmp, 'test.json')
+    const cassettePath = path.join(tmpDir.ref(), 'test.json')
     await useCassette(cassettePath, async () => {
       await x('echo', ['recorded-output'])
     })
@@ -56,25 +55,16 @@ describe('tinyexec integration', () => {
   })
 
   test('replay reads cassette file and synthesizes result', async () => {
-    const cassettePath = path.join(tmp, 'test.json')
+    const cassettePath = path.join(tmpDir.ref(), 'test.json')
 
     const cassetteJson = serialize({
       version: 1,
       recordedBy: null,
       recordings: [
-        {
+        makeRecording({
           call: { command: 'echo', args: ['canned'], cwd: null, env: {}, stdin: null },
-          result: {
-            stdoutLines: ['canned'],
-            stderrLines: [''],
-            allLines: null,
-            exitCode: 0,
-            signal: null,
-            durationMs: 0,
-            aborted: false,
-          },
-          redactions: [],
-        },
+          result: { stdoutLines: ['canned'], stderrLines: [''] },
+        }),
       ],
     })
     await writeFile(cassettePath, cassetteJson, 'utf8')
@@ -97,7 +87,7 @@ describe('tinyexec integration', () => {
   })
 
   test('lazy load: cassette file not read when no x() call happens', async () => {
-    const cassettePath = path.join(tmp, 'never-loaded.json')
+    const cassettePath = path.join(tmpDir.ref(), 'never-loaded.json')
 
     await useCassette(cassettePath, async () => {
       // no x() calls in scope
@@ -108,25 +98,16 @@ describe('tinyexec integration', () => {
   })
 
   test('lazy write: cassette only written when newRecordings has entries', async () => {
-    const cassettePath = path.join(tmp, 'replay-only.json')
+    const cassettePath = path.join(tmpDir.ref(), 'replay-only.json')
 
     const cassetteJson = serialize({
       version: 1,
       recordedBy: null,
       recordings: [
-        {
+        makeRecording({
           call: { command: 'echo', args: ['hi'], cwd: null, env: {}, stdin: null },
-          result: {
-            stdoutLines: ['hi'],
-            stderrLines: [''],
-            allLines: null,
-            exitCode: 0,
-            signal: null,
-            durationMs: 0,
-            aborted: false,
-          },
-          redactions: [],
-        },
+          result: { stdoutLines: ['hi'], stderrLines: [''] },
+        }),
       ],
     })
     await writeFile(cassettePath, cassetteJson, 'utf8')

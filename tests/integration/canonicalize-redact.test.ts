@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import { DEFAULT_CONFIG } from '../../src/config.js'
 import { defaultCanonicalize, MatcherState } from '../../src/matcher.js'
+import {
+  SAMPLE_GITHUB_PAT_CLASSIC,
+  SAMPLE_GITHUB_PAT_CLASSIC_2,
+} from '../helpers/credential-fixtures.js'
 import { callOf, recordingOf } from '../helpers/fixtures.js'
 
 describe('canonicalize-time redact for args', () => {
@@ -8,17 +12,15 @@ describe('canonicalize-time redact for args', () => {
     const cassetteCall = callOf('curl', [
       'Authorization: Bearer <redacted:args:github-pat-classic:1>',
     ])
-    const freshCall = callOf('curl', [
-      'Authorization: Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
-    ])
+    const freshCall = callOf('curl', [`Authorization: Bearer ${SAMPLE_GITHUB_PAT_CLASSIC}`])
     const cassetteCanon = defaultCanonicalize(cassetteCall, DEFAULT_CONFIG.redact)
     const freshCanon = defaultCanonicalize(freshCall, DEFAULT_CONFIG.redact)
     expect(cassetteCanon).toEqual(freshCanon)
   })
 
   test('two different real credentials canonicalize to same form (both redacted to placeholder)', () => {
-    const a = callOf('curl', ['Authorization: Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'])
-    const b = callOf('curl', ['Authorization: Bearer ghp_ZYXwvuTSRqponMLKjihgfeDCBA0987654321'])
+    const a = callOf('curl', [`Authorization: Bearer ${SAMPLE_GITHUB_PAT_CLASSIC}`])
+    const b = callOf('curl', [`Authorization: Bearer ${SAMPLE_GITHUB_PAT_CLASSIC_2}`])
     const ac = defaultCanonicalize(a, DEFAULT_CONFIG.redact)
     const bc = defaultCanonicalize(b, DEFAULT_CONFIG.redact)
     expect(ac).toEqual(bc)
@@ -49,10 +51,7 @@ describe('canonicalize-time redact for args', () => {
 
     const matcher = new MatcherState([recording], defaultCanonicalize, DEFAULT_CONFIG.redact)
 
-    const freshCall = callOf('curl', [
-      '-H',
-      'Authorization: Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
-    ])
+    const freshCall = callOf('curl', ['-H', `Authorization: Bearer ${SAMPLE_GITHUB_PAT_CLASSIC}`])
     expect(matcher.findMatch(freshCall)).toBe(recording)
   })
 
@@ -78,8 +77,8 @@ describe('canonicalize-time redact for args', () => {
     recording.redactions = [{ rule: 'github-pat-classic', source: 'args', count: 1 }]
     const matcher = new MatcherState([recording], defaultCanonicalize, DEFAULT_CONFIG.redact)
 
-    const call1 = callOf('curl', ['Authorization: Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'])
-    const call2 = callOf('curl', ['Authorization: Bearer ghp_ZYXwvuTSRqponMLKjihgfeDCBA0987654321'])
+    const call1 = callOf('curl', [`Authorization: Bearer ${SAMPLE_GITHUB_PAT_CLASSIC}`])
+    const call2 = callOf('curl', [`Authorization: Bearer ${SAMPLE_GITHUB_PAT_CLASSIC_2}`])
     expect(matcher.findMatch(call1)).toBe(recording)
     // Second call: same canonical form, but recording already consumed
     expect(matcher.findMatch(call2)).toBe(null)
@@ -88,7 +87,7 @@ describe('canonicalize-time redact for args', () => {
   test('canonicalize integrates with existing tmp-path normalization', () => {
     // Combination: tmp path AND credential in same arg
     const call = callOf('curl', [
-      '/tmp/test-abc/file.txt --header Authorization: Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
+      `/tmp/test-abc/file.txt --header Authorization: Bearer ${SAMPLE_GITHUB_PAT_CLASSIC}`,
     ])
     const canon = defaultCanonicalize(call, DEFAULT_CONFIG.redact)
     // Both transforms applied: <tmp> for the path, placeholder for the credential
@@ -113,16 +112,13 @@ describe('canonicalize-time redact for args', () => {
     const matcher = new MatcherState([recording], defaultCanonicalize, DEFAULT_CONFIG.redact)
 
     // Different command so it won't match (credential is still present in args).
-    const freshCall = callOf('wget', [
-      '-H',
-      'Authorization: Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
-    ])
+    const freshCall = callOf('wget', ['-H', `Authorization: Bearer ${SAMPLE_GITHUB_PAT_CLASSIC}`])
     expect(matcher.findMatch(freshCall)).toBe(null)
 
     // Verify the canonical form that buildReplayMissError would stringify is credential-free.
     const canonical = defaultCanonicalize(freshCall, DEFAULT_CONFIG.redact)
     const stringified = JSON.stringify(canonical)
-    expect(stringified).not.toContain('ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890')
+    expect(stringified).not.toContain(SAMPLE_GITHUB_PAT_CLASSIC)
     expect(stringified).toContain('<redacted:args:github-pat-classic>')
   })
 })

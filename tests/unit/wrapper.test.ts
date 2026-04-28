@@ -6,8 +6,8 @@ import {
   UnsupportedOptionError,
 } from '../../src/errors.js'
 import { _resetForTesting, clearActiveCassette, setActiveCassette } from '../../src/state.js'
-import type { Recording } from '../../src/types.js'
 import { type RunnerHooks, runWrapped } from '../../src/wrapper.js'
+import { makeRecording } from '../helpers/recording.js'
 import { makeSession } from '../helpers/session.js'
 
 type FakeOpts = { fake?: true }
@@ -130,19 +130,10 @@ describe('runWrapped (envelope)', () => {
   })
 
   test('replay path returns synthesized result on match', async () => {
-    const recording: Recording = {
+    const recording = makeRecording({
       call: { command: 'echo', args: ['hi'], cwd: null, env: {}, stdin: null },
-      result: {
-        stdoutLines: ['hi', ''],
-        stderrLines: [''],
-        allLines: null,
-        exitCode: 0,
-        signal: null,
-        durationMs: 0,
-        aborted: false,
-      },
-      redactions: [],
-    }
+      result: { stdoutLines: ['hi', ''], stderrLines: [''] },
+    })
     const session = makeSession({
       loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
@@ -205,19 +196,10 @@ describe('runWrapped (envelope)', () => {
 
   test('auto matcher miss without ack: AckRequiredError message includes matcher-miss context', async () => {
     // Existing recording for `git status`; we'll call `git log` so the matcher misses.
-    const recording: Recording = {
+    const recording = makeRecording({
       call: { command: 'git', args: ['status'], cwd: null, env: {}, stdin: null },
-      result: {
-        stdoutLines: ['', ''],
-        stderrLines: [''],
-        allLines: null,
-        exitCode: 0,
-        signal: null,
-        durationMs: 0,
-        aborted: false,
-      },
-      redactions: [],
-    }
+      result: { stdoutLines: ['', ''], stderrLines: [''] },
+    })
     const session = makeSession({
       scopeDefault: 'auto',
       loadedFile: { version: 1, recordedBy: null, recordings: [recording] },

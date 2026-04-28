@@ -1,25 +1,24 @@
-import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { copyFile, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { runReRedact } from '../../src/cli-re-redact.js'
+import { SAMPLE_GITHUB_PAT_CLASSIC } from '../helpers/credential-fixtures.js'
 import { restoreEnv } from '../helpers/env.js'
+import { useTmpDir } from '../helpers/tmp-dir.js'
 
 const FIXTURES = path.resolve('tests/fixtures/cassettes')
 
 const originalNoColor = process.env.NO_COLOR
 
-let tmp: string
+const tmpDir = useTmpDir('shell-cassette-rr-')
 let stdoutSpy: ReturnType<typeof vi.spyOn>
 let stderrSpy: ReturnType<typeof vi.spyOn>
 
-beforeEach(async () => {
-  tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-rr-'))
+beforeEach(() => {
   // Pin NO_COLOR so terminal output is predictable in tests (no ANSI codes)
   process.env.NO_COLOR = '1'
 })
-afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true })
+afterEach(() => {
   stdoutSpy?.mockRestore()
   stderrSpy?.mockRestore()
   restoreEnv('NO_COLOR', originalNoColor)
@@ -48,7 +47,7 @@ function captureOutput() {
 
 describe('runReRedact: idempotence', () => {
   test('running twice yields no changes the second time', async () => {
-    const target = path.join(tmp, 'foo.json')
+    const target = path.join(tmpDir.ref(), 'foo.json')
     await copyFile(path.join(FIXTURES, 'v2-dirty.json'), target)
 
     captureOutput()
@@ -62,7 +61,7 @@ describe('runReRedact: idempotence', () => {
 
 describe('runReRedact: keep-existing', () => {
   test('pre-existing placeholders are unchanged after re-redact', async () => {
-    const target = path.join(tmp, 'foo.json')
+    const target = path.join(tmpDir.ref(), 'foo.json')
     const cassette = {
       version: 2,
       _warning: 'REVIEW',
@@ -102,7 +101,7 @@ describe('runReRedact: keep-existing', () => {
 
 describe('runReRedact: counter max+1', () => {
   test('new finding starts at max+1 per (source, rule)', async () => {
-    const target = path.join(tmp, 'foo.json')
+    const target = path.join(tmpDir.ref(), 'foo.json')
     // Cassette already has :1 in env for github-pat-classic. Add a new dirty arg.
     const cassette = {
       version: 2,
@@ -112,7 +111,7 @@ describe('runReRedact: counter max+1', () => {
         {
           call: {
             command: 'curl',
-            args: ['Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'],
+            args: [`Bearer ${SAMPLE_GITHUB_PAT_CLASSIC}`],
             cwd: null,
             env: { OLD: '<redacted:env:github-pat-classic:1>' },
             stdin: null,
@@ -146,14 +145,14 @@ describe('runReRedact: counter max+1', () => {
 
 describe('runReRedact: v1 upgrade', () => {
   test('v1 cassette is upgraded to v2 in place', async () => {
-    const target = path.join(tmp, 'foo.json')
+    const target = path.join(tmpDir.ref(), 'foo.json')
     const v1 = {
       version: 1,
       recordings: [
         {
           call: {
             command: 'curl',
-            args: ['Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'],
+            args: [`Bearer ${SAMPLE_GITHUB_PAT_CLASSIC}`],
             cwd: null,
             env: {},
             stdin: null,
@@ -187,7 +186,7 @@ describe('runReRedact: v1 upgrade', () => {
 
 describe('runReRedact: --dry-run', () => {
   test('--dry-run does not write the cassette', async () => {
-    const target = path.join(tmp, 'foo.json')
+    const target = path.join(tmpDir.ref(), 'foo.json')
     await copyFile(path.join(FIXTURES, 'v2-dirty.json'), target)
     const before = await readFile(target, 'utf8')
 
@@ -225,7 +224,7 @@ describe('runReRedact: error paths', () => {
 
 describe('runReRedact: --quiet', () => {
   test('--quiet suppresses all stdout output', async () => {
-    const target = path.join(tmp, 'foo.json')
+    const target = path.join(tmpDir.ref(), 'foo.json')
     await copyFile(path.join(FIXTURES, 'v2-clean.json'), target)
 
     const out = captureOutput()
@@ -237,8 +236,8 @@ describe('runReRedact: --quiet', () => {
 
 describe('runReRedact: --config <path>', () => {
   test('--config <path> loads explicit config and custom rules apply', async () => {
-    const target = path.join(tmp, 'cassette.json')
-    const configPath = path.join(tmp, 'shell-cassette.config.mjs')
+    const target = path.join(tmpDir.ref(), 'cassette.json')
+    const configPath = path.join(tmpDir.ref(), 'shell-cassette.config.mjs')
     // Custom config: disable bundled patterns, add a custom rule that redacts 'hunter2'
     await writeFile(
       configPath,

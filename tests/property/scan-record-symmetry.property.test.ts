@@ -6,17 +6,43 @@
  * forward direction of that guarantee for every bundled rule and for the
  * env-key-match path.
  */
-import { mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
 import path from 'node:path'
 import * as fc from 'fast-check'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { scanOne } from '../../src/cli-scan.js'
 import { writeCassetteFile } from '../../src/io.js'
 import { BUNDLED_PATTERNS } from '../../src/redact.js'
 import { ENV_KEY_MATCH_RULE } from '../../src/redact-pipeline.js'
 import { serialize } from '../../src/serialize.js'
 import type { CassetteFile, RedactConfig, RedactSource } from '../../src/types.js'
+import {
+  SAMPLE_ANTHROPIC_API_KEY,
+  SAMPLE_AWS_ACCESS_KEY_ID,
+  SAMPLE_DIGITALOCEAN_PAT,
+  SAMPLE_DISCORD_BOT_TOKEN,
+  SAMPLE_GITHUB_OAUTH,
+  SAMPLE_GITHUB_PAT_CLASSIC,
+  SAMPLE_GITHUB_PAT_FINE_GRAINED,
+  SAMPLE_GITHUB_REFRESH,
+  SAMPLE_GITHUB_SERVER_TO_SERVER,
+  SAMPLE_GITHUB_USER_TO_SERVER,
+  SAMPLE_GITLAB_PAT,
+  SAMPLE_GOOGLE_API_KEY,
+  SAMPLE_HUGGINGFACE_TOKEN,
+  SAMPLE_MAILGUN_API_KEY,
+  SAMPLE_NPM_TOKEN,
+  SAMPLE_OPENAI_API_KEY,
+  SAMPLE_PYPI_TOKEN,
+  SAMPLE_SENDGRID_API_KEY,
+  SAMPLE_SLACK_TOKEN,
+  SAMPLE_SLACK_WEBHOOK_URL,
+  SAMPLE_SQUARE_PRODUCTION_TOKEN,
+  SAMPLE_STRIPE_RESTRICTED_LIVE,
+  SAMPLE_STRIPE_RESTRICTED_TEST,
+  SAMPLE_STRIPE_SECRET_LIVE,
+  SAMPLE_STRIPE_SECRET_TEST,
+} from '../helpers/credential-fixtures.js'
+import { useTmpDir } from '../helpers/tmp-dir.js'
 
 const baseConfig: RedactConfig = {
   bundledPatterns: true,
@@ -27,13 +53,7 @@ const baseConfig: RedactConfig = {
   warnPathHeuristic: true,
 }
 
-let tmp: string
-beforeEach(async () => {
-  tmp = await mkdtemp(path.join(tmpdir(), 'sc-symmetry-'))
-})
-afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true })
-})
+const tmpDir = useTmpDir('sc-symmetry-')
 
 /**
  * Build a minimal v2 cassette with one recording containing `value` at the
@@ -69,31 +89,31 @@ function buildCassette(source: RedactSource, value: string): CassetteFile {
  * it doesn't; we are not fuzzing the pattern itself here).
  */
 const RULE_SAMPLES: Record<string, string> = {
-  'github-pat-classic': 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
-  'github-pat-fine-grained': `github_pat_${'A'.repeat(82)}`,
-  'github-oauth': `gho_${'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'}`,
-  'github-user-to-server': `ghu_${'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'}`,
-  'github-server-to-server': `ghs_${'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'}`,
-  'github-refresh': `ghr_${'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'}`,
-  'aws-access-key-id': 'AKIA0123456789ABCDEF',
-  'stripe-secret-live': `sk_live_${'a'.repeat(24)}`,
-  'stripe-secret-test': `sk_test_${'a'.repeat(24)}`,
-  'stripe-restricted-live': `rk_live_${'a'.repeat(24)}`,
-  'stripe-restricted-test': `rk_test_${'a'.repeat(24)}`,
-  'anthropic-api-key': `sk-ant-api03-${'a'.repeat(80)}`,
-  'openai-api-key': `sk-${'a'.repeat(48)}`,
-  'google-api-key': `AIza${'a'.repeat(35)}`,
-  'slack-token': `xoxb-1234567890`,
-  'slack-webhook-url': 'https://hooks.slack.com/services/T0AB12CDE/B0FG34HIJ/0123456789ABCDEF',
-  'gitlab-pat': `glpat-${'a'.repeat(20)}`,
-  'npm-token': `npm_${'a'.repeat(36)}`,
-  'digitalocean-pat': `dop_v1_${'0'.repeat(64)}`,
-  'sendgrid-api-key': `SG.${'a'.repeat(22)}.${'a'.repeat(43)}`,
-  'mailgun-api-key': `key-${'0'.repeat(32)}`,
-  'huggingface-token': `hf_${'a'.repeat(34)}`,
-  'pypi-token': `pypi-AgE${'a'.repeat(50)}`,
-  'discord-bot-token': `M${'a'.repeat(23)}.${'a'.repeat(6)}.${'a'.repeat(27)}`,
-  'square-production-token': `EAAA${'a'.repeat(60)}`,
+  'github-pat-classic': SAMPLE_GITHUB_PAT_CLASSIC,
+  'github-pat-fine-grained': SAMPLE_GITHUB_PAT_FINE_GRAINED,
+  'github-oauth': SAMPLE_GITHUB_OAUTH,
+  'github-user-to-server': SAMPLE_GITHUB_USER_TO_SERVER,
+  'github-server-to-server': SAMPLE_GITHUB_SERVER_TO_SERVER,
+  'github-refresh': SAMPLE_GITHUB_REFRESH,
+  'aws-access-key-id': SAMPLE_AWS_ACCESS_KEY_ID,
+  'stripe-secret-live': SAMPLE_STRIPE_SECRET_LIVE,
+  'stripe-secret-test': SAMPLE_STRIPE_SECRET_TEST,
+  'stripe-restricted-live': SAMPLE_STRIPE_RESTRICTED_LIVE,
+  'stripe-restricted-test': SAMPLE_STRIPE_RESTRICTED_TEST,
+  'anthropic-api-key': SAMPLE_ANTHROPIC_API_KEY,
+  'openai-api-key': SAMPLE_OPENAI_API_KEY,
+  'google-api-key': SAMPLE_GOOGLE_API_KEY,
+  'slack-token': SAMPLE_SLACK_TOKEN,
+  'slack-webhook-url': SAMPLE_SLACK_WEBHOOK_URL,
+  'gitlab-pat': SAMPLE_GITLAB_PAT,
+  'npm-token': SAMPLE_NPM_TOKEN,
+  'digitalocean-pat': SAMPLE_DIGITALOCEAN_PAT,
+  'sendgrid-api-key': SAMPLE_SENDGRID_API_KEY,
+  'mailgun-api-key': SAMPLE_MAILGUN_API_KEY,
+  'huggingface-token': SAMPLE_HUGGINGFACE_TOKEN,
+  'pypi-token': SAMPLE_PYPI_TOKEN,
+  'discord-bot-token': SAMPLE_DISCORD_BOT_TOKEN,
+  'square-production-token': SAMPLE_SQUARE_PRODUCTION_TOKEN,
 }
 
 describe('per-rule forward symmetry: redact fires implies scan finds', () => {
@@ -102,7 +122,7 @@ describe('per-rule forward symmetry: redact fires implies scan finds', () => {
       const sample = RULE_SAMPLES[rule.name]
       expect(sample, `missing sample for rule: ${rule.name}`).toBeDefined()
 
-      const cassettePath = path.join(tmp, `rule-${rule.name}.json`)
+      const cassettePath = path.join(tmpDir.ref(), `rule-${rule.name}.json`)
       const cassette = buildCassette('args', sample)
       await writeCassetteFile(cassettePath, serialize(cassette))
 
@@ -120,12 +140,12 @@ describe('per-rule forward symmetry: redact fires implies scan finds', () => {
 })
 
 describe('per-source coverage: github-pat-classic across all 5 sources', () => {
-  const PAT = 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'
+  const PAT = SAMPLE_GITHUB_PAT_CLASSIC
   const SOURCES: RedactSource[] = ['args', 'stdout', 'stderr', 'allLines']
 
   for (const source of SOURCES) {
     test(`github-pat-classic at source=${source} is reported by scan`, async () => {
-      const cassettePath = path.join(tmp, `source-${source}.json`)
+      const cassettePath = path.join(tmpDir.ref(), `source-${source}.json`)
       const cassette = buildCassette(source, PAT)
       await writeCassetteFile(cassettePath, serialize(cassette))
 
@@ -142,7 +162,7 @@ describe('per-source coverage: github-pat-classic across all 5 sources', () => {
   test('github-pat-classic at source=env (non-curated-key) is reported by scan', async () => {
     // Use a key that does NOT match the curated env-key list so the pattern
     // path fires (not the env-key-match path).
-    const cassettePath = path.join(tmp, 'source-env-pattern.json')
+    const cassettePath = path.join(tmpDir.ref(), 'source-env-pattern.json')
     const recording = {
       call: {
         command: 'echo',
@@ -191,7 +211,7 @@ describe('env-key-match symmetry: opaque values under curated env keys are repor
   for (const { key } of CURATED_KEY_CASES) {
     test(`opaque value under ${key} produces env-key-match finding`, async () => {
       const opaqueValue = 'opaque-format-not-matching-any-regex'
-      const cassettePath = path.join(tmp, `env-key-${key}.json`)
+      const cassettePath = path.join(tmpDir.ref(), `env-key-${key}.json`)
       const recording = {
         call: {
           command: 'echo',
@@ -242,7 +262,10 @@ describe('negative direction: clean values produce no findings (best effort)', (
           return !credentialPrefixes.test(s) && !containsWebhookUrl(s) && !containsDiscordShape(s)
         }),
         async (value) => {
-          const cassettePath = path.join(tmp, `neg-${Math.random().toString(36).slice(2)}.json`)
+          const cassettePath = path.join(
+            tmpDir.ref(),
+            `neg-${Math.random().toString(36).slice(2)}.json`,
+          )
           const cassette = buildCassette('args', value)
           await writeCassetteFile(cassettePath, serialize(cassette))
 

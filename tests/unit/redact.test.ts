@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { BUNDLED_PATTERNS, redact } from '../../src/redact.js'
 import type { RedactConfig } from '../../src/types.js'
+import { SAMPLE_GITHUB_PAT_CLASSIC } from '../helpers/credential-fixtures.js'
 
 const baseConfig: RedactConfig = {
   bundledPatterns: false,
@@ -13,19 +14,17 @@ const baseConfig: RedactConfig = {
 
 describe('public redact() wraps pipeline', () => {
   test('bundledPatterns: false — input unchanged for credential-shaped value', () => {
-    const r = redact(
-      { source: 'env', value: 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890' },
-      baseConfig,
-      { counted: false },
-    )
-    expect(r.output).toBe('ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890')
+    const r = redact({ source: 'env', value: SAMPLE_GITHUB_PAT_CLASSIC }, baseConfig, {
+      counted: false,
+    })
+    expect(r.output).toBe(SAMPLE_GITHUB_PAT_CLASSIC)
     expect(r.entries).toEqual([])
     expect(r.warnings).toEqual([])
   })
 
   test('counted: false — emits placeholder without counter', () => {
     const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
-    const r = redact({ source: 'env', value: 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890' }, config, {
+    const r = redact({ source: 'env', value: SAMPLE_GITHUB_PAT_CLASSIC }, config, {
       counted: false,
     })
     expect(r.output).toBe('<redacted:env:github-pat-classic>')
@@ -34,7 +33,7 @@ describe('public redact() wraps pipeline', () => {
   test('counted: true — increments counter and returns counted placeholder', () => {
     const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
     const counters = new Map<string, number>()
-    const r = redact({ source: 'env', value: 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890' }, config, {
+    const r = redact({ source: 'env', value: SAMPLE_GITHUB_PAT_CLASSIC }, config, {
       counted: true,
       counters,
     })

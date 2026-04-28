@@ -2,17 +2,15 @@ import { describe, expect, test } from 'vitest'
 import { record } from '../../src/recorder.js'
 import { seedCountersFromCassette } from '../../src/redact-pipeline.js'
 import type { Call, Result } from '../../src/types.js'
+import {
+  SAMPLE_AWS_ACCESS_KEY_ID,
+  SAMPLE_GITHUB_PAT_CLASSIC,
+  SAMPLE_GITHUB_PAT_CLASSIC_2,
+} from '../helpers/credential-fixtures.js'
+import { makeResult } from '../helpers/recording.js'
 import { makeSession } from '../helpers/session.js'
 
-const benignResult: Result = {
-  stdoutLines: [],
-  stderrLines: [],
-  allLines: null,
-  exitCode: 0,
-  signal: null,
-  durationMs: 100,
-  aborted: false,
-}
+const benignResult: Result = makeResult({ durationMs: 100 })
 
 describe('recorder applies redaction across all 5 sources', () => {
   test('env value with curated env-key match is redacted via env-key rule', () => {
@@ -21,7 +19,7 @@ describe('recorder applies redaction across all 5 sources', () => {
       command: 'curl',
       args: [],
       cwd: null,
-      env: { GH_TOKEN: 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890' },
+      env: { GH_TOKEN: SAMPLE_GITHUB_PAT_CLASSIC },
       stdin: null,
     }
     record(call, benignResult, session)
@@ -35,7 +33,7 @@ describe('recorder applies redaction across all 5 sources', () => {
       command: 'curl',
       args: [],
       cwd: null,
-      env: { CONFIG_BLOB: 'prefix ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890 suffix' },
+      env: { CONFIG_BLOB: `prefix ${SAMPLE_GITHUB_PAT_CLASSIC} suffix` },
       stdin: null,
     }
     record(call, benignResult, session)
@@ -47,7 +45,7 @@ describe('recorder applies redaction across all 5 sources', () => {
     const session = makeSession()
     const call: Call = {
       command: 'curl',
-      args: ['-H', 'Authorization: Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'],
+      args: ['-H', `Authorization: Bearer ${SAMPLE_GITHUB_PAT_CLASSIC}`],
       cwd: null,
       env: {},
       stdin: null,
@@ -61,7 +59,7 @@ describe('recorder applies redaction across all 5 sources', () => {
     const session = makeSession()
     const result: Result = {
       ...benignResult,
-      stdoutLines: ['line 1', 'token: ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890', 'line 3'],
+      stdoutLines: ['line 1', `token: ${SAMPLE_GITHUB_PAT_CLASSIC}`, 'line 3'],
     }
     record({ command: 'gh', args: [], cwd: null, env: {}, stdin: null }, result, session)
     const stored = session.newRecordings[0]
@@ -72,8 +70,8 @@ describe('recorder applies redaction across all 5 sources', () => {
     const session = makeSession()
     const result: Result = {
       ...benignResult,
-      stderrLines: ['warn: AKIA0123456789ABCDEF'],
-      allLines: ['stdout-then-stderr: ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'],
+      stderrLines: [`warn: ${SAMPLE_AWS_ACCESS_KEY_ID}`],
+      allLines: [`stdout-then-stderr: ${SAMPLE_GITHUB_PAT_CLASSIC}`],
     }
     record({ command: 'gh', args: [], cwd: null, env: {}, stdin: null }, result, session)
     const stored = session.newRecordings[0]
@@ -87,10 +85,7 @@ describe('recorder applies redaction across all 5 sources', () => {
     const session = makeSession()
     const call: Call = {
       command: 'curl',
-      args: [
-        'Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
-        'Bearer ghp_ZYXwvuTSRqponMLKjihgfeDCBA0987654321',
-      ],
+      args: [`Bearer ${SAMPLE_GITHUB_PAT_CLASSIC}`, `Bearer ${SAMPLE_GITHUB_PAT_CLASSIC_2}`],
       cwd: null,
       env: {},
       stdin: null,
@@ -104,14 +99,14 @@ describe('recorder applies redaction across all 5 sources', () => {
     const session = makeSession()
     const call1: Call = {
       command: 'curl',
-      args: ['ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'],
+      args: [SAMPLE_GITHUB_PAT_CLASSIC],
       cwd: null,
       env: {},
       stdin: null,
     }
     const call2: Call = {
       command: 'curl',
-      args: ['ghp_ZYXwvuTSRqponMLKjihgfeDCBA0987654321'],
+      args: [SAMPLE_GITHUB_PAT_CLASSIC_2],
       cwd: null,
       env: {},
       stdin: null,
@@ -160,7 +155,7 @@ describe('recorder applies redaction across all 5 sources', () => {
     // Record a new call with a fresh PAT; counter should continue at :4
     const call: Call = {
       command: 'curl',
-      args: ['Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'],
+      args: [`Bearer ${SAMPLE_GITHUB_PAT_CLASSIC}`],
       cwd: null,
       env: {},
       stdin: null,
@@ -176,15 +171,15 @@ describe('recorder applies redaction across all 5 sources', () => {
     session.redactEnabled = false
     const call: Call = {
       command: 'curl',
-      args: ['Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'],
+      args: [`Bearer ${SAMPLE_GITHUB_PAT_CLASSIC}`],
       cwd: null,
-      env: { GH_TOKEN: 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890' },
+      env: { GH_TOKEN: SAMPLE_GITHUB_PAT_CLASSIC },
       stdin: null,
     }
     record(call, benignResult, session)
     const stored = session.newRecordings[0]
-    expect(stored?.call.args[0]).toBe('Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890')
-    expect(stored?.call.env.GH_TOKEN).toBe('ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890')
+    expect(stored?.call.args[0]).toBe(`Bearer ${SAMPLE_GITHUB_PAT_CLASSIC}`)
+    expect(stored?.call.env.GH_TOKEN).toBe(SAMPLE_GITHUB_PAT_CLASSIC)
     expect(stored?.redactions).toEqual([])
   })
 })

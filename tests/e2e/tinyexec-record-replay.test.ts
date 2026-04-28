@@ -1,30 +1,27 @@
-import { mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { _resetForTesting } from '../../src/state.js'
 import { x } from '../../src/tinyexec.js'
 import { useCassette } from '../../src/use-cassette.js'
+import { useTmpDir } from '../helpers/tmp-dir.js'
 
-let tmp: string
+const tmpDir = useTmpDir('shell-cassette-e2e-')
 
-beforeEach(async () => {
-  tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-e2e-'))
+beforeEach(() => {
   _resetForTesting()
   process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
   delete process.env.SHELL_CASSETTE_MODE
   delete process.env.CI
 })
 
-afterEach(async () => {
+afterEach(() => {
   _resetForTesting()
-  await rm(tmp, { recursive: true, force: true })
   delete process.env.SHELL_CASSETTE_ACK_REDACTION
 })
 
 describe('tinyexec e2e', () => {
   test('record then replay round-trip on node --version', async () => {
-    const cassettePath = path.join(tmp, 'node-version.json')
+    const cassettePath = path.join(tmpDir.ref(), 'node-version.json')
 
     let recordedStdout = ''
     await useCassette(cassettePath, async () => {
@@ -43,7 +40,7 @@ describe('tinyexec e2e', () => {
   })
 
   test('record then replay handles non-zero exit (no throw by default)', async () => {
-    const cassettePath = path.join(tmp, 'node-fail.json')
+    const cassettePath = path.join(tmpDir.ref(), 'node-fail.json')
 
     await useCassette(cassettePath, async () => {
       const r = await x('node', ['-e', 'process.exit(1)'])
@@ -59,7 +56,7 @@ describe('tinyexec e2e', () => {
   })
 
   test('throwOnError throws on replay when exit code is non-zero', async () => {
-    const cassettePath = path.join(tmp, 'node-fail-throw.json')
+    const cassettePath = path.join(tmpDir.ref(), 'node-fail-throw.json')
 
     await useCassette(cassettePath, async () => {
       // Record run with throwOnError - real tinyexec throws
@@ -78,7 +75,7 @@ describe('tinyexec e2e', () => {
   })
 
   test('record stdout with newlines, replay preserves them', async () => {
-    const cassettePath = path.join(tmp, 'node-multiline.json')
+    const cassettePath = path.join(tmpDir.ref(), 'node-multiline.json')
 
     let recordedStdout = ''
     await useCassette(cassettePath, async () => {

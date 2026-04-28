@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import { DEFAULT_CONFIG } from '../../src/config.js'
 import { record } from '../../src/recorder.js'
-import type { Call, CassetteSession, Result } from '../../src/types.js'
+import type { Call, CassetteSession } from '../../src/types.js'
+import { makeResult } from '../helpers/recording.js'
 
 const baseSession = (): CassetteSession => ({
   name: 'test',
@@ -26,15 +27,7 @@ const callOf = (env: Record<string, string> = {}): Call => ({
   stdin: null,
 })
 
-const resultOf = (): Result => ({
-  stdoutLines: ['ok', ''],
-  stderrLines: [''],
-  allLines: null,
-  exitCode: 0,
-  signal: null,
-  durationMs: 5,
-  aborted: false,
-})
+const resultOf = () => makeResult({ stdoutLines: ['ok', ''], stderrLines: [''], durationMs: 5 })
 
 describe('record', () => {
   test('appends a recording to session.newRecordings', () => {

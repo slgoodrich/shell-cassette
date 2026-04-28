@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest'
 import { runPipeline, seedCountersFromCassette, stripCounter } from '../../src/redact-pipeline.js'
 import type { CassetteFile, RedactConfig } from '../../src/types.js'
+import {
+  SAMPLE_AWS_ACCESS_KEY_ID,
+  SAMPLE_GITHUB_PAT_CLASSIC,
+  SAMPLE_GITHUB_PAT_CLASSIC_2,
+} from '../helpers/credential-fixtures.js'
 
 const baseConfig: RedactConfig = {
   bundledPatterns: false,
@@ -18,11 +23,11 @@ describe('redact-pipeline: suppress short-circuit', () => {
       suppressPatterns: [/^FAKE_/],
     }
     const result = runPipeline(
-      { source: 'env', value: 'FAKE_ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890' },
+      { source: 'env', value: `FAKE_${SAMPLE_GITHUB_PAT_CLASSIC}` },
       config,
       { counted: false },
     )
-    expect(result.output).toBe('FAKE_ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890')
+    expect(result.output).toBe(`FAKE_${SAMPLE_GITHUB_PAT_CLASSIC}`)
     expect(result.entries).toEqual([])
     expect(result.warnings).toEqual([])
   })
@@ -64,7 +69,7 @@ describe('redact-pipeline: suppress short-circuit', () => {
 describe('redact-pipeline: bundled patterns', () => {
   test('bundle disabled: no rules apply even when value matches a bundled pattern', () => {
     const config: RedactConfig = { ...baseConfig, bundledPatterns: false }
-    const value = 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'
+    const value = SAMPLE_GITHUB_PAT_CLASSIC
     const result = runPipeline({ source: 'stdout', value }, config, { counted: false })
     expect(result.output).toBe(value)
     expect(result.entries).toEqual([])
@@ -72,7 +77,7 @@ describe('redact-pipeline: bundled patterns', () => {
 
   test('bundle enabled, stripped mode: replaces match with stripped placeholder', () => {
     const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
-    const value = 'token: ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890 end'
+    const value = `token: ${SAMPLE_GITHUB_PAT_CLASSIC} end`
     const result = runPipeline({ source: 'stdout', value }, config, { counted: false })
     expect(result.output).toBe('token: <redacted:stdout:github-pat-classic> end')
     expect(result.entries).toEqual([{ rule: 'github-pat-classic', source: 'stdout', count: 1 }])
@@ -80,8 +85,8 @@ describe('redact-pipeline: bundled patterns', () => {
 
   test('bundle enabled, multiple matches in one value: each replaced; count reflects all', () => {
     const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
-    const t1 = 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'
-    const t2 = 'ghp_ZYXwvuTSRqponMLKjihgfeDCBA0987654321'
+    const t1 = SAMPLE_GITHUB_PAT_CLASSIC
+    const t2 = SAMPLE_GITHUB_PAT_CLASSIC_2
     const value = `a ${t1} b ${t2} c`
     const result = runPipeline({ source: 'stdout', value }, config, { counted: false })
     expect(result.output).toBe(
@@ -215,7 +220,7 @@ describe('redact-pipeline: custom rules', () => {
       bundledPatterns: true,
       customPatterns: [{ name: 'my-fake', pattern: /TEST_TOKEN_[A-Z0-9]+/ }],
     }
-    const value = 'gh: ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890 / fake: TEST_TOKEN_ABC'
+    const value = `gh: ${SAMPLE_GITHUB_PAT_CLASSIC} / fake: TEST_TOKEN_ABC`
     const result = runPipeline({ source: 'args', value }, config, { counted: false })
     expect(result.output).toContain('<redacted:args:github-pat-classic>')
     expect(result.output).toContain('<redacted:args:my-fake>')
@@ -319,7 +324,7 @@ describe('redact-pipeline: length warning', () => {
       warnLengthThreshold: 10,
       warnPathHeuristic: true,
     }
-    const value = 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'
+    const value = SAMPLE_GITHUB_PAT_CLASSIC
     const result = runPipeline({ source: 'stdout', value }, config, { counted: false })
     expect(result.warnings).toEqual([])
   })
@@ -329,8 +334,8 @@ describe('redact-pipeline: counter management', () => {
   test('counted mode increments per emission within a session', () => {
     const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
     const counters = new Map<string, number>()
-    const value1 = 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'
-    const value2 = 'ghp_ZYXwvuTSRqponMLKjihgfeDCBA0987654321'
+    const value1 = SAMPLE_GITHUB_PAT_CLASSIC
+    const value2 = SAMPLE_GITHUB_PAT_CLASSIC_2
 
     const r1 = runPipeline({ source: 'env', value: value1 }, config, { counted: true, counters })
     expect(r1.output).toBe('<redacted:env:github-pat-classic:1>')
@@ -342,7 +347,7 @@ describe('redact-pipeline: counter management', () => {
   test('counter scope is per (source, rule)', () => {
     const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
     const counters = new Map<string, number>()
-    const value = 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'
+    const value = SAMPLE_GITHUB_PAT_CLASSIC
 
     const r1 = runPipeline({ source: 'env', value }, config, { counted: true, counters })
     expect(r1.output).toBe('<redacted:env:github-pat-classic:1>')
@@ -350,7 +355,7 @@ describe('redact-pipeline: counter management', () => {
     const r2 = runPipeline({ source: 'stdout', value }, config, { counted: true, counters })
     expect(r2.output).toBe('<redacted:stdout:github-pat-classic:1>')
 
-    const aws = 'AKIA0123456789ABCDEF'
+    const aws = SAMPLE_AWS_ACCESS_KEY_ID
     const r3 = runPipeline({ source: 'env', value: aws }, config, { counted: true, counters })
     expect(r3.output).toBe('<redacted:env:aws-access-key-id:1>')
   })
@@ -358,8 +363,8 @@ describe('redact-pipeline: counter management', () => {
   test('multiple matches in single value increment counter for each', () => {
     const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
     const counters = new Map<string, number>()
-    const t1 = 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'
-    const t2 = 'ghp_ZYXwvuTSRqponMLKjihgfeDCBA0987654321'
+    const t1 = SAMPLE_GITHUB_PAT_CLASSIC
+    const t2 = SAMPLE_GITHUB_PAT_CLASSIC_2
     const value = `${t1} and ${t2}`
     const result = runPipeline({ source: 'stdout', value }, config, { counted: true, counters })
     expect(result.output).toBe(
@@ -369,7 +374,7 @@ describe('redact-pipeline: counter management', () => {
 
   test('stripped mode produces same output regardless of counter state', () => {
     const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
-    const value = 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'
+    const value = SAMPLE_GITHUB_PAT_CLASSIC
     const r1 = runPipeline({ source: 'args', value }, config, { counted: false })
     const r2 = runPipeline({ source: 'args', value }, config, { counted: false })
     expect(r1.output).toBe(r2.output)

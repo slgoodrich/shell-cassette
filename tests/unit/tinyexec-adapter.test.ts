@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { _resetForTesting, clearActiveCassette, setActiveCassette } from '../../src/state.js'
-import type { Recording } from '../../src/types.js'
+import { makeRecording } from '../helpers/recording.js'
 import { makeSession } from '../helpers/session.js'
 
 vi.mock('tinyexec', () => ({
@@ -103,19 +103,10 @@ describe('tinyexec adapter', () => {
   test('synthesize emits aborted=true from a recording with aborted=true', async () => {
     // signal=null and aborted=true isolates the aborted-passthrough path from
     // the killed-derivation path (synthesize computes killed = signal !== null).
-    const recording: Recording = {
+    const recording = makeRecording({
       call: { command: 'sleep', args: ['10'], cwd: null, env: {}, stdin: null },
-      result: {
-        stdoutLines: [''],
-        stderrLines: [''],
-        allLines: null,
-        exitCode: 1,
-        signal: null,
-        durationMs: 0,
-        aborted: true,
-      },
-      redactions: [],
-    }
+      result: { stdoutLines: [''], stderrLines: [''], exitCode: 1, aborted: true },
+    })
     const session = makeSession({
       loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
@@ -147,19 +138,10 @@ describe('tinyexec adapter', () => {
   })
 
   test('synthesize returns tinyexec-shaped result on replay', async () => {
-    const recording: Recording = {
+    const recording = makeRecording({
       call: { command: 'echo', args: ['hi'], cwd: null, env: {}, stdin: null },
-      result: {
-        stdoutLines: ['hi'],
-        stderrLines: [''],
-        allLines: null,
-        exitCode: 0,
-        signal: null,
-        durationMs: 0,
-        aborted: false,
-      },
-      redactions: [],
-    }
+      result: { stdoutLines: ['hi'], stderrLines: [''] },
+    })
     const session = makeSession({
       loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
@@ -177,19 +159,10 @@ describe('tinyexec adapter', () => {
   })
 
   test('synthesize honors throwOnError when exit code is non-zero', async () => {
-    const recording: Recording = {
+    const recording = makeRecording({
       call: { command: 'false', args: [], cwd: null, env: {}, stdin: null },
-      result: {
-        stdoutLines: [''],
-        stderrLines: [''],
-        allLines: null,
-        exitCode: 1,
-        signal: null,
-        durationMs: 0,
-        aborted: false,
-      },
-      redactions: [],
-    }
+      result: { stdoutLines: [''], stderrLines: [''], exitCode: 1 },
+    })
     const session = makeSession({
       loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
@@ -200,19 +173,10 @@ describe('tinyexec adapter', () => {
   })
 
   test('synthesize does NOT throw on non-zero by default (inverse of execa)', async () => {
-    const recording: Recording = {
+    const recording = makeRecording({
       call: { command: 'false', args: [], cwd: null, env: {}, stdin: null },
-      result: {
-        stdoutLines: [''],
-        stderrLines: [''],
-        allLines: null,
-        exitCode: 1,
-        signal: null,
-        durationMs: 0,
-        aborted: false,
-      },
-      redactions: [],
-    }
+      result: { stdoutLines: [''], stderrLines: [''], exitCode: 1 },
+    })
     const session = makeSession({
       loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
@@ -224,19 +188,10 @@ describe('tinyexec adapter', () => {
   })
 
   test('synthesize result.process is null on replay', async () => {
-    const recording: Recording = {
+    const recording = makeRecording({
       call: { command: 'echo', args: ['hi'], cwd: null, env: {}, stdin: null },
-      result: {
-        stdoutLines: ['hi'],
-        stderrLines: [''],
-        allLines: null,
-        exitCode: 0,
-        signal: null,
-        durationMs: 0,
-        aborted: false,
-      },
-      redactions: [],
-    }
+      result: { stdoutLines: ['hi'], stderrLines: [''] },
+    })
     const session = makeSession({
       loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
@@ -248,19 +203,10 @@ describe('tinyexec adapter', () => {
   })
 
   test('synthesize result.pipe() throws UnsupportedOptionError', async () => {
-    const recording: Recording = {
+    const recording = makeRecording({
       call: { command: 'echo', args: ['hi'], cwd: null, env: {}, stdin: null },
-      result: {
-        stdoutLines: ['hi'],
-        stderrLines: [''],
-        allLines: null,
-        exitCode: 0,
-        signal: null,
-        durationMs: 0,
-        aborted: false,
-      },
-      redactions: [],
-    }
+      result: { stdoutLines: ['hi'], stderrLines: [''] },
+    })
     const session = makeSession({
       loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
@@ -272,19 +218,10 @@ describe('tinyexec adapter', () => {
   })
 
   test('synthesize async iteration throws UnsupportedOptionError', async () => {
-    const recording: Recording = {
+    const recording = makeRecording({
       call: { command: 'echo', args: ['hi'], cwd: null, env: {}, stdin: null },
-      result: {
-        stdoutLines: ['hi'],
-        stderrLines: [''],
-        allLines: null,
-        exitCode: 0,
-        signal: null,
-        durationMs: 0,
-        aborted: false,
-      },
-      redactions: [],
-    }
+      result: { stdoutLines: ['hi'], stderrLines: [''] },
+    })
     const session = makeSession({
       loadedFile: { version: 1, recordedBy: null, recordings: [recording] },
     })
