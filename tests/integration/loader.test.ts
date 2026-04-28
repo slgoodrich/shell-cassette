@@ -1,28 +1,20 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { CassetteCorruptError } from '../../src/errors.js'
 import { loadCassette } from '../../src/loader.js'
+import { useTmpDir } from '../helpers/tmp-dir.js'
 
 describe('loadCassette', () => {
-  let tmp: string
-
-  beforeEach(async () => {
-    tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-test-'))
-  })
-
-  afterEach(async () => {
-    await rm(tmp, { recursive: true, force: true })
-  })
+  const tmpDir = useTmpDir()
 
   test('returns null when file does not exist', async () => {
-    const result = await loadCassette(path.join(tmp, 'missing.json'))
+    const result = await loadCassette(path.join(tmpDir.ref(), 'missing.json'))
     expect(result).toBeNull()
   })
 
   test('parses valid cassette file', async () => {
-    const target = path.join(tmp, 'foo.json')
+    const target = path.join(tmpDir.ref(), 'foo.json')
     await writeFile(target, JSON.stringify({ version: 1, recordings: [] }), 'utf8')
     const result = await loadCassette(target)
     expect(result).not.toBeNull()
@@ -31,13 +23,13 @@ describe('loadCassette', () => {
   })
 
   test('throws CassetteCorruptError on bad JSON', async () => {
-    const target = path.join(tmp, 'bad.json')
+    const target = path.join(tmpDir.ref(), 'bad.json')
     await writeFile(target, '{ not json', 'utf8')
     await expect(loadCassette(target)).rejects.toThrow(CassetteCorruptError)
   })
 
   test('throws CassetteCorruptError on unknown version', async () => {
-    const target = path.join(tmp, 'unknown.json')
+    const target = path.join(tmpDir.ref(), 'unknown.json')
     await writeFile(target, JSON.stringify({ version: 99 }), 'utf8')
     await expect(loadCassette(target)).rejects.toThrow(CassetteCorruptError)
   })

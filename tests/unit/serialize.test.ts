@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest'
 import { BinaryOutputError, CassetteCorruptError } from '../../src/errors.js'
 import { deserialize, serialize } from '../../src/serialize.js'
 import type { CassetteFile } from '../../src/types.js'
+import { makeRecording } from '../helpers/recording.js'
 
 const fixture = (name: string) => readFileSync(`tests/fixtures/cassettes/${name}.json`, 'utf8')
 
@@ -40,25 +41,10 @@ describe('serialize', () => {
       version: 2,
       recordedBy: null,
       recordings: [
-        {
-          call: {
-            command: 'echo',
-            args: ['hello'],
-            cwd: null,
-            env: {},
-            stdin: null,
-          },
-          result: {
-            stdoutLines: ['hello', ''],
-            stderrLines: [''],
-            allLines: null,
-            exitCode: 0,
-            signal: null,
-            durationMs: 5,
-            aborted: false,
-          },
-          redactions: [],
-        },
+        makeRecording({
+          call: { command: 'echo', args: ['hello'], cwd: null, env: {}, stdin: null },
+          result: { stdoutLines: ['hello', ''], stderrLines: [''], durationMs: 5 },
+        }),
       ],
     }
     const json = serialize(file)
@@ -81,19 +67,10 @@ describe('serialize', () => {
       version: 2,
       recordedBy: null,
       recordings: [
-        {
+        makeRecording({
           call: { command: 'x', args: [], cwd: null, env: {}, stdin: null },
-          result: {
-            stdoutLines: ['line1', 'line2', ''],
-            stderrLines: [''],
-            allLines: null,
-            exitCode: 0,
-            signal: null,
-            durationMs: 1,
-            aborted: false,
-          },
-          redactions: [],
-        },
+          result: { stdoutLines: ['line1', 'line2', ''], stderrLines: [''], durationMs: 1 },
+        }),
       ],
     }
     const round = deserialize(serialize(file))
@@ -105,19 +82,17 @@ describe('serialize', () => {
       version: 2,
       recordedBy: null,
       recordings: [
-        {
+        makeRecording({
           call: { command: 'sleep', args: ['10'], cwd: null, env: {}, stdin: null },
           result: {
             stdoutLines: [''],
             stderrLines: [''],
-            allLines: null,
             exitCode: 1,
             signal: 'SIGTERM',
             durationMs: 42,
             aborted: true,
           },
-          redactions: [],
-        },
+        }),
       ],
     }
     const round = deserialize(serialize(file))
@@ -151,19 +126,15 @@ describe('serialize', () => {
       version: 2,
       recordedBy: null,
       recordings: [
-        {
+        makeRecording({
           call: { command: 'x', args: [], cwd: null, env: {}, stdin: null },
           result: {
             stdoutLines: ['out', ''],
             stderrLines: ['err', ''],
             allLines: ['out', 'err', ''],
-            exitCode: 0,
-            signal: null,
             durationMs: 1,
-            aborted: false,
           },
-          redactions: [],
-        },
+        }),
       ],
     }
     const round = deserialize(serialize(file))
@@ -175,19 +146,14 @@ describe('serialize', () => {
       version: 2,
       recordedBy: null,
       recordings: [
-        {
+        makeRecording({
           call: { command: 'x', args: [], cwd: null, env: {}, stdin: null },
           result: {
             stdoutLines: [Buffer.from([0xff, 0xfe]) as unknown as string],
             stderrLines: [''],
-            allLines: null,
-            exitCode: 0,
-            signal: null,
             durationMs: 1,
-            aborted: false,
           },
-          redactions: [],
-        },
+        }),
       ],
     } as CassetteFile
     expect(() => serialize(bad)).toThrow(BinaryOutputError)

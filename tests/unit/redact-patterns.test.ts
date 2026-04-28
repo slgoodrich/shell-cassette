@@ -1,5 +1,15 @@
 import { describe, expect, test } from 'vitest'
 import { BUNDLED_PATTERNS } from '../../src/redact-patterns.js'
+import {
+  SAMPLE_ANTHROPIC_API_KEY,
+  SAMPLE_GITHUB_OAUTH,
+  SAMPLE_GITHUB_PAT_CLASSIC,
+  SAMPLE_GITHUB_PAT_FINE_GRAINED,
+  SAMPLE_GITHUB_REFRESH,
+  SAMPLE_GITHUB_SERVER_TO_SERVER,
+  SAMPLE_GITHUB_USER_TO_SERVER,
+  SAMPLE_OPENAI_API_KEY,
+} from '../helpers/credential-fixtures.js'
 
 describe('BUNDLED_PATTERNS', () => {
   test('exports exactly 25 rules', () => {
@@ -44,28 +54,23 @@ describe('per-rule regression fixtures', () => {
   }
 
   test('github-pat-classic', () => {
-    expect(matches('github-pat-classic', 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890')).toBe(true)
+    expect(matches('github-pat-classic', SAMPLE_GITHUB_PAT_CLASSIC)).toBe(true)
     expect(matches('github-pat-classic', 'ghp_TooShort')).toBe(false)
-    expect(matches('github-pat-classic', 'gha_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890')).toBe(false)
+    expect(matches('github-pat-classic', `gha_${SAMPLE_GITHUB_PAT_CLASSIC.slice(4)}`)).toBe(false)
   })
 
   test('github-pat-fine-grained', () => {
-    const sample = `github_pat_${'A'.repeat(82)}`
-    expect(matches('github-pat-fine-grained', sample)).toBe(true)
+    expect(matches('github-pat-fine-grained', SAMPLE_GITHUB_PAT_FINE_GRAINED)).toBe(true)
     expect(matches('github-pat-fine-grained', 'github_pat_TOOSHORT')).toBe(false)
     // off-by-one: 81 chars is one short
     expect(matches('github-pat-fine-grained', `github_pat_${'A'.repeat(81)}`)).toBe(false)
   })
 
   test('github-oauth, user-to-server, server-to-server, refresh', () => {
-    expect(matches('github-oauth', `gho_${'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'}`)).toBe(true)
-    expect(matches('github-user-to-server', `ghu_${'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'}`)).toBe(
-      true,
-    )
-    expect(
-      matches('github-server-to-server', `ghs_${'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'}`),
-    ).toBe(true)
-    expect(matches('github-refresh', `ghr_${'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'}`)).toBe(true)
+    expect(matches('github-oauth', SAMPLE_GITHUB_OAUTH)).toBe(true)
+    expect(matches('github-user-to-server', SAMPLE_GITHUB_USER_TO_SERVER)).toBe(true)
+    expect(matches('github-server-to-server', SAMPLE_GITHUB_SERVER_TO_SERVER)).toBe(true)
+    expect(matches('github-refresh', SAMPLE_GITHUB_REFRESH)).toBe(true)
     // off-by-one short for each (35 chars instead of 36)
     expect(matches('github-oauth', `gho_${'a'.repeat(35)}`)).toBe(false)
     expect(matches('github-user-to-server', `ghu_${'a'.repeat(35)}`)).toBe(false)
@@ -107,7 +112,7 @@ describe('per-rule regression fixtures', () => {
   })
 
   test('openai-api-key with all prefix variants', () => {
-    expect(matches('openai-api-key', `sk-${'a'.repeat(48)}`)).toBe(true)
+    expect(matches('openai-api-key', SAMPLE_OPENAI_API_KEY)).toBe(true)
     expect(matches('openai-api-key', `sk-proj-${'a'.repeat(48)}`)).toBe(true)
     expect(matches('openai-api-key', `sk-svcacct-${'a'.repeat(48)}`)).toBe(true)
     expect(matches('openai-api-key', `sk-admin-${'a'.repeat(48)}`)).toBe(true)
@@ -117,7 +122,7 @@ describe('per-rule regression fixtures', () => {
   })
 
   test('anthropic-api-key with all prefix variants', () => {
-    expect(matches('anthropic-api-key', `sk-ant-api03-${'a'.repeat(80)}`)).toBe(true)
+    expect(matches('anthropic-api-key', SAMPLE_ANTHROPIC_API_KEY)).toBe(true)
     expect(matches('anthropic-api-key', `sk-ant-sid01-${'a'.repeat(80)}`)).toBe(true)
     expect(matches('anthropic-api-key', `sk-ant-admin01-${'a'.repeat(80)}`)).toBe(true)
     expect(matches('anthropic-api-key', `sk-ant-other-${'a'.repeat(80)}`)).toBe(false)

@@ -13,6 +13,10 @@ import type {
   RedactionEntry,
   RedactSource,
 } from '../../src/types.js'
+import {
+  SAMPLE_GITHUB_PAT_CLASSIC,
+  SAMPLE_GITHUB_PAT_CLASSIC_2,
+} from '../helpers/credential-fixtures.js'
 
 const baseConfig: RedactConfig = {
   bundledPatterns: true,
@@ -127,8 +131,8 @@ describe('redact: suppress short-circuit', () => {
 
 describe('BUNDLED_PATTERNS: counter mode emits unique-per-rule placeholders', () => {
   test('two distinct credential matches produce :1 and :2 in counted mode', () => {
-    const t1 = 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'
-    const t2 = 'ghp_ZYXwvuTSRqponMLKjihgfeDCBA0987654321'
+    const t1 = SAMPLE_GITHUB_PAT_CLASSIC
+    const t2 = SAMPLE_GITHUB_PAT_CLASSIC_2
     const counters = new Map<string, number>()
     const r1 = redact({ source: 'args', value: t1 }, baseConfig, { counted: true, counters })
     const r2 = redact({ source: 'args', value: t2 }, baseConfig, { counted: true, counters })
@@ -156,11 +160,10 @@ describe('redact: counter monotonicity', () => {
     fc.assert(
       fc.property(fc.integer({ min: 1, max: 1000 }), (seed) => {
         const counters = new Map<string, number>([['args:github-pat-classic', seed]])
-        const r = redact(
-          { source: 'args', value: 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890' },
-          baseConfig,
-          { counted: true, counters },
-        )
+        const r = redact({ source: 'args', value: SAMPLE_GITHUB_PAT_CLASSIC }, baseConfig, {
+          counted: true,
+          counters,
+        })
         const match = r.output.match(/<redacted:args:github-pat-classic:(\d+)>/)
         if (!match) return false
         return Number.parseInt(match[1] ?? '0', 10) > seed
@@ -291,6 +294,71 @@ describe('seedCountersFromCassette', () => {
           }
         }
         return true
+      }),
+    )
+  })
+})
+
+const PATH_OR_WHITESPACE_REGEX = /[/\\: ]/
+
+describe('redact: length-warning threshold and path heuristic', () => {
+  test('warning fires iff (no rule fired) AND (output > threshold) AND NOT path-heuristic-suppressed', () => {
+    fc.assert(
+      fc.property(
+        sourceArb,
+        fc.string({ maxLength: 200 }),
+        fc.boolean(),
+        (source, value, pathHeuristic) => {
+          const config: RedactConfig = { ...baseConfig, warnPathHeuristic: pathHeuristic }
+          const r = redact({ source, value }, config, { counted: false })
+
+          const noRuleFired = r.output === value
+          if (!noRuleFired) {
+            // Mutual exclusion: rule fired, so warnings must be empty.
+            return r.warnings.length === 0
+          }
+
+          const exceedsThreshold = r.output.length > config.warnLengthThreshold
+          const suppressedByHeuristic = pathHeuristic && PATH_OR_WHITESPACE_REGEX.test(r.output)
+          const expectWarning = exceedsThreshold && !suppressedByHeuristic
+          return r.warnings.length > 0 === expectWarning
+        },
+      ),
+    )
+  })
+
+  test('warning never fires when a bundled rule matches (mutual exclusion, explicit)', () => {
+    fc.assert(
+      fc.property(sourceArb, (source) => {
+        const r = redact({ source, value: SAMPLE_GITHUB_PAT_CLASSIC }, baseConfig, {
+          counted: false,
+        })
+        return r.entries.length > 0 && r.warnings.length === 0
+      }),
+    )
+  })
+
+  test('value contains a path-or-whitespace char + heuristic enabled: no warning even when long', () => {
+    const safeAlphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_'.split(
+      '',
+    )
+    const safeChunkArb = fc
+      .array(fc.constantFrom(...safeAlphabet), { minLength: 50, maxLength: 100 })
+      .map((cs) => cs.join(''))
+    const pathCharArb = fc.constantFrom('/', '\\', ':', ' ')
+    fc.assert(
+      fc.property(sourceArb, safeChunkArb, pathCharArb, (source, chunk, pathChar) => {
+        const value = chunk + pathChar + chunk
+        const r = redact(
+          { source, value },
+          { ...baseConfig, warnPathHeuristic: true },
+          {
+            counted: false,
+          },
+        )
+        const noRuleFired = r.output === value
+        if (!noRuleFired) return true
+        return r.warnings.length === 0
       }),
     )
   })

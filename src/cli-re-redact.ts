@@ -176,7 +176,13 @@ export async function runReRedact(args: readonly string[]): Promise<number> {
   return totalNew > 0 ? 1 : 0
 }
 
-async function reRedactOne(
+/**
+ * Per-cassette re-redact entry point. Exported solely so the property test
+ * in tests/property/re-redact-idempotence.property.test.ts can drive it
+ * without spawning a subprocess. Internal-test consumer; not part of the
+ * public API.
+ */
+export async function reRedactOne(
   cassettePath: string,
   config: Readonly<RedactConfig>,
   dryRun: boolean,

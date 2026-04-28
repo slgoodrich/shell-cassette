@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { runScan } from '../../src/cli-scan.js'
+import { SAMPLE_GITHUB_PAT_CLASSIC } from '../helpers/credential-fixtures.js'
 import { restoreEnv } from '../helpers/env.js'
 
 const FIXTURES = path.resolve('tests/fixtures/cassettes')
@@ -115,7 +116,7 @@ describe('runScan: --json output', () => {
     const parsed = JSON.parse(stdoutBuf)
     const finding = parsed.cassettes[0].findings[0]
     expect(finding.match).toBeTypeOf('string')
-    expect(finding.match).toBe('ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890')
+    expect(finding.match).toBe(SAMPLE_GITHUB_PAT_CLASSIC)
   })
 
   test('matchPreview format: >=12 chars uses first4...last4', async () => {

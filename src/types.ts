@@ -131,12 +131,10 @@ export type UseCassetteOptions = {
   redact?: boolean
 }
 
-export type CassetteSession = {
+type SessionBase = {
   name: string
   path: string
   scopeDefault: 'auto' | 'passthrough'
-  loadedFile: CassetteFile | null
-  matcher: MatcherStateLike | null // built lazily; defined in matcher.ts
   canonicalize: Canonicalize
   /**
    * Frozen redaction config for this session. Loaded from Config.redact.
@@ -163,6 +161,31 @@ export type CassetteSession = {
   newRecordings: Recording[]
   warnings: string[]
 }
+
+/**
+ * Session before lazy-load: the cassette file has not been read yet and
+ * the matcher has not been initialized. Both fields are null.
+ */
+export type PendingSession = SessionBase & {
+  matcher: null
+  loadedFile: null
+}
+
+/**
+ * Session after lazy-load: the matcher is initialized (non-null). The
+ * cassette file may still be null when recording into a brand-new cassette.
+ */
+export type LoadedSession = SessionBase & {
+  matcher: MatcherStateLike
+  loadedFile: CassetteFile | null
+}
+
+/**
+ * Discriminated union over lazy-load state. Discriminant is `matcher`:
+ *   null  => PendingSession (pre-lazy-load)
+ *   non-null => LoadedSession (post-lazy-load)
+ */
+export type CassetteSession = PendingSession | LoadedSession
 
 // Forward-declared interface; implemented in matcher.ts
 export interface MatcherStateLike {

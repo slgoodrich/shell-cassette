@@ -1,34 +1,33 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { execa } from '../../src/execa.js'
 import { useCassette } from '../../src/use-cassette.js'
+import { SAMPLE_GITHUB_PAT_CLASSIC } from '../helpers/credential-fixtures.js'
 import { restoreEnv } from '../helpers/env.js'
+import { useTmpDir } from '../helpers/tmp-dir.js'
 
-let tmp: string
+const tmpDir = useTmpDir('shell-cassette-per-cassette-override-')
 
 const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
 const originalMode = process.env.SHELL_CASSETTE_MODE
 
-const FAKE_PAT = 'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890'
+const FAKE_PAT = SAMPLE_GITHUB_PAT_CLASSIC
 
-beforeEach(async () => {
-  tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-per-cassette-override-'))
+beforeEach(() => {
   process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
   // Pin the mode so CI=true on the runner doesn't force replay-strict.
   process.env.SHELL_CASSETTE_MODE = 'auto'
 })
 
-afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true })
+afterEach(() => {
   restoreEnv('SHELL_CASSETTE_ACK_REDACTION', originalAck)
   restoreEnv('SHELL_CASSETTE_MODE', originalMode)
 })
 
 describe('useCassette per-cassette redact override', () => {
   test('redact: true (default) redacts a credential in stdout', async () => {
-    const cassettePath = path.join(tmp, 'redact-on.json')
+    const cassettePath = path.join(tmpDir.ref(), 'redact-on.json')
     await useCassette(cassettePath, async () => {
       await execa('node', ['-e', `console.log('${FAKE_PAT}')`])
     })
@@ -38,7 +37,7 @@ describe('useCassette per-cassette redact override', () => {
   })
 
   test('redact: false bypasses pipeline; raw credential persists in cassette', async () => {
-    const cassettePath = path.join(tmp, 'redact-off.json')
+    const cassettePath = path.join(tmpDir.ref(), 'redact-off.json')
     await useCassette(cassettePath, { redact: false }, async () => {
       await execa('node', ['-e', `console.log('${FAKE_PAT}')`])
     })
@@ -48,7 +47,7 @@ describe('useCassette per-cassette redact override', () => {
   })
 
   test('redact: false with credential in env bypasses env-key-match path', async () => {
-    const cassettePath = path.join(tmp, 'redact-off-env.json')
+    const cassettePath = path.join(tmpDir.ref(), 'redact-off-env.json')
     await useCassette(cassettePath, { redact: false }, async () => {
       await execa('node', ['-e', `console.log(process.env.MY_TOKEN ?? 'no-token')`], {
         env: { MY_TOKEN: FAKE_PAT },
@@ -61,7 +60,7 @@ describe('useCassette per-cassette redact override', () => {
   })
 
   test('redact: true with credential in env: curated key-match path redacts', async () => {
-    const cassettePath = path.join(tmp, 'redact-on-env.json')
+    const cassettePath = path.join(tmpDir.ref(), 'redact-on-env.json')
     await useCassette(cassettePath, async () => {
       await execa('node', ['-e', `console.log(process.env.MY_TOKEN ?? 'no-token')`], {
         env: { MY_TOKEN: FAKE_PAT },

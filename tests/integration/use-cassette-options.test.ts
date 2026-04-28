@@ -1,33 +1,31 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { execa } from '../../src/execa.js'
 import type { Canonicalize } from '../../src/types.js'
 import { useCassette } from '../../src/use-cassette.js'
 import { restoreEnv } from '../helpers/env.js'
+import { useTmpDir } from '../helpers/tmp-dir.js'
 
 describe('useCassette per-call options - canonicalize override', () => {
-  let tmp: string
+  const tmpDir = useTmpDir()
   const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
   const originalMode = process.env.SHELL_CASSETTE_MODE
   const originalCI = process.env.CI
 
-  beforeEach(async () => {
-    tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-test-'))
+  beforeEach(() => {
     process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
     delete process.env.SHELL_CASSETTE_MODE
     delete process.env.CI
   })
-  afterEach(async () => {
-    await rm(tmp, { recursive: true, force: true })
+  afterEach(() => {
     restoreEnv('SHELL_CASSETTE_ACK_REDACTION', originalAck)
     restoreEnv('SHELL_CASSETTE_MODE', originalMode)
     restoreEnv('CI', originalCI)
   })
 
   test('default canonicalize matches recordings with same command + args', async () => {
-    const cassettePath = path.join(tmp, 'default.json')
+    const cassettePath = path.join(tmpDir.ref(), 'default.json')
     // First pass: record
     await useCassette(cassettePath, async () => {
       await execa('node', ['-e', 'console.log("a")'])
@@ -40,7 +38,7 @@ describe('useCassette per-call options - canonicalize override', () => {
   })
 
   test('custom canonicalize: command-only matches across different args', async () => {
-    const cassettePath = path.join(tmp, 'custom.json')
+    const cassettePath = path.join(tmpDir.ref(), 'custom.json')
     const commandOnly: Canonicalize = (call) => ({ command: call.command })
     // Record one call
     await useCassette(cassettePath, { canonicalize: commandOnly }, async () => {
@@ -55,8 +53,8 @@ describe('useCassette per-call options - canonicalize override', () => {
   })
 
   test('cassette file content is identical between 2-arg and 3-arg useCassette forms', async () => {
-    const a = path.join(tmp, 'two-arg.json')
-    const b = path.join(tmp, 'three-arg.json')
+    const a = path.join(tmpDir.ref(), 'two-arg.json')
+    const b = path.join(tmpDir.ref(), 'three-arg.json')
     await useCassette(a, async () => {
       await execa('node', ['-e', 'console.log("x")'])
     })

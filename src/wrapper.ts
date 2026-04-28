@@ -7,7 +7,7 @@ import { resolveMode } from './mode.js'
 import { record } from './recorder.js'
 import { seedCountersFromCassette } from './redact-pipeline.js'
 import { getActiveCassette } from './state.js'
-import type { Call, CassetteSession, MatcherStateLike, Recording, Result } from './types.js'
+import type { Call, CassetteSession, LoadedSession, Recording, Result } from './types.js'
 
 const NO_ACTIVE_SESSION_HELP = `shell-cassette is in replay mode but no active cassette session is bound.
 
@@ -56,29 +56,12 @@ export async function runWrapped<Opts, ResultShape>(
     return hooks.realCall(file, args, options)
   }
 
-  if (session.loadedFile === null) {
-    const file = await loadCassette(session.path)
-    if (file !== null) {
-      session.loadedFile = file
-      // Seed redact counters from existing cassette placeholders so
-      // auto-additive appends continue from the existing per-(source, rule)
-      // ceiling. Spec Q5 + counter rebuild on cassette load.
-      const seeded = seedCountersFromCassette(file)
-      for (const [k, v] of seeded) {
-        session.redactCounters.set(k, v)
-      }
-    }
-    session.matcher = new MatcherState(
-      session.loadedFile?.recordings ?? [],
-      session.canonicalize,
-      session.redactConfig,
-    )
-  }
+  const loaded = await ensureSessionLoaded(session)
 
   const mode = resolveMode(
     process.env.SHELL_CASSETTE_MODE,
     Boolean(process.env.CI),
-    session.scopeDefault,
+    loaded.scopeDefault,
   )
 
   if (mode === 'passthrough') {
@@ -86,24 +69,23 @@ export async function runWrapped<Opts, ResultShape>(
   }
 
   const call = hooks.buildCall(file, args, options)
-  const matcher = ensureMatcher(session.matcher)
 
   if (mode === 'replay') {
-    if (session.loadedFile === null) {
+    if (loaded.loadedFile === null) {
       throw new ReplayMissError(
-        `no cassette at ${session.path}; run with SHELL_CASSETTE_MODE=record to create.`,
+        `no cassette at ${loaded.path}; run with SHELL_CASSETTE_MODE=record to create.`,
       )
     }
-    const recording = matcher.findMatch(call)
+    const recording = loaded.matcher.findMatch(call)
     if (recording === null) {
-      throw buildReplayMissError(call, session)
+      throw buildReplayMissError(call, loaded)
     }
     return hooks.synthesize(recording, options)
   }
 
   let cameFromAutoMiss = false
   if (mode === 'auto') {
-    const recording = matcher.findMatch(call)
+    const recording = loaded.matcher.findMatch(call)
     if (recording !== null) {
       return hooks.synthesize(recording, options)
     }
@@ -129,12 +111,56 @@ export async function runWrapped<Opts, ResultShape>(
   const start = performance.now()
   try {
     const result = await hooks.realCall(file, args, options)
-    captureAndRecord(call, result, performance.now() - start, hooks, session)
+    captureAndRecord(call, result, performance.now() - start, hooks, loaded)
     return result
   } catch (err) {
-    captureAndRecord(call, err, performance.now() - start, hooks, session)
+    captureAndRecord(call, err, performance.now() - start, hooks, loaded)
     throw err
   }
+}
+
+/**
+ * Ensures the session has completed lazy-load, returning a LoadedSession.
+ * If `session.matcher` is already non-null, returns the session as-is (fast
+ * path; TS narrows the union via the discriminant). Otherwise performs the
+ * one-time lazy-load: reads the cassette file from disk, seeds redact
+ * counters, and initializes the matcher.
+ *
+ * Keying on `matcher === null` (rather than `loadedFile === null`) is
+ * intentional: `loadedFile` stays null for brand-new cassettes even after
+ * lazy-load, so keying on it would re-run the load block on every call.
+ * The matcher is always set unconditionally on first load, so it is the
+ * correct single-use sentinel.
+ *
+ * The slow-path `as unknown as LoadedSession` casts are needed because TS
+ * can't track in-place field mutation on a discriminated-union member: we
+ * unconditionally assign `session.matcher = new MatcherState(...)` before
+ * casting, so the runtime shape satisfies LoadedSession at that point.
+ */
+async function ensureSessionLoaded(session: CassetteSession): Promise<LoadedSession> {
+  if (session.matcher !== null) {
+    return session
+  }
+  const cassetteFile = await loadCassette(session.path)
+  if (cassetteFile !== null) {
+    // Widen to unknown first because PendingSession.loadedFile is typed as
+    // null (literal). The field assignment is safe: the mutation promotes this
+    // PendingSession to a LoadedSession, which we return below.
+    ;(session as unknown as LoadedSession).loadedFile = cassetteFile
+    // Seed redact counters from existing cassette placeholders so
+    // auto-additive appends continue from the existing per-(source, rule)
+    // ceiling. Spec Q5 + counter rebuild on cassette load.
+    const seeded = seedCountersFromCassette(cassetteFile)
+    for (const [k, v] of seeded) {
+      session.redactCounters.set(k, v)
+    }
+  }
+  ;(session as unknown as LoadedSession).matcher = new MatcherState(
+    cassetteFile?.recordings ?? [],
+    session.canonicalize,
+    session.redactConfig,
+  )
+  return session as unknown as LoadedSession
 }
 
 function captureAndRecord<Opts, ResultShape>(
@@ -142,22 +168,15 @@ function captureAndRecord<Opts, ResultShape>(
   raw: unknown,
   durationMs: number,
   hooks: RunnerHooks<Opts, ResultShape>,
-  session: CassetteSession,
+  session: LoadedSession,
 ): void {
   const result = hooks.captureResult(raw, durationMs)
   record(call, result, session)
 }
 
-function ensureMatcher(matcher: MatcherStateLike | null): MatcherStateLike {
-  if (matcher === null) {
-    throw new Error('shell-cassette: matcher was not initialized before use (internal bug)')
-  }
-  return matcher
-}
-
 const REPLAY_MISS_DIAGNOSTIC_LIMIT = 10
 
-function buildReplayMissError(call: Call, session: CassetteSession): ReplayMissError {
+function buildReplayMissError(call: Call, session: LoadedSession): ReplayMissError {
   const canonical = session.canonicalize(call, session.redactConfig)
   const recordings = session.loadedFile?.recordings ?? []
   const shown = recordings.slice(0, REPLAY_MISS_DIAGNOSTIC_LIMIT)

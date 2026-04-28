@@ -1,20 +1,61 @@
 import { DEFAULT_CONFIG } from '../../src/config.js'
 import { MatcherState } from '../../src/matcher.js'
-import type { CassetteSession } from '../../src/types.js'
+import type { CassetteSession, LoadedSession, PendingSession } from '../../src/types.js'
 
-// Mirror wrapper.ts lazy-load invariant: the wrapper only initializes
-// session.matcher on the lazy-load path (when loadedFile is null on first
-// call). Tests that pre-populate loadedFile must also pre-populate matcher,
-// or ensureMatcher() throws "internal bug" on the first call. Tracked under
-// issue #26 (CassetteSession type permits unreachable states).
+/**
+ * Build a CassetteSession for tests.
+ *
+ * Branches on `loadedFile`:
+ * - `loadedFile: null` (or unset) returns a PendingSession with
+ *   `matcher: null` and `loadedFile: null`. Any `matcher` override passed
+ *   in this branch is ignored, since PendingSession.matcher is the `null`
+ *   literal type.
+ * - non-null `loadedFile` returns a LoadedSession; an explicit `matcher`
+ *   override is honored, otherwise one is auto-constructed from the
+ *   cassette's recordings.
+ *
+ * The "loaded with `loadedFile: null`" runtime state (lazy-load completed
+ * for a cassette that does not exist on disk yet) is reachable in
+ * production but is not constructible via this helper today. If a test
+ * needs that exact shape, route through the wrapper's lazy-load path or
+ * extend this helper.
+ */
 export const makeSession = (overrides: Partial<CassetteSession> = {}): CassetteSession => {
   const canonicalize = overrides.canonicalize ?? DEFAULT_CONFIG.canonicalize
-  const base: CassetteSession = {
+
+  if (overrides.loadedFile !== undefined && overrides.loadedFile !== null) {
+    // Build a LoadedSession: loadedFile is present, initialize matcher if needed.
+    const loadedFile = overrides.loadedFile
+    const matcher =
+      overrides.matcher ??
+      new MatcherState(
+        loadedFile.recordings,
+        canonicalize,
+        overrides.redactConfig ?? DEFAULT_CONFIG.redact,
+      )
+    const loaded: LoadedSession = {
+      name: 'test',
+      path: '/tmp/test.json',
+      scopeDefault: 'auto',
+      canonicalize,
+      redactConfig: DEFAULT_CONFIG.redact,
+      redactEnabled: true,
+      redactCounters: new Map(),
+      redactionEntries: [],
+      newRecordings: [],
+      warnings: [],
+      ...overrides,
+      loadedFile,
+      matcher,
+    }
+    return loaded
+  }
+
+  // Build a PendingSession: matcher: null, loadedFile: null.
+  const pending: PendingSession = {
     name: 'test',
     path: '/tmp/test.json',
     scopeDefault: 'auto',
-    loadedFile: { version: 2, recordedBy: null, recordings: [] },
-    matcher: null,
     canonicalize,
     redactConfig: DEFAULT_CONFIG.redact,
     redactEnabled: true,
@@ -23,13 +64,8 @@ export const makeSession = (overrides: Partial<CassetteSession> = {}): CassetteS
     newRecordings: [],
     warnings: [],
     ...overrides,
+    loadedFile: null,
+    matcher: null,
   }
-  if (base.loadedFile !== null && base.matcher === null) {
-    base.matcher = new MatcherState(
-      base.loadedFile.recordings,
-      base.canonicalize,
-      base.redactConfig,
-    )
-  }
-  return base
+  return pending
 }
