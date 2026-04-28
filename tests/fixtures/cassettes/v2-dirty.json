@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "_warning": "REVIEW BEFORE COMMITTING.",
+  "_recorded_by": { "name": "shell-cassette", "version": "0.4.0" },
+  "recordings": [
+    {
+      "call": {
+        "command": "curl",
+        "args": ["-H", "Authorization: Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890"],
+        "cwd": null,
+        "env": {},
+        "stdin": null
+      },
+      "result": {
+        "stdoutLines": [],
+        "stderrLines": [],
+        "allLines": null,
+        "exitCode": 0,
+        "signal": null,
+        "durationMs": 100,
+        "aborted": false
+      },
+      "_redactions": []
+    }
+  ]
+}

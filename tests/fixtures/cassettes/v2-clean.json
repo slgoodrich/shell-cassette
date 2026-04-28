@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "_warning": "REVIEW BEFORE COMMITTING. shell-cassette redacts bundled credential patterns + curated env-key values + your custom rules.",
+  "_recorded_by": { "name": "shell-cassette", "version": "0.4.0" },
+  "recordings": [
+    {
+      "call": {
+        "command": "node",
+        "args": ["-v"],
+        "cwd": null,
+        "env": {},
+        "stdin": null
+      },
+      "result": {
+        "stdoutLines": ["v18.0.0"],
+        "stderrLines": [],
+        "allLines": null,
+        "exitCode": 0,
+        "signal": null,
+        "durationMs": 100,
+        "aborted": false
+      },
+      "_redactions": []
+    }
+  ]
+}
