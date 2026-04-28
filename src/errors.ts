@@ -46,6 +46,14 @@ export class CassetteIOError extends ShellCassetteError {
   }
 }
 
+export class CassetteNotFoundError extends ShellCassetteError {
+  static override code = 'CASSETTE_NOT_FOUND'
+
+  constructor(public readonly path: string) {
+    super(`cassette file not found: ${path}`)
+  }
+}
+
 export class CassetteConfigError extends ShellCassetteError {
   static override code = 'CASSETTE_CONFIG'
 }

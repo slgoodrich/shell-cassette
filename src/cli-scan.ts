@@ -19,7 +19,7 @@ import { createHash } from 'node:crypto'
 import { color, isTty, previewMatch, stderr, stdout } from './cli-output.js'
 import { walkCassettes } from './cli-walk.js'
 import { loadConfigFromDir, loadConfigFromFile } from './config.js'
-import { CassetteConfigError, CassetteIOError } from './errors.js'
+import { CassetteConfigError, CassetteNotFoundError } from './errors.js'
 import { loadCassette } from './loader.js'
 import { matchesEnvKeyList } from './recorder.js'
 import { BUNDLED_PATTERNS } from './redact-patterns.js'
@@ -194,12 +194,7 @@ async function scanOne(
   let cassette: CassetteFile
   try {
     const loaded = await loadCassette(cassettePath)
-    if (loaded === null) {
-      throw new CassetteIOError(
-        `cassette file not found: ${cassettePath}`,
-        Object.assign(new Error(`cassette file not found: ${cassettePath}`), { code: 'ENOENT' }),
-      )
-    }
+    if (loaded === null) throw new CassetteNotFoundError(cassettePath)
     cassette = loaded
   } catch (e) {
     return {

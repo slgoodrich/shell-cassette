@@ -11,7 +11,7 @@
 import { color, isTty, stderr, stdout } from './cli-output.js'
 import { walkCassettes } from './cli-walk.js'
 import { loadConfigFromDir, loadConfigFromFile } from './config.js'
-import { CassetteConfigError, CassetteIOError } from './errors.js'
+import { CassetteConfigError, CassetteNotFoundError } from './errors.js'
 import { writeCassetteFile } from './io.js'
 import { loadCassette } from './loader.js'
 import { redact } from './redact.js'
@@ -182,12 +182,7 @@ async function reRedactOne(
   dryRun: boolean,
 ): Promise<{ modified: boolean; newRedactions: number }> {
   const cassette = await loadCassette(cassettePath)
-  if (cassette === null) {
-    throw new CassetteIOError(
-      `cassette file not found: ${cassettePath}`,
-      Object.assign(new Error(`cassette file not found: ${cassettePath}`), { code: 'ENOENT' }),
-    )
-  }
+  if (cassette === null) throw new CassetteNotFoundError(cassettePath)
 
   // Seed counters from existing placeholders so new findings continue the
   // per-(source, rule) sequence rather than restarting at 1.
