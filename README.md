@@ -516,6 +516,23 @@ shell-cassette is for **output-assertion** tests: spawn a subprocess, capture st
 
 ## Real-world results
 
+### Each claim, what proves it
+
+Every claim in [What this unlocks](#why) is backed by a concrete demonstration. The table below maps claim to evidence.
+
+| Claim | What was demonstrated |
+|---|---|
+| Reproducible CI failures | One subprocess call recorded, then replayed 10 times in sequence. All 10 replays produce byte-identical stdout, stderr, and exitCode. If any external variance leaked through, at least one of the ten would diverge. |
+| Determinism | Same demo as above. The recorded subprocess output drives every replay regardless of host node version, system clock, or locale. |
+| Offline development | Subprocess script written to a temp file, recorded, then the script file is **deleted before replay**. A pre-replay sanity check uses Node's built-in `child_process` to confirm a real exec would now fail with ENOENT. Replay still returns the recorded output. The cassette is the only place the bytes can come from. |
+| Failure-path testing | Successful subprocess (`exitCode: 0`) recorded. Cassette JSON read, mutated to `exitCode: 137`, written back. Replay throws an ExecaError-shaped object with `exitCode === 137`, `failed === true`. The user's `try/catch` runs. With `reject: false`, replay returns the same shape without throwing. |
+| Speed | Per-call: ~75ms record vs ~1.2ms replay on a trivial node-eval workload (60x). Full suite: unjs/nypm 211.72s record vs 0.263s replay (805x). See speedup table below. |
+| Credentials stay out | All 25 bundled patterns plus 5 curated env-key substrings exercised end-to-end. 30 cassettes recorded, scanned with `shell-cassette scan`, 0 dirty. The host's `LM_STUDIO_API_KEY` was caught by `API_KEY` substring match on every recording. Pattern reference: [docs/redact-patterns.md](docs/redact-patterns.md). |
+
+Demonstrations live in the validation harness alongside the project. The first four are new in v0.4 (`determinism`, `offline`, `failure-path`); credentials and full-suite speed have been validated since v0.3 (M9-M10) and v0.4 M14 respectively.
+
+### Speedup measurements
+
 Three projects measured on Windows + Node 23.11 against v0.4. Point measurements, not benchmarks: directional only.
 
 | Project | Tests / cassettes | Test-phase speedup | Wall speedup | Notes |
