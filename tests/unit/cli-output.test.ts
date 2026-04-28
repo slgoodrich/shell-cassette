@@ -84,11 +84,11 @@ describe('applyTruncation', () => {
   })
 
   test('truncates with ellipsis when longer than limit', () => {
-    expect(applyTruncation('a'.repeat(100), 10)).toBe('aaaaaaaaaa…')
+    expect(applyTruncation('a'.repeat(100), 10)).toBe('aaaaaaaaaa...')
   })
 
   test('limit of 0 returns just ellipsis', () => {
-    expect(applyTruncation('hello', 0)).toBe('…')
+    expect(applyTruncation('hello', 0)).toBe('...')
   })
 
   test('empty string returns empty string', () => {

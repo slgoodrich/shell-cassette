@@ -13,6 +13,8 @@ let enabled = false
 
 export type ColorOverride = 'auto' | 'always' | 'never' | undefined
 
+const wrap = (code: number) => (s: string) => (enabled ? `\x1b[${code}m${s}\x1b[0m` : s)
+
 export const color = {
   setEnabled(v: boolean): void {
     enabled = v
@@ -20,12 +22,12 @@ export const color = {
   isEnabled(): boolean {
     return enabled
   },
-  cyan: (s: string) => (enabled ? `\x1b[36m${s}\x1b[0m` : s),
-  red: (s: string) => (enabled ? `\x1b[31m${s}\x1b[0m` : s),
-  green: (s: string) => (enabled ? `\x1b[32m${s}\x1b[0m` : s),
-  yellow: (s: string) => (enabled ? `\x1b[33m${s}\x1b[0m` : s),
-  bold: (s: string) => (enabled ? `\x1b[1m${s}\x1b[0m` : s),
-  dim: (s: string) => (enabled ? `\x1b[2m${s}\x1b[0m` : s),
+  cyan: wrap(36),
+  red: wrap(31),
+  green: wrap(32),
+  yellow: wrap(33),
+  bold: wrap(1),
+  dim: wrap(2),
 }
 
 export const isTty = {
@@ -43,7 +45,7 @@ export const isTty = {
 export function applyTruncation(s: string, limit: number): string {
   if (s.length === 0) return s
   if (s.length <= limit) return s
-  return `${s.slice(0, limit)}…`
+  return `${s.slice(0, limit)}...`
 }
 
 export function formatBytes(bytes: number): string {
