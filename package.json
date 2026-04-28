@@ -61,6 +61,10 @@
     "./config": {
       "types": "./dist/config.d.ts",
       "default": "./dist/config.js"
+    },
+    "./vite-plugin": {
+      "types": "./dist/vite-plugin.d.ts",
+      "default": "./dist/vite-plugin.js"
     }
   },
   "files": [
