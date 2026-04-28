@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { preScan } from '../../src/cli-review.js'
+import type { Finding, ReviewState } from '../../src/cli-review.js'
+import { applyAction, preScan } from '../../src/cli-review.js'
 import { ENV_KEY_MATCH_RULE, matchHash } from '../../src/redact-pipeline.js'
 import type { CassetteFile, RedactConfig } from '../../src/types.js'
 import { makeRecording } from '../helpers/recording.js'
@@ -175,5 +176,103 @@ describe('preScan', () => {
     }
     const config: RedactConfig = { ...minimalConfig, envKeys: ['TOKEN'] }
     expect(preScan(cassette, config)).toEqual([])
+  })
+})
+
+function mkFinding(
+  id: string,
+  recordingIndex: number,
+  source: 'stdout' | 'args' = 'stdout',
+): Finding {
+  return {
+    id,
+    recordingIndex,
+    source,
+    rule: 'github-pat-classic',
+    match: 'ghp_xxx',
+    matchHash: `sha256:${id}`,
+    matchLength: 7,
+    matchPreview: 'ghp_xxx',
+    position: '1:0',
+    context: { lineNumber: 1, before: [], line: 'ghp_xxx', after: [] },
+  }
+}
+
+function mkState(findings: Finding[]): ReviewState {
+  return { findings, cursor: 0, decisions: new Map(), step: 'reviewing' }
+}
+
+describe('applyAction', () => {
+  test('accept advances cursor and records accept decision', () => {
+    const state = mkState([mkFinding('a', 0), mkFinding('b', 0)])
+    const next = applyAction(state, { kind: 'accept' })
+    expect(next.cursor).toBe(1)
+    expect(next.decisions.get('a')).toEqual({ kind: 'accept' })
+    expect(next.step).toBe('reviewing')
+  })
+
+  test('skip records skip decision', () => {
+    const state = mkState([mkFinding('a', 0), mkFinding('b', 0)])
+    const next = applyAction(state, { kind: 'skip' })
+    expect(next.decisions.get('a')).toEqual({ kind: 'skip' })
+    expect(next.cursor).toBe(1)
+  })
+
+  test('replace records replace decision with user value', () => {
+    const state = mkState([mkFinding('a', 0)])
+    const next = applyAction(state, { kind: 'replace', with: 'CUSTOM' })
+    expect(next.decisions.get('a')).toEqual({ kind: 'replace', with: 'CUSTOM' })
+  })
+
+  test('delete records delete decision and skips remaining findings in same recording', () => {
+    const state = mkState([mkFinding('a', 0), mkFinding('b', 0), mkFinding('c', 1)])
+    const next = applyAction(state, { kind: 'delete' })
+    expect(next.decisions.get('a')).toEqual({ kind: 'delete', recordingIndex: 0 })
+    // 'b' is in the same recording (0), so cursor jumps past it to 'c' (recording 1)
+    expect(next.cursor).toBe(2)
+  })
+
+  test('back decrements cursor and removes prior decision (user must re-decide)', () => {
+    let state = mkState([mkFinding('a', 0), mkFinding('b', 0)])
+    state = applyAction(state, { kind: 'accept' }) // cursor 1, decision 'a' = accept
+    expect(state.cursor).toBe(1)
+    state = applyAction(state, { kind: 'back' })
+    expect(state.cursor).toBe(0)
+    expect(state.decisions.has('a')).toBe(false)
+  })
+
+  test('back at cursor 0 is a no-op (still reviewing, cursor 0)', () => {
+    const state = mkState([mkFinding('a', 0)])
+    const next = applyAction(state, { kind: 'back' })
+    expect(next.cursor).toBe(0)
+    expect(next.step).toBe('reviewing')
+  })
+
+  test('reaching end of findings transitions to confirming', () => {
+    let state = mkState([mkFinding('a', 0)])
+    state = applyAction(state, { kind: 'accept' }) // cursor 1, past end
+    expect(state.step).toBe('confirming')
+  })
+
+  test('quit transitions to aborted', () => {
+    const state = mkState([mkFinding('a', 0)])
+    const next = applyAction(state, { kind: 'quit' })
+    expect(next.step).toBe('aborted')
+  })
+
+  test('apply transitions to done with decisions intact', () => {
+    let state = mkState([mkFinding('a', 0)])
+    state = applyAction(state, { kind: 'accept' }) // step = confirming
+    state = applyAction(state, { kind: 'apply' })
+    expect(state.step).toBe('done')
+    expect(state.decisions.size).toBe(1)
+  })
+
+  test('discard transitions to done with empty decisions', () => {
+    let state = mkState([mkFinding('a', 0)])
+    state = applyAction(state, { kind: 'accept' }) // step = confirming
+    state = applyAction(state, { kind: 'discard' })
+    expect(state.step).toBe('done')
+    expect(state.decisions.size).toBe(0)
   })
 })

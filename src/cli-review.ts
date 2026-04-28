@@ -257,3 +257,103 @@ function buildContext(
     after: [...after],
   }
 }
+
+export type Decision =
+  | { kind: 'accept' }
+  | { kind: 'skip' }
+  | { kind: 'replace'; with: string }
+  | { kind: 'delete'; recordingIndex: number }
+
+export type ReviewState = {
+  readonly findings: readonly Finding[]
+  readonly cursor: number
+  readonly decisions: ReadonlyMap<string, Decision>
+  readonly step: 'reviewing' | 'confirming' | 'done' | 'aborted'
+}
+
+export type ReviewAction =
+  | { kind: 'accept' }
+  | { kind: 'skip' }
+  | { kind: 'replace'; with: string }
+  | { kind: 'delete' }
+  | { kind: 'back' }
+  | { kind: 'quit' }
+  | { kind: 'apply' }
+  | { kind: 'discard' }
+
+/**
+ * Pure state-machine transition. Returns a new ReviewState reflecting the
+ * supplied action. No I/O. Tests drive this directly.
+ *
+ * Reviewing-step rules:
+ *   - accept/skip: record decision, advance cursor by 1.
+ *   - replace: record decision (with user-provided string), advance by 1.
+ *   - delete: record decision targeted at the recording, then advance the
+ *     cursor past every remaining finding in the same recording (those
+ *     findings are moot because the recording is gone).
+ *   - back: decrement cursor and remove the prior decision so the user
+ *     must re-decide. No-op at cursor 0.
+ *   - quit: transition to 'aborted' (decisions discarded by caller).
+ *
+ * When the cursor advances past the last finding, the step transitions to
+ * 'confirming'. From 'confirming':
+ *   - apply: transition to 'done' with decisions intact (caller writes).
+ *   - discard: transition to 'done' with decisions cleared.
+ */
+export function applyAction(state: ReviewState, action: ReviewAction): ReviewState {
+  if (state.step !== 'reviewing' && state.step !== 'confirming') {
+    return state // already done/aborted; no further transitions
+  }
+
+  if (action.kind === 'quit') {
+    return { ...state, step: 'aborted' }
+  }
+  if (action.kind === 'apply') {
+    if (state.step !== 'confirming') return state
+    return { ...state, step: 'done' }
+  }
+  if (action.kind === 'discard') {
+    if (state.step !== 'confirming') return state
+    return { ...state, step: 'done', decisions: new Map() }
+  }
+
+  // From here on, only valid in 'reviewing' step
+  if (state.step !== 'reviewing') return state
+
+  if (action.kind === 'back') {
+    if (state.cursor === 0) return state
+    const newCursor = state.cursor - 1
+    // biome-ignore lint/style/noNonNullAssertion: newCursor in [0, findings.length)
+    const priorId = state.findings[newCursor]!.id
+    const newDecisions = new Map(state.decisions)
+    newDecisions.delete(priorId)
+    return { ...state, cursor: newCursor, decisions: newDecisions }
+  }
+
+  // biome-ignore lint/style/noNonNullAssertion: cursor in [0, findings.length) when reviewing
+  const current = state.findings[state.cursor]!
+  const newDecisions = new Map(state.decisions)
+  let advanceTo = state.cursor + 1
+
+  if (action.kind === 'accept') {
+    newDecisions.set(current.id, { kind: 'accept' })
+  } else if (action.kind === 'skip') {
+    newDecisions.set(current.id, { kind: 'skip' })
+  } else if (action.kind === 'replace') {
+    newDecisions.set(current.id, { kind: 'replace', with: action.with })
+  } else if (action.kind === 'delete') {
+    newDecisions.set(current.id, { kind: 'delete', recordingIndex: current.recordingIndex })
+    // Advance past every remaining finding in the same recording (moot once deleted)
+    while (
+      advanceTo < state.findings.length &&
+      // biome-ignore lint/style/noNonNullAssertion: bounded by length check
+      state.findings[advanceTo]!.recordingIndex === current.recordingIndex
+    ) {
+      advanceTo++
+    }
+  }
+
+  const newStep: ReviewState['step'] =
+    advanceTo >= state.findings.length ? 'confirming' : 'reviewing'
+  return { ...state, cursor: advanceTo, decisions: newDecisions, step: newStep }
+}
