@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
+import { CassetteIOError } from './errors.js'
 
 /**
  * Resolve cassette paths from user-provided input.
@@ -22,8 +23,8 @@ export async function walkCassettes(inputs: readonly string[]): Promise<string[]
     let st: Awaited<ReturnType<typeof stat>>
     try {
       st = await stat(abs)
-    } catch {
-      throw new Error(`path not found: ${input}`)
+    } catch (e) {
+      throw new CassetteIOError(`cassette path not found: ${input}`, e as Error)
     }
     if (st.isFile()) {
       out.add(abs)
