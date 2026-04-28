@@ -1,5 +1,5 @@
 import type { Options, Result as TinyResult } from 'tinyexec'
-import { MissingPeerDependencyError, UnsupportedOptionError } from './errors.js'
+import { MissingPeerDependencyError, ShellCassetteError, UnsupportedOptionError } from './errors.js'
 import { validateOptions } from './options-tinyexec.js'
 import type { Call, Result as CassetteResult, Recording } from './types.js'
 import { type RunnerHooks, runWrapped } from './wrapper.js'
@@ -95,7 +95,6 @@ function synthesize(rec: Recording, options: Partial<Options>): TinyResult {
     pid: -1,
     aborted: rec.result.aborted,
     killed,
-    process: null,
     pipe: () => {
       throw new UnsupportedOptionError(
         'tinyexec result.pipe() not supported on replay (no live subprocess). Tracked in backlog.',
@@ -120,9 +119,58 @@ function synthesize(rec: Recording, options: Partial<Options>): TinyResult {
     )
   }
 
+  // Attach `process` as a throwing getter AFTER the throwOnError branch so
+  // Object.assign(error, result) above does not trigger the throw by reading
+  // the getter while copying enumerable properties. Reads on the success path
+  // surface a clear error instead of a confusing TypeError on a downstream
+  // property access. shell-cassette cannot synthesize a live ChildProcess
+  // from a cassette; tests that need streaming or sync stdio must use
+  // SHELL_CASSETTE_MODE=passthrough. Closes #83.
+  Object.defineProperty(result, 'process', {
+    enumerable: true,
+    configurable: true,
+    get(): never {
+      throw new ShellCassetteError(
+        'result.process is not available in replay mode. shell-cassette synthesizes ' +
+          'subprocess results from cassettes; no live ChildProcess exists. ' +
+          'Tests that read result.process.stdout / .stderr / .stdin streams must ' +
+          'either run with SHELL_CASSETTE_MODE=passthrough, or refactor to read ' +
+          'result.stdout / result.stderr (the buffered fields).',
+      )
+    },
+  })
+
   // The synthesized object lacks tinyexec's full structural shape (no `then`/`spawn`
-  // fields from ExecProcess; `process` is null instead of ChildProcess | undefined).
-  // Documented replay limit: code reading these fields synchronously before await,
-  // or calling sync-only ProcessApi methods, must use real execution.
+  // fields from ExecProcess; `process` is a throwing getter rather than a live
+  // ChildProcess). Documented replay limit: code reading these fields synchronously
+  // before await, or calling sync-only ProcessApi methods, must use real execution.
   return result as unknown as TinyResult
+}
+
+/**
+ * Alias for `x`. tinyexec exports both names (they reference the same callable);
+ * mirroring that here lets users redirect `import { exec } from 'tinyexec'` to
+ * `import { exec } from 'shell-cassette/tinyexec'` without renaming at every
+ * call site. Closes #77.
+ */
+export const exec = x
+
+/**
+ * Stub for tinyexec's sync subprocess entry point. Wrapping sync execution
+ * requires synchronous lazy-load support, which is planned for v0.5 (#82).
+ *
+ * For v0.4, calling xSync through this adapter throws a clear error instead
+ * of failing silently or returning undefined. Users with sync subprocess
+ * tests should either:
+ * - Import xSync directly from `tinyexec` (those calls bypass shell-cassette)
+ * - Refactor to use async `x` (recommended; gets cassette coverage)
+ * - Wait for v0.5
+ */
+export function xSync(): never {
+  throw new ShellCassetteError(
+    'shell-cassette/tinyexec.xSync is not yet wrapped (tracked in #82). ' +
+      'Sync subprocess wrapping requires synchronous lazy-load support, planned for v0.5. ' +
+      'For now: use async `x` (recommended; gets cassette coverage), or import xSync ' +
+      'directly from `tinyexec` (those calls will not be cassetted).',
+  )
 }

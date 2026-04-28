@@ -8,9 +8,25 @@ vi.mock('tinyexec', () => ({
 }))
 
 const { x: realXMock } = await import('tinyexec')
-const { x } = await import('../../src/tinyexec.js')
+const { x, exec, xSync } = await import('../../src/tinyexec.js')
+const { ShellCassetteError } = await import('../../src/errors.js')
 
 describe('tinyexec adapter', () => {
+  test('exec is an alias of x', () => {
+    expect(exec).toBe(x)
+  })
+
+  test('xSync stub throws ShellCassetteError with v0.5 guidance', () => {
+    expect(() => xSync()).toThrow(ShellCassetteError)
+    try {
+      xSync()
+    } catch (e) {
+      expect((e as Error).message).toContain('xSync')
+      expect((e as Error).message).toContain('v0.5')
+      expect((e as Error).message).toContain('#82')
+    }
+  })
+
   beforeEach(() => {
     _resetForTesting()
     vi.mocked(realXMock).mockReset()
@@ -187,7 +203,7 @@ describe('tinyexec adapter', () => {
     expect(result.exitCode).toBe(1)
   })
 
-  test('synthesize result.process is null on replay', async () => {
+  test('synthesize result.process throws ShellCassetteError on access in replay', async () => {
     const recording = makeRecording({
       call: { command: 'echo', args: ['hi'], cwd: null, env: {}, stdin: null },
       result: { stdoutLines: ['hi'], stderrLines: [''] },
@@ -198,8 +214,16 @@ describe('tinyexec adapter', () => {
     setActiveCassette(session)
     process.env.SHELL_CASSETTE_MODE = 'replay'
 
-    const result = (await x('echo', ['hi'])) as unknown as { process: unknown }
-    expect(result.process).toBeNull()
+    const result = await x('echo', ['hi'])
+    // Reading result.process surfaces a clear shell-cassette error rather
+    // than a confusing TypeError on a downstream property access. Closes #83.
+    expect(() => (result as unknown as { process: unknown }).process).toThrow(ShellCassetteError)
+    try {
+      ;(result as unknown as { process: unknown }).process
+    } catch (e) {
+      expect((e as Error).message).toContain('result.process is not available in replay')
+      expect((e as Error).message).toContain('SHELL_CASSETTE_MODE=passthrough')
+    }
   })
 
   test('synthesize result.pipe() throws UnsupportedOptionError', async () => {
