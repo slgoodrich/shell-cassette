@@ -4,7 +4,7 @@ All notable changes to shell-cassette are documented here. The format is based o
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-XX-XX
+## [0.4.0] - 2026-04-28
 
 ### BREAKING CHANGES
 
