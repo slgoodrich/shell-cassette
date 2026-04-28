@@ -199,7 +199,7 @@ function mkFinding(
 }
 
 function mkState(findings: Finding[]): ReviewState {
-  return { findings, cursor: 0, decisions: new Map(), step: 'reviewing' }
+  return { findings, cursor: 0, history: [], decisions: new Map(), step: 'reviewing' }
 }
 
 describe('applyAction', () => {
@@ -241,11 +241,42 @@ describe('applyAction', () => {
     expect(state.decisions.has('a')).toBe(false)
   })
 
-  test('back at cursor 0 is a no-op (still reviewing, cursor 0)', () => {
+  test('back at start (empty history) is a no-op', () => {
     const state = mkState([mkFinding('a', 0)])
     const next = applyAction(state, { kind: 'back' })
     expect(next.cursor).toBe(0)
     expect(next.step).toBe('reviewing')
+  })
+
+  test('back undoes a delete fully (rewinds the multi-step skip and clears all decisions)', () => {
+    let state = mkState([mkFinding('a', 0), mkFinding('b', 0), mkFinding('c', 1)])
+    state = applyAction(state, { kind: 'delete' })
+    // Sanity: delete on `a` skipped `b` (same recording), cursor at `c`.
+    expect(state.cursor).toBe(2)
+    expect(state.decisions.get('a')).toEqual({ kind: 'delete', recordingIndex: 0 })
+
+    state = applyAction(state, { kind: 'back' })
+    // Cursor returns to 0 (where the user actually was when they pressed delete).
+    expect(state.cursor).toBe(0)
+    // The delete decision is gone — user must re-decide. b never had a
+    // decision, but verifying both are clear ensures the unwound range is
+    // correctly cleared.
+    expect(state.decisions.has('a')).toBe(false)
+    expect(state.decisions.has('b')).toBe(false)
+  })
+
+  test('back from confirming returns to reviewing at the last decided finding', () => {
+    let state = mkState([mkFinding('a', 0), mkFinding('b', 0)])
+    state = applyAction(state, { kind: 'accept' }) // cursor 1
+    state = applyAction(state, { kind: 'accept' }) // cursor 2, step = confirming
+    expect(state.step).toBe('confirming')
+
+    state = applyAction(state, { kind: 'back' })
+    expect(state.step).toBe('reviewing')
+    expect(state.cursor).toBe(1)
+    // Last decision (b) is unwound; the earlier (a) is still in.
+    expect(state.decisions.has('b')).toBe(false)
+    expect(state.decisions.get('a')).toEqual({ kind: 'accept' })
   })
 
   test('reaching end of findings transitions to confirming', () => {

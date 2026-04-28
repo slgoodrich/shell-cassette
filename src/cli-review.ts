@@ -267,6 +267,12 @@ export type Decision =
 export type ReviewState = {
   readonly findings: readonly Finding[]
   readonly cursor: number
+  /**
+   * Stack of cursors saved before each forward advance. `back` pops from
+   * here so multi-step jumps (e.g. `delete`'s contiguous-recording skip)
+   * unwind to the actual prior decision point — not just `cursor - 1`.
+   */
+  readonly history: readonly number[]
   readonly decisions: ReadonlyMap<string, Decision>
   readonly step: 'reviewing' | 'confirming' | 'done' | 'aborted'
 }
@@ -291,8 +297,11 @@ export type ReviewAction =
  *   - delete: record decision targeted at the recording, then advance the
  *     cursor past every remaining finding in the same recording (those
  *     findings are moot because the recording is gone).
- *   - back: decrement cursor and remove the prior decision so the user
- *     must re-decide. No-op at cursor 0.
+ *   - back: pop the prior cursor from history and rewind to it, removing
+ *     every decision recorded in the unwound range so the user must
+ *     re-decide. Empty history is a no-op (start of review or already
+ *     fully unwound). Allowed from 'confirming' too — pops back to
+ *     'reviewing' at the last decided finding.
  *   - quit: transition to 'aborted' (decisions discarded by caller).
  *
  * When the cursor advances past the last finding, the step transitions to
@@ -317,18 +326,30 @@ export function applyAction(state: ReviewState, action: ReviewAction): ReviewSta
     return { ...state, step: 'done', decisions: new Map() }
   }
 
-  // From here on, only valid in 'reviewing' step
-  if (state.step !== 'reviewing') return state
-
   if (action.kind === 'back') {
-    if (state.cursor === 0) return state
-    const newCursor = state.cursor - 1
-    // biome-ignore lint/style/noNonNullAssertion: newCursor in [0, findings.length)
-    const priorId = state.findings[newCursor]!.id
+    if (state.history.length === 0) return state
+    // biome-ignore lint/style/noNonNullAssertion: history.length > 0 guarantees last element
+    const newCursor = state.history[state.history.length - 1]!
+    const newHistory = state.history.slice(0, -1)
+    // Remove every decision recorded in the unwound [newCursor, oldCursor) range.
+    // For single-step advances this is just one decision; for `delete`'s
+    // multi-step skip it's the lead decision plus any moot in-recording entries.
     const newDecisions = new Map(state.decisions)
-    newDecisions.delete(priorId)
-    return { ...state, cursor: newCursor, decisions: newDecisions }
+    for (let i = newCursor; i < state.cursor; i++) {
+      // biome-ignore lint/style/noNonNullAssertion: i in [newCursor, cursor) ⊂ valid indices
+      newDecisions.delete(state.findings[i]!.id)
+    }
+    return {
+      ...state,
+      cursor: newCursor,
+      history: newHistory,
+      decisions: newDecisions,
+      step: 'reviewing',
+    }
   }
+
+  // From here on, forward actions are only valid in 'reviewing' step
+  if (state.step !== 'reviewing') return state
 
   // biome-ignore lint/style/noNonNullAssertion: cursor in [0, findings.length) when reviewing
   const current = state.findings[state.cursor]!
@@ -343,7 +364,10 @@ export function applyAction(state: ReviewState, action: ReviewAction): ReviewSta
     newDecisions.set(current.id, { kind: 'replace', with: action.with })
   } else if (action.kind === 'delete') {
     newDecisions.set(current.id, { kind: 'delete', recordingIndex: current.recordingIndex })
-    // Advance past every remaining finding in the same recording (moot once deleted)
+    // Advance past every remaining finding in the same recording (moot once
+    // deleted). Findings are contiguous-by-recording because preScan walks
+    // cassette.recordings in order; a later caller producing an unsorted
+    // findings array would break this skip.
     while (
       advanceTo < state.findings.length &&
       // biome-ignore lint/style/noNonNullAssertion: bounded by length check
@@ -355,5 +379,11 @@ export function applyAction(state: ReviewState, action: ReviewAction): ReviewSta
 
   const newStep: ReviewState['step'] =
     advanceTo >= state.findings.length ? 'confirming' : 'reviewing'
-  return { ...state, cursor: advanceTo, decisions: newDecisions, step: newStep }
+  return {
+    ...state,
+    cursor: advanceTo,
+    history: [...state.history, state.cursor],
+    decisions: newDecisions,
+    step: newStep,
+  }
 }
