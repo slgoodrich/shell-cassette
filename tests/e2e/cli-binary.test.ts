@@ -1,9 +1,18 @@
+import { stat } from 'node:fs/promises'
 import path from 'node:path'
 import { execa } from 'execa'
-import { describe, expect, test } from 'vitest'
+import { beforeAll, describe, expect, test } from 'vitest'
 
 const CLI_BIN = path.resolve('dist/cli.js')
 const FIXTURES = path.resolve('tests/fixtures/cassettes')
+
+beforeAll(async () => {
+  try {
+    await stat(CLI_BIN)
+  } catch {
+    throw new Error(`dist/cli.js missing — run \`npm run build\` before e2e tests`)
+  }
+})
 
 describe('shell-cassette binary (e2e)', () => {
   test('--version prints package version', async () => {
