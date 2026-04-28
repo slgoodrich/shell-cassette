@@ -103,19 +103,27 @@ describe('buildSummary', () => {
 
 describe('runShow --json', () => {
   let tmp: string
-  let captured: string[]
-  const origWrite = process.stdout.write.bind(process.stdout)
+  let outBuf: string[]
+  let errBuf: string[]
+  const origStdout = process.stdout.write.bind(process.stdout)
+  const origStderr = process.stderr.write.bind(process.stderr)
 
   beforeEach(async () => {
     tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-show-'))
-    captured = []
+    outBuf = []
+    errBuf = []
     process.stdout.write = ((s: string) => {
-      captured.push(s)
+      outBuf.push(s)
       return true
     }) as typeof process.stdout.write
+    process.stderr.write = ((s: string) => {
+      errBuf.push(s)
+      return true
+    }) as typeof process.stderr.write
   })
   afterEach(async () => {
-    process.stdout.write = origWrite
+    process.stdout.write = origStdout
+    process.stderr.write = origStderr
     await rm(tmp, { recursive: true, force: true })
   })
 
@@ -145,7 +153,7 @@ describe('runShow --json', () => {
 
     const exit = await runShow([fixturePath, '--json', '--no-color'])
     expect(exit).toBe(0)
-    const out = JSON.parse(captured.join(''))
+    const out = JSON.parse(outBuf.join(''))
     expect(out.showVersion).toBe(1)
     expect(out.summary.path).toBe(fixturePath)
     expect(out.summary.recordingCount).toBe(1)
@@ -156,15 +164,18 @@ describe('runShow --json', () => {
   test('returns 2 on missing path', async () => {
     const exit = await runShow([])
     expect(exit).toBe(2)
+    expect(errBuf.join('')).toContain('show requires a path')
   })
 
   test('returns 2 on nonexistent file', async () => {
     const exit = await runShow([path.join(tmp, 'missing.json'), '--json'])
     expect(exit).toBe(2)
+    expect(errBuf.join('')).toContain('cassette file not found')
   })
 
   test('--help returns 0', async () => {
     const exit = await runShow(['--help'])
     expect(exit).toBe(0)
+    expect(outBuf.join('')).toContain('Usage:')
   })
 })
