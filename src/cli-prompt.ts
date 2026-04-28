@@ -6,10 +6,6 @@
  * a fake without spawning a subprocess. Production code calls `getReader()`
  * which lazily constructs a real readline interface bound to process.stdin
  * and process.stdout.
- *
- * Prompt strings are explicitly NOT API. Bots should use `--json` modes for
- * automation; do not parse interactive prompt text. Action keys (which are
- * read from user input) ARE API and locked.
  */
 import * as readline from 'node:readline/promises'
 import { stderr } from './cli-output.js'
@@ -33,11 +29,11 @@ function getReader(): Reader {
 
 /**
  * Override the prompt reader. Tests inject a fake `Reader` to avoid
- * subprocess spawning. Pass `null` to reset (closing the previous reader
- * if it owned a real readline interface).
+ * subprocess spawning. Pass `null` to reset. Closes the active reader
+ * before replacing or clearing it.
  */
 export function setReader(reader: Reader | null): void {
-  if (_reader !== null && reader === null) {
+  if (_reader !== null && _reader !== reader) {
     _reader.close()
   }
   _reader = reader
@@ -56,7 +52,7 @@ export async function promptAction(allowed: readonly string[]): Promise<string> 
     const line = await reader.question(prompt)
     const trimmed = line.trim().toLowerCase()
     if (allowedSet.has(trimmed)) return trimmed
-    stderr(`(unknown action: '${trimmed}'; expected one of ${allowed.join(', ')})`)
+    stderr(`(unknown action: '${trimmed}'; expected one of ${allowed.join('/')})`)
   }
 }
 
