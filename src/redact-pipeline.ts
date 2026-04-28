@@ -170,8 +170,7 @@ function applyRegexRule(
   // pattern is guaranteed to have g flag (caller ensures it)
   const result = text.replace(pattern, (match) => {
     if (options.suppressedHashes !== undefined) {
-      const hash = `sha256:${createHash('sha256').update(match).digest('hex')}`
-      if (options.suppressedHashes.has(hash)) {
+      if (options.suppressedHashes.has(matchHash(match))) {
         return match // leave verbatim; do not increment counter, do not emit entry
       }
     }
@@ -310,6 +309,17 @@ export function aggregateEntries(entries: readonly RedactionEntry[]): RedactionE
     }
   }
   return [...map.values()]
+}
+
+/**
+ * Content-addressed identity for a redaction match. Producers (scan,
+ * review's pre-scan) write this format into cassette `_suppressed` entries;
+ * consumers (re-redact, review's pre-scan, the pipeline's per-match skip
+ * check) compare against the same format. Single source of truth so
+ * producer and consumer can never drift.
+ */
+export function matchHash(value: string): string {
+  return `sha256:${createHash('sha256').update(value).digest('hex')}`
 }
 
 /**

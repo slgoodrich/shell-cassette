@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { reRedactOne } from '../../src/cli-re-redact.js'
-import { collectSuppressedHashes } from '../../src/redact-pipeline.js'
+import { collectSuppressedHashes, matchHash } from '../../src/redact-pipeline.js'
 import { deserialize } from '../../src/serialize.js'
 import type { RedactConfig } from '../../src/types.js'
 
@@ -15,20 +15,19 @@ afterEach(async () => {
   await rm(tmp, { recursive: true, force: true })
 })
 
-const baseConfig: Readonly<RedactConfig> = Object.freeze({
+const baseConfig: RedactConfig = {
   bundledPatterns: true,
   customPatterns: [],
   suppressPatterns: [],
   envKeys: [],
   warnLengthThreshold: 40,
   warnPathHeuristic: true,
-})
+}
 
 describe('re-redact respects _suppressed', () => {
   test('a match whose hash is in _suppressed stays unflagged after re-redact', async () => {
     const pat = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789'
-    const { createHash } = await import('node:crypto')
-    const hash = `sha256:${createHash('sha256').update(pat).digest('hex')}`
+    const hash = matchHash(pat)
     const cassettePath = path.join(tmp, 'fixture.json')
     const cassette = {
       version: 2,
@@ -68,8 +67,7 @@ describe('re-redact respects _suppressed', () => {
   test('a match NOT in _suppressed still gets re-redacted normally', async () => {
     const skippedPat = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789'
     const otherPat = 'ghp_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'
-    const { createHash } = await import('node:crypto')
-    const skippedHash = `sha256:${createHash('sha256').update(skippedPat).digest('hex')}`
+    const skippedHash = matchHash(skippedPat)
     const cassettePath = path.join(tmp, 'fixture.json')
     const cassette = {
       version: 2,
