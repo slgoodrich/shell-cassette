@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { execa } from '../../src/execa.js'
 import type { Canonicalize } from '../../src/types.js'
 import { useCassette } from '../../src/use-cassette.js'
+import { restoreEnv } from '../helpers/env.js'
 
 describe('useCassette per-call options - canonicalize override', () => {
   let tmp: string
@@ -24,14 +25,6 @@ describe('useCassette per-call options - canonicalize override', () => {
     restoreEnv('SHELL_CASSETTE_MODE', originalMode)
     restoreEnv('CI', originalCI)
   })
-
-  function restoreEnv(key: string, original: string | undefined): void {
-    if (original === undefined) {
-      delete process.env[key]
-    } else {
-      process.env[key] = original
-    }
-  }
 
   test('default canonicalize matches recordings with same command + args', async () => {
     const cassettePath = path.join(tmp, 'default.json')

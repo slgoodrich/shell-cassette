@@ -7,6 +7,7 @@ import { writeCassetteFile } from '../../src/io.js'
 import { serialize } from '../../src/serialize.js'
 import { clearActiveCassette, setActiveCassette } from '../../src/state.js'
 import type { CassetteSession } from '../../src/types.js'
+import { restoreEnv } from '../helpers/env.js'
 import { makeSession } from '../helpers/session.js'
 
 const sessionAt = (sessionPath: string): CassetteSession =>
@@ -26,14 +27,6 @@ afterEach(() => {
   restoreEnv('SHELL_CASSETTE_ACK_REDACTION', originalAck)
   restoreEnv('SHELL_CASSETTE_MODE', originalMode)
 })
-
-function restoreEnv(key: string, original: string | undefined): void {
-  if (original === undefined) {
-    delete process.env[key]
-  } else {
-    process.env[key] = original
-  }
-}
 
 describe('wrapped execa', () => {
   test('passthrough when no active cassette', async () => {

@@ -4,6 +4,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { execa } from '../../src/execa.js'
 import { useCassette } from '../../src/use-cassette.js'
+import { restoreEnv } from '../helpers/env.js'
 
 const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
 const originalMode = process.env.SHELL_CASSETTE_MODE
@@ -18,14 +19,6 @@ afterEach(() => {
   restoreEnv('SHELL_CASSETTE_ACK_REDACTION', originalAck)
   restoreEnv('SHELL_CASSETTE_MODE', originalMode)
 })
-
-function restoreEnv(key: string, original: string | undefined): void {
-  if (original === undefined) {
-    delete process.env[key]
-  } else {
-    process.env[key] = original
-  }
-}
 
 describe('useCassette', () => {
   test('records execa calls and writes cassette at scope end', async () => {
