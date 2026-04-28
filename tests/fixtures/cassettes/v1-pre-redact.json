@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "recordings": [
+    {
+      "call": {
+        "command": "curl",
+        "args": ["-H", "Authorization: Bearer ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234567890"],
+        "cwd": null,
+        "env": {},
+        "stdin": null
+      },
+      "result": {
+        "stdoutLines": ["{\"login\":\"steve\"}"],
+        "stderrLines": [],
+        "exitCode": 0,
+        "signal": null,
+        "durationMs": 100
+      }
+    }
+  ]
+}
