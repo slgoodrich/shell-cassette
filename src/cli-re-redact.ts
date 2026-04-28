@@ -269,6 +269,8 @@ function reRedactRecording(
       call: { ...rec.call, env, args },
       result: { ...rec.result, stdoutLines, stderrLines, allLines },
       redactions: aggregated,
+      // suppressed is user intent; never mutated by re-redact.
+      suppressed: rec.suppressed,
     },
     newCountInRecording: newCount,
   }

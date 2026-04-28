@@ -32,6 +32,12 @@ export type Recording = {
    * computation without walking the body.
    */
   redactions: RedactionEntry[]
+  /**
+   * Per-recording skip decisions written by `shell-cassette review`'s
+   * `(s)kip` action. `re-redact` and `review`'s pre-scan skip any match
+   * whose `matchHash` appears here, so user decisions stick across runs.
+   */
+  suppressed: SuppressedEntry[]
 }
 
 export type CassetteFile = {
@@ -78,6 +84,22 @@ export type RedactionEntry = {
   rule: string // matches RedactRule.name
   source: RedactSource
   count: number // number of placeholder occurrences for this (source, rule) in this recording
+}
+
+/**
+ * One entry per match that the user explicitly chose to skip during
+ * `shell-cassette review`. `re-redact` and `review`'s pre-scan skip
+ * matches whose `matchHash` appears in any recording's `suppressed`
+ * array, so the user's prior decision sticks across runs.
+ *
+ * `position` is informational only (used by `show` and review's listing).
+ * Skip semantics key off `matchHash`, not position.
+ */
+export type SuppressedEntry = {
+  source: RedactSource
+  rule: string // matches RedactRule.name; or 'custom' for replace decisions
+  position: string // source-specific: '<line>:<col>' | '<argIndex>:<col>' | '<KEY>:<col>'
+  matchHash: string // 'sha256:<64 hex chars>'
 }
 
 export type RedactConfig = {

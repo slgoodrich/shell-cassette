@@ -38,7 +38,12 @@ const dummyResult: Result = {
   aborted: false,
 }
 
-const recOf = (call: Call): Recording => ({ call, result: dummyResult, redactions: [] })
+const recOf = (call: Call): Recording => ({
+  call,
+  result: dummyResult,
+  redactions: [],
+  suppressed: [],
+})
 
 describe('normalizeTmpPath properties', () => {
   test('idempotence: normalizeTmpPath(normalizeTmpPath(s)) === normalizeTmpPath(s)', () => {

@@ -36,4 +36,5 @@ export const recordingOf = (
     ...resultOverrides,
   },
   redactions: [],
+  suppressed: [],
 })

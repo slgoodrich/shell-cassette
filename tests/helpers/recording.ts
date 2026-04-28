@@ -37,6 +37,7 @@ export function makeRecording(
     },
     result: makeResult(resultOverrides),
     redactions: [],
+    suppressed: [],
     ...rest,
   }
 }

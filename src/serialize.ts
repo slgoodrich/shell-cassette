@@ -1,5 +1,5 @@
 import { BinaryOutputError, CassetteCorruptError } from './errors.js'
-import type { CassetteFile, Recording, RedactionEntry } from './types.js'
+import type { CassetteFile, Recording, RedactionEntry, SuppressedEntry } from './types.js'
 
 const SCHEMA_VERSION = 2
 
@@ -55,6 +55,7 @@ function orderRecording(rec: Recording) {
       aborted: rec.result.aborted,
     },
     _redactions: rec.redactions,
+    ...(rec.suppressed.length > 0 ? { _suppressed: rec.suppressed } : {}),
   }
 }
 
@@ -132,8 +133,8 @@ export function deserialize(text: string): CassetteFile {
   }
 }
 
-// On disk, `allLines`, `aborted`, and `_redactions` may be absent (cassettes
-// recorded before those fields existed). All default during normalization.
+// Fields added after the v2 schema landed are optional on disk;
+// normalizeRecording fills defaults.
 type LegacyRecording = {
   call: Recording['call']
   result: Omit<Recording['result'], 'allLines' | 'aborted'> & {
@@ -141,6 +142,7 @@ type LegacyRecording = {
     aborted?: boolean
   }
   _redactions?: RedactionEntry[]
+  _suppressed?: SuppressedEntry[]
 }
 
 function normalizeRecording(rec: LegacyRecording): Recording {
@@ -152,5 +154,6 @@ function normalizeRecording(rec: LegacyRecording): Recording {
       aborted: rec.result.aborted ?? false,
     },
     redactions: rec._redactions ?? [],
+    suppressed: rec._suppressed ?? [],
   }
 }

@@ -19,6 +19,7 @@ const minimalV2: CassetteFile = {
         aborted: false,
       },
       redactions: [],
+      suppressed: [],
     },
   ],
 }
