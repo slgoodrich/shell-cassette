@@ -34,10 +34,8 @@ export type Recording = {
   redactions: RedactionEntry[]
   /**
    * Per-recording skip decisions written by `shell-cassette review`'s
-   * `(s)kip` action. v0.5 additive on v2 schema; v0.4 cassettes load with
-   * `[]`. Consulted by `re-redact` and `review`'s pre-scan: any match
-   * whose `matchHash` is in this list is left as-is in the body and not
-   * re-flagged.
+   * `(s)kip` action. `re-redact` and `review`'s pre-scan skip any match
+   * whose `matchHash` appears here, so user decisions stick across runs.
    */
   suppressed: SuppressedEntry[]
 }
@@ -90,11 +88,9 @@ export type RedactionEntry = {
 
 /**
  * One entry per match that the user explicitly chose to skip during
- * `shell-cassette review`. Persisted as the `_suppressed` JSON field on
- * each cassette recording. Both `re-redact` and `review`'s own pre-scan
- * consult this list and skip matches whose `matchHash` appears in any
- * recording's `suppressed` array, so the user's prior decision sticks
- * across runs.
+ * `shell-cassette review`. `re-redact` and `review`'s pre-scan skip
+ * matches whose `matchHash` appears in any recording's `suppressed`
+ * array, so the user's prior decision sticks across runs.
  *
  * `position` is informational only (used by `show` and review's listing).
  * Skip semantics key off `matchHash`, not position.

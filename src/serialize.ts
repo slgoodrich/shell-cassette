@@ -37,7 +37,7 @@ export function serialize(file: CassetteFile): string {
 }
 
 function orderRecording(rec: Recording) {
-  const ordered: Record<string, unknown> = {
+  return {
     call: {
       command: rec.call.command,
       args: rec.call.args,
@@ -55,13 +55,8 @@ function orderRecording(rec: Recording) {
       aborted: rec.result.aborted,
     },
     _redactions: rec.redactions,
+    ...(rec.suppressed.length > 0 ? { _suppressed: rec.suppressed } : {}),
   }
-  // Omit _suppressed when empty: saves ~20 bytes per recording for the
-  // common case (cassettes that have not been through review).
-  if (rec.suppressed.length > 0) {
-    ordered._suppressed = rec.suppressed
-  }
-  return ordered
 }
 
 function validateBeforeSerialize(file: CassetteFile): void {
@@ -138,9 +133,8 @@ export function deserialize(text: string): CassetteFile {
   }
 }
 
-// On disk, `allLines`, `aborted`, `_redactions`, and `_suppressed` may be
-// absent (cassettes recorded before those fields existed). All default
-// during normalization.
+// Fields added after the v2 schema landed are optional on disk;
+// normalizeRecording fills defaults.
 type LegacyRecording = {
   call: Recording['call']
   result: Omit<Recording['result'], 'allLines' | 'aborted'> & {

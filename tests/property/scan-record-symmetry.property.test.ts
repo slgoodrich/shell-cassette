@@ -232,6 +232,7 @@ describe('env-key-match symmetry: opaque values under curated env keys are repor
           aborted: false,
         },
         redactions: [],
+        suppressed: [],
       }
       const cassette: CassetteFile = { version: 2, recordedBy: null, recordings: [recording] }
       await writeCassetteFile(cassettePath, serialize(cassette))

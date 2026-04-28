@@ -1,60 +1,38 @@
 import { describe, expect, test } from 'vitest'
 import { deserialize, serialize } from '../../src/serialize.js'
 import type { CassetteFile, SuppressedEntry } from '../../src/types.js'
+import { makeRecording } from '../helpers/recording.js'
 
-describe('serialize/deserialize: _suppressed field (v0.5 additive)', () => {
-  const baseRecording = {
-    call: {
-      command: 'gh',
-      args: ['repo', 'view'],
-      cwd: null,
-      env: {},
-      stdin: null,
-    },
-    result: {
-      stdoutLines: ['ok'],
-      stderrLines: [],
-      allLines: null,
-      exitCode: 0,
-      signal: null,
-      durationMs: 100,
-      aborted: false,
-    },
-    redactions: [],
-  }
+describe('serialize/deserialize: _suppressed field', () => {
+  const baseRecording = makeRecording({
+    call: { command: 'gh', args: ['repo', 'view'], cwd: null, env: {}, stdin: null },
+    result: { stdoutLines: ['ok'], durationMs: 100 },
+  })
 
   test('serialize emits _suppressed when non-empty', () => {
     const suppressed: SuppressedEntry[] = [
-      {
-        source: 'stdout',
-        rule: 'github-pat-classic',
-        position: '1:5',
-        matchHash: 'sha256:abc123',
-      },
+      { source: 'stdout', rule: 'github-pat-classic', position: '1:5', matchHash: 'sha256:abc123' },
     ]
     const file: CassetteFile = {
       version: 2,
       recordedBy: { name: 'shell-cassette', version: '0.5.0' },
       recordings: [{ ...baseRecording, suppressed }],
     }
-    const json = serialize(file)
-    const parsed = JSON.parse(json)
+    const parsed = JSON.parse(serialize(file))
     expect(parsed.recordings[0]._suppressed).toEqual(suppressed)
   })
 
-  test('serialize OMITS _suppressed when empty (saves bytes)', () => {
+  test('serialize omits _suppressed when empty', () => {
     const file: CassetteFile = {
       version: 2,
       recordedBy: { name: 'shell-cassette', version: '0.5.0' },
-      recordings: [{ ...baseRecording, suppressed: [] }],
+      recordings: [baseRecording],
     }
-    const json = serialize(file)
-    const parsed = JSON.parse(json)
+    const parsed = JSON.parse(serialize(file))
     expect('_suppressed' in parsed.recordings[0]).toBe(false)
   })
 
   test('deserialize defaults missing _suppressed to []', () => {
-    // Simulates a v0.4 cassette that predates the field
     const v04Json = JSON.stringify({
       version: 2,
       _recorded_by: { name: 'shell-cassette', version: '0.4.0' },

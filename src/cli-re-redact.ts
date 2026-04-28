@@ -269,9 +269,7 @@ function reRedactRecording(
       call: { ...rec.call, env, args },
       result: { ...rec.result, stdoutLines, stderrLines, allLines },
       redactions: aggregated,
-      // v0.5: re-redact preserves any prior skip decisions verbatim. The
-      // body re-write skips matches whose hash is in this list (added in
-      // a later milestone); for now, propagate as-is.
+      // suppressed is user intent; never mutated by re-redact.
       suppressed: rec.suppressed,
     },
     newCountInRecording: newCount,
