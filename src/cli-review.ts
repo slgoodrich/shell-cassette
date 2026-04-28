@@ -13,14 +13,24 @@
  */
 import { previewMatch } from './cli-output.js'
 import { matchesEnvKeyList } from './recorder.js'
+import { redact } from './redact.js'
 import { BUNDLED_PATTERNS } from './redact-patterns.js'
 import {
+  aggregateEntries,
   collectSuppressedHashes,
   ENV_KEY_MATCH_RULE,
   matchHash,
   REDACTION_PLACEHOLDER_PATTERN,
+  seedCountersFromCassette,
 } from './redact-pipeline.js'
-import type { CassetteFile, Recording, RedactConfig, RedactSource } from './types.js'
+import type {
+  CassetteFile,
+  Recording,
+  RedactConfig,
+  RedactionEntry,
+  RedactSource,
+  SuppressedEntry,
+} from './types.js'
 
 export type Finding = {
   /** Stable ID: `rec<recordingIndex>-<source>-<position>-<rule>` */
@@ -386,4 +396,194 @@ export function applyAction(state: ReviewState, action: ReviewAction): ReviewSta
     decisions: newDecisions,
     step: newStep,
   }
+}
+
+/**
+ * Apply a batch of user decisions to a cassette and return the updated
+ * CassetteFile. Pure function (no I/O); caller writes the result.
+ *
+ * Algorithm:
+ *   1. Group decisions by recording index.
+ *   2. Drop recordings flagged by any 'delete' decision.
+ *   3. For each surviving recording:
+ *      a. Apply 'replace' decisions inline (manual span substitution
+ *         using the finding's stored match string + position).
+ *      b. Build skipSet from 'skip' decisions in this recording.
+ *      c. Re-run the redact pipeline on env/args/stdout/stderr/allLines
+ *         with suppressedHashes: skipSet so 'accept' findings get
+ *         counter-tagged placeholders while 'skip' findings stay as-is.
+ *      d. Append SuppressedEntry per skip decision.
+ *      e. Aggregate redaction entries (existing + new).
+ *   4. Return new CassetteFile with the surviving recordings.
+ *
+ * Counters seeded from the existing cassette so newly-applied
+ * placeholders continue the per-(source, rule) sequence.
+ */
+export function applyDecisions(
+  cassette: CassetteFile,
+  findings: readonly Finding[],
+  decisions: ReadonlyMap<string, Decision>,
+  config: Readonly<RedactConfig>,
+): CassetteFile {
+  const byRec = new Map<number, { finding: Finding; decision: Decision }[]>()
+  for (const f of findings) {
+    const d = decisions.get(f.id)
+    if (d === undefined) continue
+    const list = byRec.get(f.recordingIndex) ?? []
+    list.push({ finding: f, decision: d })
+    byRec.set(f.recordingIndex, list)
+  }
+
+  const toDelete = new Set<number>()
+  for (const [idx, list] of byRec) {
+    if (list.some(({ decision }) => decision.kind === 'delete')) toDelete.add(idx)
+  }
+
+  const counters = seedCountersFromCassette(cassette)
+  const updatedRecordings: Recording[] = []
+
+  for (let i = 0; i < cassette.recordings.length; i++) {
+    if (toDelete.has(i)) continue
+    // biome-ignore lint/style/noNonNullAssertion: i in [0, recordings.length)
+    let rec = cassette.recordings[i]!
+    const localDecisions = byRec.get(i) ?? []
+
+    const newCustomEntries: RedactionEntry[] = []
+    for (const { finding, decision } of localDecisions) {
+      if (decision.kind !== 'replace') continue
+      rec = applyReplace(rec, finding, decision.with)
+      newCustomEntries.push({ rule: 'custom', source: finding.source, count: 1 })
+    }
+
+    const skipSet = new Set<string>()
+    for (const { finding, decision } of localDecisions) {
+      if (decision.kind === 'skip') skipSet.add(finding.matchHash)
+    }
+
+    const newRedactEntries: RedactionEntry[] = []
+    const env: Record<string, string> = {}
+    for (const [key, value] of Object.entries(rec.call.env)) {
+      const r = redact({ source: 'env', value }, config, {
+        counted: true,
+        counters,
+        suppressedHashes: skipSet,
+      })
+      env[key] = r.output
+      newRedactEntries.push(...r.entries)
+    }
+    const args = rec.call.args.map((arg) => {
+      const r = redact({ source: 'args', value: arg }, config, {
+        counted: true,
+        counters,
+        suppressedHashes: skipSet,
+      })
+      newRedactEntries.push(...r.entries)
+      return r.output
+    })
+    const stdoutLines = rec.result.stdoutLines.map((line) => {
+      const r = redact({ source: 'stdout', value: line }, config, {
+        counted: true,
+        counters,
+        suppressedHashes: skipSet,
+      })
+      newRedactEntries.push(...r.entries)
+      return r.output
+    })
+    const stderrLines = rec.result.stderrLines.map((line) => {
+      const r = redact({ source: 'stderr', value: line }, config, {
+        counted: true,
+        counters,
+        suppressedHashes: skipSet,
+      })
+      newRedactEntries.push(...r.entries)
+      return r.output
+    })
+    const allLines =
+      rec.result.allLines === null
+        ? null
+        : rec.result.allLines.map((line) => {
+            const r = redact({ source: 'allLines', value: line }, config, {
+              counted: true,
+              counters,
+              suppressedHashes: skipSet,
+            })
+            newRedactEntries.push(...r.entries)
+            return r.output
+          })
+
+    const newSuppressed: SuppressedEntry[] = [...rec.suppressed]
+    for (const { finding, decision } of localDecisions) {
+      if (decision.kind !== 'skip') continue
+      newSuppressed.push({
+        source: finding.source,
+        rule: finding.rule,
+        position: finding.position,
+        matchHash: finding.matchHash,
+      })
+    }
+
+    updatedRecordings.push({
+      call: { ...rec.call, env, args },
+      result: { ...rec.result, stdoutLines, stderrLines, allLines },
+      redactions: aggregateEntries([...rec.redactions, ...newCustomEntries, ...newRedactEntries]),
+      suppressed: newSuppressed,
+    })
+  }
+
+  return {
+    version: 2,
+    recordedBy: cassette.recordedBy,
+    recordings: updatedRecordings,
+  }
+}
+
+/**
+ * Replace the match span identified by `finding` with `replacement`.
+ * Position is structured: env values are whole-value, args/stdout/stderr/
+ * allLines have line+col.
+ *
+ * Replace is documented as not available for args during the interactive
+ * loop (canonicalize-incompatible), but applyReplace handles args
+ * defensively in case the user's --json mode bypasses the dispatcher.
+ */
+function applyReplace(rec: Recording, finding: Finding, replacement: string): Recording {
+  const { source } = finding
+  if (source === 'env') {
+    const key = finding.position.split(':')[0] ?? ''
+    const env = { ...rec.call.env, [key]: replacement }
+    return { ...rec, call: { ...rec.call, env } }
+  }
+  if (source === 'args') {
+    const argIdx = Number.parseInt(finding.position.split(':')[0] ?? '0', 10)
+    const col = Number.parseInt(finding.position.split(':')[1] ?? '0', 10)
+    const args = [...rec.call.args]
+    // biome-ignore lint/style/noNonNullAssertion: argIdx in range when reached
+    const arg = args[argIdx]!
+    args[argIdx] = arg.slice(0, col) + replacement + arg.slice(col + finding.matchLength)
+    return { ...rec, call: { ...rec.call, args } }
+  }
+  const lineNumber = Number.parseInt(finding.position.split(':')[0] ?? '1', 10)
+  const col = Number.parseInt(finding.position.split(':')[1] ?? '0', 10)
+  const lineIdx = lineNumber - 1
+  const replaceInLines = (lines: string[]): string[] => {
+    const out = [...lines]
+    // biome-ignore lint/style/noNonNullAssertion: lineIdx in range when reached
+    const line = out[lineIdx]!
+    out[lineIdx] = line.slice(0, col) + replacement + line.slice(col + finding.matchLength)
+    return out
+  }
+  if (source === 'stdout') {
+    return {
+      ...rec,
+      result: { ...rec.result, stdoutLines: replaceInLines(rec.result.stdoutLines) },
+    }
+  }
+  if (source === 'stderr') {
+    return {
+      ...rec,
+      result: { ...rec.result, stderrLines: replaceInLines(rec.result.stderrLines) },
+    }
+  }
+  if (rec.result.allLines === null) return rec
+  return { ...rec, result: { ...rec.result, allLines: replaceInLines(rec.result.allLines) } }
 }
