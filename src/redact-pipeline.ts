@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { ShellCassetteError } from './errors.js'
 import { BUNDLED_PATTERNS } from './redact-patterns.js'
 import type {
@@ -22,8 +23,16 @@ export type RedactInput = {
  * Per `.claude/rules/error_handling.md` "Internal Invariants": restructure
  * types so unreachable states can't be expressed in preference to runtime
  * non-null assertions.
+ *
+ * `suppressedHashes` is optional. When provided, the pipeline computes
+ * sha256 of each match span and skips emission if the hash is in the
+ * set. The recorder and canonicalize callers pass undefined; re-redact
+ * and review's pre-scan pass populated sets built from cassette
+ * `_suppressed` entries.
  */
-export type RedactOptions = { counted: false } | { counted: true; counters: Map<string, number> }
+export type RedactOptions =
+  | { counted: false; suppressedHashes?: ReadonlySet<string> }
+  | { counted: true; counters: Map<string, number>; suppressedHashes?: ReadonlySet<string> }
 
 export type RedactOutput = {
   output: string
@@ -109,6 +118,9 @@ export function runPipeline(
   }
 
   for (const rule of config.customPatterns) {
+    // Function-typed custom rules can't expose individual match spans, so
+    // suppressedHashes does not apply to them. Users who need per-match
+    // skip semantics must use regex-typed rules.
     if (typeof rule.pattern === 'function') {
       const transformed = rule.pattern(output)
       if (transformed !== output) {
@@ -156,7 +168,13 @@ function applyRegexRule(
 ): string {
   let count = 0
   // pattern is guaranteed to have g flag (caller ensures it)
-  const result = text.replace(pattern, () => {
+  const result = text.replace(pattern, (match) => {
+    if (options.suppressedHashes !== undefined) {
+      const hash = `sha256:${createHash('sha256').update(match).digest('hex')}`
+      if (options.suppressedHashes.has(hash)) {
+        return match // leave verbatim; do not increment counter, do not emit entry
+      }
+    }
     count++
     if (options.counted) {
       const key = `${source}:${ruleName}`
