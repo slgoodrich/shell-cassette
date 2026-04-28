@@ -78,6 +78,7 @@ function buildCassette(source: RedactSource, value: string): CassetteFile {
       aborted: false,
     },
     redactions: [],
+    suppressed: [],
   }
   return { version: 2, recordedBy: null, recordings: [recording] }
 }
@@ -181,6 +182,7 @@ describe('per-source coverage: github-pat-classic across all 5 sources', () => {
         aborted: false,
       },
       redactions: [],
+      suppressed: [],
     }
     const cassette: CassetteFile = { version: 2, recordedBy: null, recordings: [recording] }
     await writeCassetteFile(cassettePath, serialize(cassette))

@@ -7,7 +7,7 @@ import type { Call, CassetteSession, Recording, RedactSource, Result } from './t
 export function record(call: Call, result: Result, session: CassetteSession): void {
   if (!session.redactEnabled) {
     // Per-cassette override: bypass the redact pipeline entirely.
-    session.newRecordings.push({ call, result, redactions: [] })
+    session.newRecordings.push({ call, result, redactions: [], suppressed: [] })
     return
   }
 
@@ -25,6 +25,7 @@ export function record(call: Call, result: Result, session: CassetteSession): vo
     call: redactedCall,
     result: redactedResult,
     redactions: aggregated,
+    suppressed: [],
   })
 }
 

@@ -143,6 +143,7 @@ describe('recorder applies redaction across all 5 sources', () => {
             aborted: false,
           },
           redactions: [{ rule: 'github-pat-classic', source: 'args', count: 3 }],
+          suppressed: [],
         },
       ],
     }

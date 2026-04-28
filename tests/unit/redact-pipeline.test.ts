@@ -437,6 +437,7 @@ const emptyRec = (): CassetteFile['recordings'][number] => ({
     aborted: false,
   },
   redactions: [],
+  suppressed: [],
 })
 
 describe('seedCountersFromCassette', () => {
@@ -564,6 +565,7 @@ describe('seedCountersFromCassette', () => {
             aborted: false,
           },
           redactions: [{ rule: 'r', source: 'env', count: 2 }],
+          suppressed: [],
         },
         {
           call: { command: 'curl', args: [], cwd: null, env: {}, stdin: null },
@@ -577,6 +579,7 @@ describe('seedCountersFromCassette', () => {
             aborted: false,
           },
           redactions: [{ rule: 'r', source: 'env', count: 5 }],
+          suppressed: [],
         },
       ],
     }

@@ -152,5 +152,9 @@ function normalizeRecording(rec: LegacyRecording): Recording {
       aborted: rec.result.aborted ?? false,
     },
     redactions: rec._redactions ?? [],
+    // v0.5: `_suppressed` round-trip is wired in a later milestone (M2/M3
+    // schema add). For now, default to `[]` on load so v0.4 cassettes
+    // (and v0.5 recordings until persistence lands) load cleanly.
+    suppressed: [],
   }
 }

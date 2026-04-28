@@ -69,6 +69,7 @@ const genRecording: fc.Arbitrary<Recording> = fc.record({
   call: genCall,
   result: genResult,
   redactions: fc.array(genRedactionEntry, { maxLength: 3 }),
+  suppressed: fc.constant([]),
 })
 
 // fc.tuple(int, int, int).map(([M, m, p]) => `${M}.${m}.${p}`) generates

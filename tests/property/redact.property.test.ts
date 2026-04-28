@@ -248,6 +248,7 @@ const recordingArb: fc.Arbitrary<Recording> = fc.record({
     aborted: fc.boolean(),
   }),
   redactions: fc.array(redactionEntryArb, { maxLength: 4 }),
+  suppressed: fc.constant([]),
 })
 
 const cassetteArb: fc.Arbitrary<CassetteFile> = fc.record({

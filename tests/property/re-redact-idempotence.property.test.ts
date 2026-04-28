@@ -46,6 +46,7 @@ const recordingArb: fc.Arbitrary<Recording> = fc.record({
   call: callArb,
   result: resultArb,
   redactions: fc.constant([]),
+  suppressed: fc.constant([]),
 })
 
 const cassetteArb: fc.Arbitrary<CassetteFile> = fc.record({
