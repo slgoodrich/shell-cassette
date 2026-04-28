@@ -122,8 +122,9 @@ export async function runWrapped<Opts, ResultShape>(
 /**
  * Ensures the session has completed lazy-load, returning a LoadedSession.
  * If `session.matcher` is already non-null, returns the session as-is (fast
- * path). Otherwise performs the one-time lazy-load: reads the cassette file
- * from disk, seeds redact counters, and initializes the matcher.
+ * path; TS narrows the union via the discriminant). Otherwise performs the
+ * one-time lazy-load: reads the cassette file from disk, seeds redact
+ * counters, and initializes the matcher.
  *
  * Keying on `matcher === null` (rather than `loadedFile === null`) is
  * intentional: `loadedFile` stays null for brand-new cassettes even after
@@ -131,16 +132,14 @@ export async function runWrapped<Opts, ResultShape>(
  * The matcher is always set unconditionally on first load, so it is the
  * correct single-use sentinel.
  *
- * The `as unknown as LoadedSession` casts are safe because:
- * - Fast path: `session.matcher !== null` proves the runtime shape is already
- *   LoadedSession; TS can't track the discriminant across the union boundary.
- * - Slow path: we unconditionally assign `session.matcher = new MatcherState(...)`
- *   before casting, so the runtime shape satisfies LoadedSession at that point.
- *   TS can't track in-place field mutation on a discriminated-union member.
+ * The slow-path `as unknown as LoadedSession` casts are needed because TS
+ * can't track in-place field mutation on a discriminated-union member: we
+ * unconditionally assign `session.matcher = new MatcherState(...)` before
+ * casting, so the runtime shape satisfies LoadedSession at that point.
  */
 async function ensureSessionLoaded(session: CassetteSession): Promise<LoadedSession> {
   if (session.matcher !== null) {
-    return session as unknown as LoadedSession
+    return session
   }
   const cassetteFile = await loadCassette(session.path)
   if (cassetteFile !== null) {

@@ -5,13 +5,20 @@ import type { CassetteSession, LoadedSession, PendingSession } from '../../src/t
 /**
  * Build a CassetteSession for tests.
  *
- * Passing `loadedFile: null` (default in overrides) without a `matcher`
- * returns a PendingSession. Passing a non-null `loadedFile` (and no
- * explicit `matcher`) auto-constructs a MatcherState so the session is a
- * valid LoadedSession. You may also pass an explicit `matcher` to override.
+ * Branches on `loadedFile`:
+ * - `loadedFile: null` (or unset) returns a PendingSession with
+ *   `matcher: null` and `loadedFile: null`. Any `matcher` override passed
+ *   in this branch is ignored, since PendingSession.matcher is the `null`
+ *   literal type.
+ * - non-null `loadedFile` returns a LoadedSession; an explicit `matcher`
+ *   override is honored, otherwise one is auto-constructed from the
+ *   cassette's recordings.
  *
- * The union type is CassetteSession so callers can assign to either branch
- * without an explicit cast.
+ * The "loaded with `loadedFile: null`" runtime state (lazy-load completed
+ * for a cassette that does not exist on disk yet) is reachable in
+ * production but is not constructible via this helper today. If a test
+ * needs that exact shape, route through the wrapper's lazy-load path or
+ * extend this helper.
  */
 export const makeSession = (overrides: Partial<CassetteSession> = {}): CassetteSession => {
   const canonicalize = overrides.canonicalize ?? DEFAULT_CONFIG.canonicalize
