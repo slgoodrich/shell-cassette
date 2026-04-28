@@ -1,6 +1,7 @@
 import { stderr, stdout } from './cli-output.js'
 import { runReRedact } from './cli-re-redact.js'
 import { runScan } from './cli-scan.js'
+import { runShow } from './cli-show.js'
 import { PACKAGE_VERSION } from './version.js'
 
 const HELP = `\
@@ -12,6 +13,9 @@ Usage:
 Commands:
   scan        Verify cassettes have no unredacted credentials.
   re-redact   Re-apply current redaction rules to existing cassettes.
+  show        Pretty-print a cassette for human inspection.
+  review      Walk un-redacted findings interactively (a/s/r/d/b/q/?).
+  prune       Remove recordings by index (--delete <indexes>) or list (--json).
 
 Options:
   --version   Print shell-cassette version and exit.
@@ -55,6 +59,8 @@ export async function main(argv: readonly string[]): Promise<number> {
       return runScan(args.rest)
     case 're-redact':
       return runReRedact(args.rest)
+    case 'show':
+      return runShow(args.rest)
     default:
       stderr(`error: unknown command '${args.command}'\n${HELP}`)
       return 2

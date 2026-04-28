@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "_warning": "REVIEW BEFORE COMMITTING. shell-cassette redacts bundled credential patterns + curated env-key values + your custom rules. It does NOT redact: AWS Secret Access Keys, JWTs (without opt-in), encoded credentials, binary output, cwd, stdin (until v0.5 ships option parity). Run `shell-cassette scan <path>` to verify before committing. See https://github.com/slgoodrich/shell-cassette/blob/main/docs/troubleshooting.md",
+  "_recorded_by": { "name": "shell-cassette", "version": "0.5.0" },
+  "recordings": [
+    {
+      "call": {
+        "command": "gh",
+        "args": ["auth", "status"],
+        "cwd": null,
+        "env": {},
+        "stdin": null
+      },
+      "result": {
+        "stdoutLines": [
+          "Logged in as octocat",
+          "Token: ghp_abcdefghijklmnopqrstuvwxyz0123456789",
+          "Token scopes: repo, gist"
+        ],
+        "stderrLines": [],
+        "allLines": null,
+        "exitCode": 0,
+        "signal": null,
+        "durationMs": 100,
+        "aborted": false
+      },
+      "_redactions": []
+    }
+  ]
+}
