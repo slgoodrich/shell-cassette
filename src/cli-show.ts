@@ -7,25 +7,13 @@
  *     TTY-aware color, truncation
  *   - --json: structured output, locked at showVersion: 1
  *
- * Section order in terminal mode (LOCKED, API):
- *   1. Header (path + size)
- *   2. Version line
- *   3. Redactions summary line
- *   4. Blank line
- *   5. Per-recording in cassette order:
- *      a. Index + command + args
- *      b. cwd
- *      c. env (only redacted keys)
- *      d. exit + duration
- *      e. stdout (with truncation)
- *      f. stderr (with truncation)
- *      g. allLines (when present, with truncation)
- *      h. redaction count
+ * Terminal-mode section order: header, version, redactions summary, blank,
+ * then per-recording (index/command/args, cwd, env (redacted keys only),
+ * exit + duration, stdout, stderr, allLines when present, redaction count).
  *
- * Defaults: 5 lines per stream, 80 chars per line. Subject to major-version
- * review (documented as such).
+ * Defaults: 5 lines per stream, 80 chars per line.
  */
-import { CassetteConfigError, ShellCassetteError } from './errors.js'
+import { CassetteConfigError, CassetteInternalError } from './errors.js'
 import type { CassetteFile } from './types.js'
 
 type ColorOverride = 'auto' | 'always' | 'never'
@@ -87,8 +75,8 @@ export function parseShowArgs(args: readonly string[]): ShowFlags {
 export type ShowSummary = {
   path: string
   fileSize: number
-  version: 1 | 2
-  recordedBy: { name: string; version: string } | null
+  version: CassetteFile['version']
+  recordedBy: CassetteFile['recordedBy']
   recordingCount: number
   redactions: {
     total: number
@@ -118,9 +106,8 @@ export function buildSummary(cassette: CassetteFile, path: string, fileSize: num
   }
 }
 
-// Real implementation lands in the next commit. The stub keeps the
-// module's export shape stable across the three commits that build
-// out the show subcommand (helpers -> renderers -> dispatch wire-up).
+// Stub: full implementation lives in a follow-up commit. Keeps the export
+// shape stable so dispatch wire-up can land in its own commit.
 export async function runShow(_args: readonly string[]): Promise<number> {
-  throw new ShellCassetteError('runShow not yet implemented (internal bug; should be unreachable)')
+  throw new CassetteInternalError('runShow not yet implemented')
 }

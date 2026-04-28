@@ -69,3 +69,16 @@ export class NoActiveSessionError extends ShellCassetteError {
 export class VitestPluginRegistrationError extends ShellCassetteError {
   static override code = 'CASSETTE_VITEST_PLUGIN_REGISTRATION'
 }
+
+/**
+ * Thrown from code paths that should be unreachable when the implementation
+ * is correct (e.g., placeholder stubs, exhaustiveness guards on discriminated
+ * unions). Always indicates an internal bug, not a user error. Programmatic
+ * catches on `ShellCassetteError` still pick it up.
+ *
+ * Per `error_handling.md` "Internal Invariants": typed subclass over plain
+ * `Error` so `instanceof ShellCassetteError` user catches don't miss it.
+ */
+export class CassetteInternalError extends ShellCassetteError {
+  static override code = 'CASSETTE_INTERNAL'
+}
