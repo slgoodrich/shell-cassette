@@ -1,0 +1,228 @@
+/**
+ * `shell-cassette review` subcommand. Interactive walkthrough of unredacted
+ * findings. Per-finding decisions: (a)ccept / (s)kip / (r)eplace / (d)elete /
+ * (b)ack / (q)uit / (?). Decisions are batched in a pure state machine and
+ * applied to the cassette on confirm.
+ *
+ * Output modes:
+ *   - default: interactive terminal walk
+ *   - --json: read-only structured listing of findings (locked at reviewVersion: 1)
+ *
+ * Action keys (a/s/r/d/b/q/?) are API-locked. Renames would be a breaking
+ * change. Prompt strings are NOT API.
+ */
+import { previewMatch } from './cli-output.js'
+import { BUNDLED_PATTERNS } from './redact-patterns.js'
+import { collectSuppressedHashes, matchHash } from './redact-pipeline.js'
+import type { CassetteFile, Recording, RedactConfig, RedactSource } from './types.js'
+
+export type Finding = {
+  /** Stable ID: `rec<recordingIndex>-<source>-<position>-<rule>` */
+  id: string
+  recordingIndex: number
+  source: RedactSource
+  rule: string
+  /** Raw match (always populated; review --json without --include-match strips it before emit). */
+  match: string
+  /** `sha256:<64 hex>` — used for skip-set membership across runs. */
+  matchHash: string
+  matchLength: number
+  /** First-4 + ellipsis + last-4 if length >= 12, else full match. */
+  matchPreview: string
+  /** Source-specific position label: `<line>:<col>` | `<argIndex>:<col>` | `<KEY>:<col>` */
+  position: string
+  /** Surrounding lines for human-readable display. lineNumber is 1-based. */
+  context: {
+    lineNumber: number
+    before: string[]
+    line: string
+    after: string[]
+  }
+}
+
+const CONTEXT_RADIUS = 2
+
+/**
+ * Walk every recording and produce review findings. Reuses the same
+ * regex-based detection as scan, with two differences:
+ *   1. Each finding includes context lines surrounding the match for
+ *      terminal display.
+ *   2. Matches whose hash appears in any recording's `suppressed` array
+ *      are skipped — the user already chose to skip them.
+ */
+export function preScan(cassette: CassetteFile, config: Readonly<RedactConfig>): Finding[] {
+  const skipSet = collectSuppressedHashes(cassette)
+  const rules = buildGFlaggedRules(config)
+  const findings: Finding[] = []
+  for (let i = 0; i < cassette.recordings.length; i++) {
+    // biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index is valid
+    findings.push(...scanRecording(cassette.recordings[i]!, i, rules, config, skipSet))
+  }
+  return findings
+}
+
+function buildGFlaggedRules(
+  config: Readonly<RedactConfig>,
+): readonly { name: string; pattern: RegExp }[] {
+  const rules: { name: string; pattern: RegExp }[] = []
+  if (config.bundledPatterns) {
+    for (const rule of BUNDLED_PATTERNS) {
+      if (rule.pattern instanceof RegExp) {
+        const flags = rule.pattern.flags.includes('g')
+          ? rule.pattern.flags
+          : `${rule.pattern.flags}g`
+        rules.push({ name: rule.name, pattern: new RegExp(rule.pattern.source, flags) })
+      }
+    }
+  }
+  for (const rule of config.customPatterns) {
+    if (rule.pattern instanceof RegExp) {
+      const flags = rule.pattern.flags.includes('g') ? rule.pattern.flags : `${rule.pattern.flags}g`
+      rules.push({ name: rule.name, pattern: new RegExp(rule.pattern.source, flags) })
+    }
+    // Function-typed custom patterns can't expose individual match spans for
+    // position-precise findings; same gap as cli-scan.
+  }
+  return rules
+}
+
+function isSuppressedValue(value: string, config: Readonly<RedactConfig>): boolean {
+  for (const sup of config.suppressPatterns) {
+    sup.lastIndex = 0
+    if (sup.test(value)) return true
+  }
+  return false
+}
+
+function scanRecording(
+  rec: Recording,
+  index: number,
+  rules: readonly { name: string; pattern: RegExp }[],
+  config: Readonly<RedactConfig>,
+  skipSet: ReadonlySet<string>,
+): Finding[] {
+  const findings: Finding[] = []
+
+  for (const [key, value] of Object.entries(rec.call.env)) {
+    findings.push(...scanValue(value, 'env', key, index, rules, config, skipSet, [], 1))
+  }
+
+  for (const [argIdx, arg] of rec.call.args.entries()) {
+    findings.push(
+      ...scanValue(arg, 'args', argIdx.toString(), index, rules, config, skipSet, [], 1),
+    )
+  }
+
+  for (let lineIdx = 0; lineIdx < rec.result.stdoutLines.length; lineIdx++) {
+    findings.push(
+      ...scanValue(
+        // biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index is valid
+        rec.result.stdoutLines[lineIdx]!,
+        'stdout',
+        (lineIdx + 1).toString(),
+        index,
+        rules,
+        config,
+        skipSet,
+        rec.result.stdoutLines,
+        lineIdx + 1,
+      ),
+    )
+  }
+
+  for (let lineIdx = 0; lineIdx < rec.result.stderrLines.length; lineIdx++) {
+    findings.push(
+      ...scanValue(
+        // biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index is valid
+        rec.result.stderrLines[lineIdx]!,
+        'stderr',
+        (lineIdx + 1).toString(),
+        index,
+        rules,
+        config,
+        skipSet,
+        rec.result.stderrLines,
+        lineIdx + 1,
+      ),
+    )
+  }
+
+  if (rec.result.allLines !== null) {
+    for (let lineIdx = 0; lineIdx < rec.result.allLines.length; lineIdx++) {
+      findings.push(
+        ...scanValue(
+          // biome-ignore lint/style/noNonNullAssertion: loop bound guarantees index is valid
+          rec.result.allLines[lineIdx]!,
+          'allLines',
+          (lineIdx + 1).toString(),
+          index,
+          rules,
+          config,
+          skipSet,
+          rec.result.allLines,
+          lineIdx + 1,
+        ),
+      )
+    }
+  }
+
+  return findings
+}
+
+function scanValue(
+  value: string,
+  source: RedactSource,
+  positionLabel: string,
+  recordingIndex: number,
+  rules: readonly { name: string; pattern: RegExp }[],
+  config: Readonly<RedactConfig>,
+  skipSet: ReadonlySet<string>,
+  contextLines: readonly string[],
+  lineNumber: number,
+): Finding[] {
+  if (isSuppressedValue(value, config)) return []
+  const findings: Finding[] = []
+  for (const rule of rules) {
+    rule.pattern.lastIndex = 0
+    for (const m of value.matchAll(rule.pattern)) {
+      const matchStr = m[0]
+      const hash = matchHash(matchStr)
+      if (skipSet.has(hash)) continue
+      const col = m.index ?? 0
+      const position = `${positionLabel}:${col}`
+      findings.push({
+        id: `rec${recordingIndex}-${source}-${position}-${rule.name}`,
+        recordingIndex,
+        source,
+        rule: rule.name,
+        match: matchStr,
+        matchHash: hash,
+        matchLength: matchStr.length,
+        matchPreview: previewMatch(matchStr),
+        position,
+        context: buildContext(contextLines, lineNumber, value),
+      })
+    }
+  }
+  return findings
+}
+
+function buildContext(
+  lines: readonly string[],
+  lineNumber: number,
+  fallbackLine: string,
+): Finding['context'] {
+  if (lines.length === 0) {
+    return { lineNumber, before: [], line: fallbackLine, after: [] }
+  }
+  const idx = lineNumber - 1
+  const before = lines.slice(Math.max(0, idx - CONTEXT_RADIUS), idx)
+  const after = lines.slice(idx + 1, Math.min(lines.length, idx + 1 + CONTEXT_RADIUS))
+  return {
+    lineNumber,
+    before: [...before],
+    // biome-ignore lint/style/noNonNullAssertion: idx is in range by construction
+    line: lines[idx]!,
+    after: [...after],
+  }
+}
