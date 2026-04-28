@@ -1,5 +1,8 @@
-import { describe, expect, test } from 'vitest'
-import { buildSummary, parseShowArgs } from '../../src/cli-show.js'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { buildSummary, parseShowArgs, runShow } from '../../src/cli-show.js'
 import type { CassetteFile } from '../../src/types.js'
 import { makeRecording } from '../helpers/recording.js'
 
@@ -95,5 +98,73 @@ describe('buildSummary', () => {
     const summary = buildSummary(cassette, '/tmp/v1.json', 100)
     expect(summary.recordedBy).toBeNull()
     expect(summary.redactions.total).toBe(0)
+  })
+})
+
+describe('runShow --json', () => {
+  let tmp: string
+  let captured: string[]
+  const origWrite = process.stdout.write.bind(process.stdout)
+
+  beforeEach(async () => {
+    tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-show-'))
+    captured = []
+    process.stdout.write = ((s: string) => {
+      captured.push(s)
+      return true
+    }) as typeof process.stdout.write
+  })
+  afterEach(async () => {
+    process.stdout.write = origWrite
+    await rm(tmp, { recursive: true, force: true })
+  })
+
+  test('emits showVersion: 1 with summary and full cassette', async () => {
+    const cassette = {
+      version: 2,
+      _warning: '',
+      _recorded_by: { name: 'shell-cassette', version: '0.5.0' },
+      recordings: [
+        {
+          call: { command: 'echo', args: ['hi'], cwd: null, env: {}, stdin: null },
+          result: {
+            stdoutLines: ['hi'],
+            stderrLines: [],
+            allLines: null,
+            exitCode: 0,
+            signal: null,
+            durationMs: 5,
+            aborted: false,
+          },
+          _redactions: [{ rule: 'r1', source: 'stdout', count: 1 }],
+        },
+      ],
+    }
+    const fixturePath = path.join(tmp, 'fix.json')
+    await writeFile(fixturePath, `${JSON.stringify(cassette, null, 2)}\n`)
+
+    const exit = await runShow([fixturePath, '--json', '--no-color'])
+    expect(exit).toBe(0)
+    const out = JSON.parse(captured.join(''))
+    expect(out.showVersion).toBe(1)
+    expect(out.summary.path).toBe(fixturePath)
+    expect(out.summary.recordingCount).toBe(1)
+    expect(out.summary.redactions.total).toBe(1)
+    expect(out.cassette.recordings).toHaveLength(1)
+  })
+
+  test('returns 2 on missing path', async () => {
+    const exit = await runShow([])
+    expect(exit).toBe(2)
+  })
+
+  test('returns 2 on nonexistent file', async () => {
+    const exit = await runShow([path.join(tmp, 'missing.json'), '--json'])
+    expect(exit).toBe(2)
+  })
+
+  test('--help returns 0', async () => {
+    const exit = await runShow(['--help'])
+    expect(exit).toBe(0)
   })
 })
