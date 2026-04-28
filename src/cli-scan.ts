@@ -186,7 +186,11 @@ export async function runScan(args: readonly string[]): Promise<number> {
   return 0
 }
 
-async function scanOne(
+/**
+ * Exported for use in tests (scan-record-symmetry property test). Internal-test
+ * consumer only; not part of the public API surface.
+ */
+export async function scanOne(
   cassettePath: string,
   config: Readonly<RedactConfig>,
   includeMatch: boolean,
