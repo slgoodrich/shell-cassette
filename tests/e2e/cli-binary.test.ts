@@ -10,7 +10,7 @@ beforeAll(async () => {
   try {
     await stat(CLI_BIN)
   } catch {
-    throw new Error(`dist/cli.js missing — run \`npm run build\` before e2e tests`)
+    throw new Error(`dist/cli.js missing: run \`npm run build\` before e2e tests`)
   }
 })
 

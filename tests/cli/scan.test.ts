@@ -330,3 +330,105 @@ describe('runScan: --json + --quiet interaction', () => {
     expect(parsed.scanVersion).toBe(1)
   })
 })
+
+describe('runScan: isSuppressed g-flag lastIndex bug (closes #62)', () => {
+  test('g-flagged suppress pattern suppresses all three consecutive matching recordings', async () => {
+    // Without resetting lastIndex before each .test() call, a g-flagged suppress
+    // regex retains state between recordings. The second or third recording that
+    // matches the same pattern would incorrectly fall through as unsuppressed.
+    const tmp = await mkdtemp(path.join(tmpdir(), 'scan-suppress-'))
+    const configPath = path.join(tmp, 'shell-cassette.config.mjs')
+    const cassettePath = path.join(tmp, 'suppress.json')
+    try {
+      // Config: disable bundled patterns; use a g-flagged custom suppress pattern.
+      // The suppress pattern is written as a string to avoid JSON serialization issues.
+      await writeFile(
+        configPath,
+        `export default { redact: { bundledPatterns: false, suppressPatterns: [/secret/gi] } }`,
+        'utf8',
+      )
+      // Cassette: three recordings, each with a custom pattern value that would
+      // trigger a bundled or custom rule. We use a custom rule via config instead.
+      // Actually: use a cassette with three arg values containing a custom pattern.
+      // Suppress them all so the scan returns clean.
+      await writeFile(
+        cassettePath,
+        JSON.stringify({
+          version: 2,
+          _recorded_by: { name: 'shell-cassette', version: '0.4.0' },
+          recordings: [
+            {
+              call: {
+                command: 'curl',
+                args: ['my-secret-token-1'],
+                cwd: null,
+                env: {},
+                stdin: null,
+              },
+              result: {
+                stdoutLines: [],
+                stderrLines: [],
+                allLines: null,
+                exitCode: 0,
+                signal: null,
+                durationMs: 0,
+                aborted: false,
+              },
+              _redactions: [],
+            },
+            {
+              call: {
+                command: 'curl',
+                args: ['my-secret-token-2'],
+                cwd: null,
+                env: {},
+                stdin: null,
+              },
+              result: {
+                stdoutLines: [],
+                stderrLines: [],
+                allLines: null,
+                exitCode: 0,
+                signal: null,
+                durationMs: 0,
+                aborted: false,
+              },
+              _redactions: [],
+            },
+            {
+              call: {
+                command: 'curl',
+                args: ['my-secret-token-3'],
+                cwd: null,
+                env: {},
+                stdin: null,
+              },
+              result: {
+                stdoutLines: [],
+                stderrLines: [],
+                allLines: null,
+                exitCode: 0,
+                signal: null,
+                durationMs: 0,
+                aborted: false,
+              },
+              _redactions: [],
+            },
+          ],
+        }),
+        'utf8',
+      )
+      captureOutput()
+      // With bundled patterns disabled and values suppressed, all three recordings
+      // must come back clean. Without the lastIndex fix, recordings 2 and 3 would
+      // escape the suppress check and the scan would return dirty.
+      const code = await runScan([cassettePath, '--json', '--config', configPath])
+      expect(code).toBe(0)
+      const parsed = JSON.parse(stdoutBuf)
+      expect(parsed.summary.dirty).toBe(0)
+      expect(parsed.cassettes[0].status).toBe('clean')
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
+})

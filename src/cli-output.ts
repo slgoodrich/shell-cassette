@@ -42,6 +42,16 @@ export const isTty = {
   },
 }
 
+/**
+ * Produce a credential-safe preview: short values are shown verbatim;
+ * values >= 12 chars show the first 4 characters, ellipsis, and last 4 characters.
+ * Used to hint at a match without exposing the full credential value.
+ */
+export function previewMatch(s: string): string {
+  if (s.length < 12) return s
+  return `${s.slice(0, 4)}...${s.slice(-4)}`
+}
+
 export function applyTruncation(s: string, limit: number): string {
   if (s.length === 0) return s
   if (s.length <= limit) return s

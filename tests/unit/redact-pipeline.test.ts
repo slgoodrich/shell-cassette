@@ -33,6 +33,32 @@ describe('redact-pipeline: suppress short-circuit', () => {
     expect(result.output).toBe('normal-value')
     expect(result.entries).toEqual([])
   })
+
+  test('g-flagged suppress pattern: all three consecutive matching calls suppress correctly (lastIndex bug)', () => {
+    // A g-flagged regex retains lastIndex between .test() calls. Without resetting
+    // lastIndex to 0 before each call, the second (or third) call against a different
+    // string may incorrectly return false even though the string matches.
+    const config: RedactConfig = {
+      ...baseConfig,
+      suppressPatterns: [/secret/gi],
+    }
+    const v1 = runPipeline({ source: 'env', value: 'my-secret-token-1' }, config, {
+      counted: false,
+    })
+    const v2 = runPipeline({ source: 'env', value: 'my-secret-token-2' }, config, {
+      counted: false,
+    })
+    const v3 = runPipeline({ source: 'env', value: 'my-secret-token-3' }, config, {
+      counted: false,
+    })
+    // All three values match the suppress pattern; all three must be suppressed.
+    expect(v1.output).toBe('my-secret-token-1')
+    expect(v2.output).toBe('my-secret-token-2')
+    expect(v3.output).toBe('my-secret-token-3')
+    expect(v1.entries).toEqual([])
+    expect(v2.entries).toEqual([])
+    expect(v3.entries).toEqual([])
+  })
 })
 
 describe('redact-pipeline: bundled patterns', () => {

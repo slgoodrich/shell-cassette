@@ -1,6 +1,6 @@
 /**
  * `shell-cassette scan` subcommand. Walks cassette files (or directories)
- * and reports any unredacted findings — credentials that record mode would
+ * and reports any unredacted findings: credentials that record mode would
  * have redacted but are present in cassette content (env values, args,
  * stdout/stderr/allLines).
  *
@@ -16,15 +16,14 @@
  * complete --json shape.
  */
 import { createHash } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
-import { color, isTty, stderr, stdout } from './cli-output.js'
+import { color, isTty, previewMatch, stderr, stdout } from './cli-output.js'
 import { walkCassettes } from './cli-walk.js'
 import { loadConfigFromDir, loadConfigFromFile } from './config.js'
-import { CassetteConfigError } from './errors.js'
+import { CassetteConfigError, CassetteIOError } from './errors.js'
+import { loadCassette } from './loader.js'
 import { matchesEnvKeyList } from './recorder.js'
 import { BUNDLED_PATTERNS } from './redact-patterns.js'
-import { ENV_KEY_MATCH_RULE } from './redact-pipeline.js'
-import { deserialize } from './serialize.js'
+import { ENV_KEY_MATCH_RULE, REDACTION_PLACEHOLDER_PATTERN } from './redact-pipeline.js'
 import type { CassetteFile, Recording, RedactConfig, RedactSource } from './types.js'
 
 const SCAN_VERSION = 1
@@ -194,15 +193,22 @@ async function scanOne(
 ): Promise<CassetteResult> {
   let cassette: CassetteFile
   try {
-    const text = await readFile(filePath, 'utf8')
-    cassette = deserialize(text)
+    const loaded = await loadCassette(filePath)
+    if (loaded === null) {
+      throw new CassetteIOError(
+        `cassette file not found: ${filePath}`,
+        Object.assign(new Error(`cassette file not found: ${filePath}`), { code: 'ENOENT' }),
+      )
+    }
+    cassette = loaded
   } catch (e) {
     return { path: filePath, status: 'error', error: (e as Error).message, redactionsApplied: 0 }
   }
 
+  const rules = buildGFlaggedRules(config)
   const findings: Finding[] = []
   for (const [i, rec] of cassette.recordings.entries()) {
-    findings.push(...findingsForRecording(rec, i, config, includeMatch))
+    findings.push(...findingsForRecording(rec, i, rules, config, includeMatch))
   }
 
   const redactionsApplied = cassette.recordings.reduce(
@@ -220,8 +226,8 @@ async function scanOne(
 
 /**
  * Build g-flagged regex copies of bundled + custom rules for matchAll usage.
- * Built once per recording (not per-value) to amortize the allocation cost.
- * Function-typed custom rules are skipped — they can't report match positions.
+ * Built once per cassette and passed in to amortize regex allocation.
+ * Function-typed custom rules are skipped; they can't report match positions.
  */
 function buildGFlaggedRules(
   config: Readonly<RedactConfig>,
@@ -252,6 +258,7 @@ function buildGFlaggedRules(
 
 function isSuppressed(value: string, config: Readonly<RedactConfig>): boolean {
   for (const sup of config.suppressPatterns) {
+    sup.lastIndex = 0
     if (sup.test(value)) return true
   }
   return false
@@ -259,7 +266,7 @@ function isSuppressed(value: string, config: Readonly<RedactConfig>): boolean {
 
 /** Returns true if value is already a redaction placeholder (counter-tagged or counter-stripped). */
 function isPlaceholder(value: string): boolean {
-  return /^<redacted:[^:>]+:[^:>]+(:\d+)?>$/.test(value)
+  return REDACTION_PLACEHOLDER_PATTERN.test(value)
 }
 
 /**
@@ -270,10 +277,10 @@ function isPlaceholder(value: string): boolean {
 function findingsForRecording(
   rec: Recording,
   index: number,
+  rules: readonly { name: string; pattern: RegExp }[],
   config: Readonly<RedactConfig>,
   includeMatch: boolean,
 ): Finding[] {
-  const rules = buildGFlaggedRules(config)
   const findings: Finding[] = []
 
   // env: env-key-match check first, then pattern scan on non-matching keys
@@ -374,23 +381,33 @@ function scanValue(
   return findings
 }
 
-function previewMatch(s: string): string {
-  if (s.length < 12) return s
-  return `${s.slice(0, 4)}...${s.slice(-4)}`
-}
-
 function buildJsonOutput(results: readonly CassetteResult[]): unknown {
+  let clean = 0
+  let dirty = 0
+  let errors = 0
+  let totalFindings = 0
+  for (const r of results) {
+    if (r.status === 'clean') clean++
+    else if (r.status === 'dirty') dirty++
+    else errors++
+    if (r.status === 'dirty') totalFindings += r.findings?.length ?? 0
+  }
   const summary = {
     scanned: results.length,
-    clean: results.filter((r) => r.status === 'clean').length,
-    dirty: results.filter((r) => r.status === 'dirty').length,
-    errors: results.filter((r) => r.status === 'error').length,
-    totalFindings: results.reduce((s, r) => s + (r.findings?.length ?? 0), 0),
+    clean,
+    dirty,
+    errors,
+    totalFindings,
   }
   // Build cassette entries in the locked JSON API shape
   const cassettes = results.map((r) => {
     if (r.status === 'error') {
-      return { path: r.path, status: r.status, error: r.error, redactionsApplied: 0 }
+      return {
+        path: r.path,
+        status: r.status,
+        error: r.error,
+        redactionsApplied: r.redactionsApplied,
+      }
     }
     if (r.status === 'dirty') {
       return {

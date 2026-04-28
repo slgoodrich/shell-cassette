@@ -94,6 +94,7 @@ export function runPipeline(
   const warnings: string[] = []
 
   for (const sup of config.suppressPatterns) {
+    sup.lastIndex = 0
     if (sup.test(value)) {
       return { output: value, entries, warnings }
     }
@@ -175,6 +176,14 @@ function applyRegexRule(
 // stripCounter and walkStringsForPlaceholders construct g-flagged RegExp
 // instances from this string so lastIndex state never leaks between callers.
 const COUNTER_PLACEHOLDER_PATTERN = '<redacted:([^:>]+):([^:>]+):(\\d+)>'
+
+/**
+ * Matches a fully-formed redaction placeholder in both counter-tagged form
+ * (<redacted:source:rule:N>) and counter-stripped form (<redacted:source:rule>).
+ * Exported so scan can skip values that are already redacted without duplicating
+ * the shape. If formatPlaceholder's output shape ever changes, update this too.
+ */
+export const REDACTION_PLACEHOLDER_PATTERN = /^<redacted:[^:>]+:[^:>]+(:\d+)?>$/
 
 // Hoisted to module level: String.prototype.replace resets lastIndex to 0
 // after completion (per ECMAScript spec), so reusing this regex across calls
