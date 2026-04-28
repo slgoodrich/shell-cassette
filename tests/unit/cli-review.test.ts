@@ -421,11 +421,22 @@ describe('runReview --json', () => {
 
 describe('runReview interactive (driven via fake reader)', () => {
   let tmp: string
+  let outBuf: string[]
+  const origStdout = process.stdout.write.bind(process.stdout)
 
   beforeEach(async () => {
     tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-review-int-'))
+    outBuf = []
+    // renderFinding emits the match preview, hash, and surrounding context lines —
+    // for a fixture with a real-looking PAT, that means secrets land in the
+    // vitest reporter unless stdout is captured.
+    process.stdout.write = ((s: string) => {
+      outBuf.push(s)
+      return true
+    }) as typeof process.stdout.write
   })
   afterEach(async () => {
+    process.stdout.write = origStdout
     setReader(null)
     await rm(tmp, { recursive: true, force: true })
   })
@@ -502,6 +513,8 @@ describe('runReview interactive (driven via fake reader)', () => {
     expect(JSON.parse(after).recordings[0].result.stdoutLines[0]).toContain(
       '<redacted:stdout:github-pat-classic',
     )
+    // Sanity check: stdout was actually captured (renderFinding ran).
+    expect(outBuf.join('')).toContain('[Finding')
   })
 
   test('quit discards decisions; cassette unchanged', async () => {

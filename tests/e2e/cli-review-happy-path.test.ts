@@ -2,9 +2,9 @@ import { existsSync } from 'node:fs'
 import { copyFile, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { Readable } from 'node:stream'
 import { execa } from 'execa'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { pacedStdin } from '../helpers/paced-stdin.js'
 
 const FIXTURE = path.resolve('tests/fixtures/cassettes/v2-dirty.json')
 const CLI = path.resolve('dist/bin.js')
@@ -12,28 +12,6 @@ const CLI = path.resolve('dist/bin.js')
 // Skip the suite if dist isn't built so local `npm test` works without a prior
 // `npm run build`. CI builds before test, so all tests run there.
 const HAS_BUILT_CLI = existsSync(CLI)
-
-/**
- * Build a Readable stream that emits each line with a small delay between
- * pushes. Required because Node's `readline.question` can drop a queued
- * answer if stdin EOFs before the next `question()` call is registered.
- * A 30ms gap gives the CLI time to render its prompt and re-register.
- */
-function pacedStdin(lines: readonly string[]): Readable {
-  let i = 0
-  return new Readable({
-    read() {
-      if (i >= lines.length) {
-        // Delay EOF too so the final answer has time to land before stdin closes.
-        setTimeout(() => this.push(null), 100)
-        return
-      }
-      const line = lines[i]
-      i++
-      setTimeout(() => this.push(`${line}\n`), 100)
-    },
-  })
-}
 
 let tmp: string
 beforeEach(async () => {

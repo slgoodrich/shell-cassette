@@ -43,6 +43,15 @@ export const isTty = {
 }
 
 /**
+ * Wire up color output for a CLI subcommand from its `--no-color` /
+ * `--color=always` flag. Reads stdout TTY state and the NO_COLOR env var
+ * (via shouldUseColor) and toggles the module-global color state.
+ */
+export function setupCliColor(override: ColorOverride): void {
+  color.setEnabled(isTty.shouldUseColor({ tty: isTty.detectStdoutTty(), override }))
+}
+
+/**
  * Produce a credential-safe preview: short values are shown verbatim;
  * values >= 12 chars show the first 4 characters, ellipsis, and last 4 characters.
  * Used to hint at a match without exposing the full credential value.

@@ -11,7 +11,14 @@
  * Action keys (a/s/r/d/b/q/?) are API-locked. Renames would be a breaking
  * change. Prompt strings are NOT API.
  */
-import { applyTruncation, color, isTty, previewMatch, stderr, stdout } from './cli-output.js'
+import {
+  applyTruncation,
+  color,
+  previewMatch,
+  setupCliColor,
+  stderr,
+  stdout,
+} from './cli-output.js'
 import { promptAction, promptText, promptYesNo } from './cli-prompt.js'
 import { loadConfigFromDir, loadConfigFromFile } from './config.js'
 import { CassetteConfigError, CassetteNotFoundError } from './errors.js'
@@ -19,11 +26,12 @@ import { writeCassetteFile } from './io.js'
 import { loadCassette } from './loader.js'
 import { matchesEnvKeyList } from './recorder.js'
 import { redact } from './redact.js'
-import { BUNDLED_PATTERNS } from './redact-patterns.js'
 import {
   aggregateEntries,
+  buildGFlaggedRules,
   collectSuppressedHashes,
   ENV_KEY_MATCH_RULE,
+  isSuppressedValue,
   matchHash,
   REDACTION_PLACEHOLDER_PATTERN,
   seedCountersFromCassette,
@@ -82,39 +90,6 @@ export function preScan(cassette: CassetteFile, config: Readonly<RedactConfig>):
     findings.push(...scanRecording(cassette.recordings[i]!, i, rules, config, skipSet))
   }
   return findings
-}
-
-function buildGFlaggedRules(
-  config: Readonly<RedactConfig>,
-): readonly { name: string; pattern: RegExp }[] {
-  const rules: { name: string; pattern: RegExp }[] = []
-  if (config.bundledPatterns) {
-    for (const rule of BUNDLED_PATTERNS) {
-      if (rule.pattern instanceof RegExp) {
-        const flags = rule.pattern.flags.includes('g')
-          ? rule.pattern.flags
-          : `${rule.pattern.flags}g`
-        rules.push({ name: rule.name, pattern: new RegExp(rule.pattern.source, flags) })
-      }
-    }
-  }
-  for (const rule of config.customPatterns) {
-    if (rule.pattern instanceof RegExp) {
-      const flags = rule.pattern.flags.includes('g') ? rule.pattern.flags : `${rule.pattern.flags}g`
-      rules.push({ name: rule.name, pattern: new RegExp(rule.pattern.source, flags) })
-    }
-    // Function-typed custom patterns can't expose individual match spans for
-    // position-precise findings; same gap as cli-scan.
-  }
-  return rules
-}
-
-function isSuppressedValue(value: string, config: Readonly<RedactConfig>): boolean {
-  for (const sup of config.suppressPatterns) {
-    sup.lastIndex = 0
-    if (sup.test(value)) return true
-  }
-  return false
 }
 
 function scanRecording(
@@ -468,55 +443,27 @@ export function applyDecisions(
     }
 
     const newRedactEntries: RedactionEntry[] = []
+    const redactValue = (source: RedactSource, value: string): string => {
+      const r = redact({ source, value }, config, {
+        counted: true,
+        counters,
+        suppressedHashes: skipSet,
+      })
+      newRedactEntries.push(...r.entries)
+      return r.output
+    }
+
     const env: Record<string, string> = {}
     for (const [key, value] of Object.entries(rec.call.env)) {
-      const r = redact({ source: 'env', value }, config, {
-        counted: true,
-        counters,
-        suppressedHashes: skipSet,
-      })
-      env[key] = r.output
-      newRedactEntries.push(...r.entries)
+      env[key] = redactValue('env', value)
     }
-    const args = rec.call.args.map((arg) => {
-      const r = redact({ source: 'args', value: arg }, config, {
-        counted: true,
-        counters,
-        suppressedHashes: skipSet,
-      })
-      newRedactEntries.push(...r.entries)
-      return r.output
-    })
-    const stdoutLines = rec.result.stdoutLines.map((line) => {
-      const r = redact({ source: 'stdout', value: line }, config, {
-        counted: true,
-        counters,
-        suppressedHashes: skipSet,
-      })
-      newRedactEntries.push(...r.entries)
-      return r.output
-    })
-    const stderrLines = rec.result.stderrLines.map((line) => {
-      const r = redact({ source: 'stderr', value: line }, config, {
-        counted: true,
-        counters,
-        suppressedHashes: skipSet,
-      })
-      newRedactEntries.push(...r.entries)
-      return r.output
-    })
+    const args = rec.call.args.map((arg) => redactValue('args', arg))
+    const stdoutLines = rec.result.stdoutLines.map((line) => redactValue('stdout', line))
+    const stderrLines = rec.result.stderrLines.map((line) => redactValue('stderr', line))
     const allLines =
       rec.result.allLines === null
         ? null
-        : rec.result.allLines.map((line) => {
-            const r = redact({ source: 'allLines', value: line }, config, {
-              counted: true,
-              counters,
-              suppressedHashes: skipSet,
-            })
-            newRedactEntries.push(...r.entries)
-            return r.output
-          })
+        : rec.result.allLines.map((line) => redactValue('allLines', line))
 
     const newSuppressed: SuppressedEntry[] = [...rec.suppressed]
     for (const { finding, decision } of localDecisions) {
@@ -686,9 +633,7 @@ export async function runReview(args: readonly string[]): Promise<number> {
     return 2
   }
 
-  color.setEnabled(
-    isTty.shouldUseColor({ tty: isTty.detectStdoutTty(), override: flags.colorOverride }),
-  )
+  setupCliColor(flags.colorOverride)
 
   let cassette: CassetteFile
   try {

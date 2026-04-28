@@ -15,14 +15,19 @@
  * Output format is locked at scanVersion: 1. See spec Section 4 for the
  * complete --json shape.
  */
-import { color, isTty, previewMatch, stderr, stdout } from './cli-output.js'
+import { color, previewMatch, setupCliColor, stderr, stdout } from './cli-output.js'
 import { walkCassettes } from './cli-walk.js'
 import { loadConfigFromDir, loadConfigFromFile } from './config.js'
 import { CassetteConfigError, CassetteNotFoundError } from './errors.js'
 import { loadCassette } from './loader.js'
 import { matchesEnvKeyList } from './recorder.js'
-import { BUNDLED_PATTERNS } from './redact-patterns.js'
-import { ENV_KEY_MATCH_RULE, matchHash, REDACTION_PLACEHOLDER_PATTERN } from './redact-pipeline.js'
+import {
+  buildGFlaggedRules,
+  ENV_KEY_MATCH_RULE,
+  isSuppressedValue,
+  matchHash,
+  REDACTION_PLACEHOLDER_PATTERN,
+} from './redact-pipeline.js'
 import type { CassetteFile, Recording, RedactConfig, RedactSource } from './types.js'
 
 const SCAN_VERSION = 1
@@ -148,9 +153,7 @@ export async function runScan(args: readonly string[]): Promise<number> {
     return 2
   }
 
-  color.setEnabled(
-    isTty.shouldUseColor({ tty: isTty.detectStdoutTty(), override: flags.colorOverride }),
-  )
+  setupCliColor(flags.colorOverride)
 
   const config = flags.configPath
     ? await loadConfigFromFile(flags.configPath)
@@ -225,46 +228,6 @@ export async function scanOne(
     findings: findings.length > 0 ? findings : undefined,
     redactionsApplied,
   }
-}
-
-/**
- * Build g-flagged regex copies of bundled + custom rules for matchAll usage.
- * Built once per cassette and passed in to amortize regex allocation.
- * Function-typed custom rules are skipped; they can't report match positions.
- */
-function buildGFlaggedRules(
-  config: Readonly<RedactConfig>,
-): readonly { name: string; pattern: RegExp }[] {
-  const rules: { name: string; pattern: RegExp }[] = []
-
-  if (config.bundledPatterns) {
-    for (const rule of BUNDLED_PATTERNS) {
-      if (rule.pattern instanceof RegExp) {
-        const flags = rule.pattern.flags.includes('g')
-          ? rule.pattern.flags
-          : `${rule.pattern.flags}g`
-        rules.push({ name: rule.name, pattern: new RegExp(rule.pattern.source, flags) })
-      }
-    }
-  }
-
-  for (const rule of config.customPatterns) {
-    if (rule.pattern instanceof RegExp) {
-      const flags = rule.pattern.flags.includes('g') ? rule.pattern.flags : `${rule.pattern.flags}g`
-      rules.push({ name: rule.name, pattern: new RegExp(rule.pattern.source, flags) })
-    }
-    // Function-typed custom patterns: not scannable by position; skip for scan.
-  }
-
-  return rules
-}
-
-function isSuppressed(value: string, config: Readonly<RedactConfig>): boolean {
-  for (const sup of config.suppressPatterns) {
-    sup.lastIndex = 0
-    if (sup.test(value)) return true
-  }
-  return false
 }
 
 /** Returns true if value is already a redaction placeholder (counter-tagged or counter-stripped). */
@@ -356,7 +319,7 @@ function scanValue(
   config: Readonly<RedactConfig>,
   includeMatch: boolean,
 ): Finding[] {
-  if (isSuppressed(value, config)) return []
+  if (isSuppressedValue(value, config)) return []
 
   const findings: Finding[] = []
 
