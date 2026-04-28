@@ -1,5 +1,5 @@
 import { BinaryOutputError, CassetteCorruptError } from './errors.js'
-import type { CassetteFile, Recording, RedactionEntry } from './types.js'
+import type { CassetteFile, Recording, RedactionEntry, SuppressedEntry } from './types.js'
 
 const SCHEMA_VERSION = 2
 
@@ -37,7 +37,7 @@ export function serialize(file: CassetteFile): string {
 }
 
 function orderRecording(rec: Recording) {
-  return {
+  const ordered: Record<string, unknown> = {
     call: {
       command: rec.call.command,
       args: rec.call.args,
@@ -56,6 +56,12 @@ function orderRecording(rec: Recording) {
     },
     _redactions: rec.redactions,
   }
+  // Omit _suppressed when empty: saves ~20 bytes per recording for the
+  // common case (cassettes that have not been through review).
+  if (rec.suppressed.length > 0) {
+    ordered._suppressed = rec.suppressed
+  }
+  return ordered
 }
 
 function validateBeforeSerialize(file: CassetteFile): void {
@@ -132,8 +138,9 @@ export function deserialize(text: string): CassetteFile {
   }
 }
 
-// On disk, `allLines`, `aborted`, and `_redactions` may be absent (cassettes
-// recorded before those fields existed). All default during normalization.
+// On disk, `allLines`, `aborted`, `_redactions`, and `_suppressed` may be
+// absent (cassettes recorded before those fields existed). All default
+// during normalization.
 type LegacyRecording = {
   call: Recording['call']
   result: Omit<Recording['result'], 'allLines' | 'aborted'> & {
@@ -141,6 +148,7 @@ type LegacyRecording = {
     aborted?: boolean
   }
   _redactions?: RedactionEntry[]
+  _suppressed?: SuppressedEntry[]
 }
 
 function normalizeRecording(rec: LegacyRecording): Recording {
@@ -152,9 +160,6 @@ function normalizeRecording(rec: LegacyRecording): Recording {
       aborted: rec.result.aborted ?? false,
     },
     redactions: rec._redactions ?? [],
-    // v0.5: `_suppressed` round-trip is wired in a later milestone (M2/M3
-    // schema add). For now, default to `[]` on load so v0.4 cassettes
-    // (and v0.5 recordings until persistence lands) load cleanly.
-    suppressed: [],
+    suppressed: rec._suppressed ?? [],
   }
 }
