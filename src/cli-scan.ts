@@ -187,22 +187,27 @@ export async function runScan(args: readonly string[]): Promise<number> {
 }
 
 async function scanOne(
-  filePath: string,
+  cassettePath: string,
   config: Readonly<RedactConfig>,
   includeMatch: boolean,
 ): Promise<CassetteResult> {
   let cassette: CassetteFile
   try {
-    const loaded = await loadCassette(filePath)
+    const loaded = await loadCassette(cassettePath)
     if (loaded === null) {
       throw new CassetteIOError(
-        `cassette file not found: ${filePath}`,
-        Object.assign(new Error(`cassette file not found: ${filePath}`), { code: 'ENOENT' }),
+        `cassette file not found: ${cassettePath}`,
+        Object.assign(new Error(`cassette file not found: ${cassettePath}`), { code: 'ENOENT' }),
       )
     }
     cassette = loaded
   } catch (e) {
-    return { path: filePath, status: 'error', error: (e as Error).message, redactionsApplied: 0 }
+    return {
+      path: cassettePath,
+      status: 'error',
+      error: (e as Error).message,
+      redactionsApplied: 0,
+    }
   }
 
   const rules = buildGFlaggedRules(config)
@@ -217,7 +222,7 @@ async function scanOne(
   )
 
   return {
-    path: filePath,
+    path: cassettePath,
     status: findings.length > 0 ? 'dirty' : 'clean',
     findings: findings.length > 0 ? findings : undefined,
     redactionsApplied,

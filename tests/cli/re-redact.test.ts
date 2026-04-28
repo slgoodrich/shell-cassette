@@ -3,8 +3,11 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { runReRedact } from '../../src/cli-re-redact.js'
+import { restoreEnv } from '../helpers/env.js'
 
 const FIXTURES = path.resolve('tests/fixtures/cassettes')
+
+const originalNoColor = process.env.NO_COLOR
 
 let tmp: string
 let stdoutSpy: ReturnType<typeof vi.spyOn>
@@ -19,7 +22,7 @@ afterEach(async () => {
   await rm(tmp, { recursive: true, force: true })
   stdoutSpy?.mockRestore()
   stderrSpy?.mockRestore()
-  delete process.env.NO_COLOR
+  restoreEnv('NO_COLOR', originalNoColor)
 })
 
 function captureOutput() {

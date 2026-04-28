@@ -181,16 +181,16 @@ async function reRedactOne(
   config: Readonly<RedactConfig>,
   dryRun: boolean,
 ): Promise<{ modified: boolean; newRedactions: number }> {
-  let cassette: CassetteFile
-  const loaded = await loadCassette(cassettePath)
-  if (loaded === null) {
+  const cassette = await loadCassette(cassettePath)
+  if (cassette === null) {
     throw new CassetteIOError(
       `cassette file not found: ${cassettePath}`,
       Object.assign(new Error(`cassette file not found: ${cassettePath}`), { code: 'ENOENT' }),
     )
   }
-  cassette = loaded
 
+  // Seed counters from existing placeholders so new findings continue the
+  // per-(source, rule) sequence rather than restarting at 1.
   const counters = seedCountersFromCassette(cassette)
   let newCount = 0
   const updatedRecordings: Recording[] = []
@@ -221,59 +221,46 @@ function reRedactRecording(
   const newEntries: RedactionEntry[] = []
   let newCount = 0
 
-  // env
   const env: Record<string, string> = {}
   for (const [key, value] of Object.entries(rec.call.env)) {
     const r = redact({ source: 'env', value }, config, { counted: true, counters })
     env[key] = r.output
-    if (r.entries.length > 0) {
-      newEntries.push(...r.entries)
-      newCount += r.entries.reduce((s, e) => s + e.count, 0)
-    }
+    newEntries.push(...r.entries)
+    newCount += r.entries.reduce((s, e) => s + e.count, 0)
   }
 
-  // args
   const args = rec.call.args.map((arg) => {
     const r = redact({ source: 'args', value: arg }, config, { counted: true, counters })
-    if (r.entries.length > 0) {
-      newEntries.push(...r.entries)
-      newCount += r.entries.reduce((s, e) => s + e.count, 0)
-    }
+    newEntries.push(...r.entries)
+    newCount += r.entries.reduce((s, e) => s + e.count, 0)
     return r.output
   })
 
-  // stdout lines
   const stdoutLines = rec.result.stdoutLines.map((line) => {
     const r = redact({ source: 'stdout', value: line }, config, { counted: true, counters })
-    if (r.entries.length > 0) {
-      newEntries.push(...r.entries)
-      newCount += r.entries.reduce((s, e) => s + e.count, 0)
-    }
+    newEntries.push(...r.entries)
+    newCount += r.entries.reduce((s, e) => s + e.count, 0)
     return r.output
   })
 
-  // stderr lines
   const stderrLines = rec.result.stderrLines.map((line) => {
     const r = redact({ source: 'stderr', value: line }, config, { counted: true, counters })
-    if (r.entries.length > 0) {
-      newEntries.push(...r.entries)
-      newCount += r.entries.reduce((s, e) => s + e.count, 0)
-    }
+    newEntries.push(...r.entries)
+    newCount += r.entries.reduce((s, e) => s + e.count, 0)
     return r.output
   })
 
-  // allLines
   const allLines =
     rec.result.allLines?.map((line) => {
       const r = redact({ source: 'allLines', value: line }, config, { counted: true, counters })
-      if (r.entries.length > 0) {
-        newEntries.push(...r.entries)
-        newCount += r.entries.reduce((s, e) => s + e.count, 0)
-      }
+      newEntries.push(...r.entries)
+      newCount += r.entries.reduce((s, e) => s + e.count, 0)
       return r.output
     }) ?? null
 
-  // Aggregate new entries with existing recording.redactions
+  // Concat-then-aggregate (rather than aggregate-then-merge) because existing
+  // rec.redactions and newEntries may share (source, rule) keys; aggregateEntries
+  // sums their counts in a single pass.
   const aggregated = aggregateEntries([...rec.redactions, ...newEntries])
 
   return {
