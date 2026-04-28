@@ -185,6 +185,22 @@ async function findConfigFile(startDir: string): Promise<string | null> {
   }
 }
 
+/**
+ * Load a config from a specific file path (no upward walk). Used by CLI
+ * `--config <path>` flag where the user explicitly names the file.
+ */
+export async function loadConfigFromFile(filePath: string): Promise<Readonly<Config>> {
+  let imported: { default?: unknown } | unknown
+  try {
+    imported = await import(pathToFileURL(filePath).href)
+  } catch (e) {
+    throw new CassetteConfigError(`failed to load config at ${filePath}: ${(e as Error).message}`)
+  }
+  const exported = (imported as { default?: unknown }).default ?? imported
+  validateConfig(exported)
+  return mergeWithDefaults(exported as PartialConfig)
+}
+
 export async function loadConfigFromDir(startDir: string): Promise<Readonly<Config>> {
   const filePath = await findConfigFile(startDir)
   if (filePath === null) return DEFAULT_CONFIG

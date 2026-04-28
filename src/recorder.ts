@@ -83,7 +83,7 @@ function redactLine(source: RedactSource, line: string, session: CassetteSession
   return r.output
 }
 
-function matchesEnvKeyList(key: string, userKeys: readonly string[]): boolean {
+export function matchesEnvKeyList(key: string, userKeys: readonly string[]): boolean {
   const upper = key.toUpperCase()
   for (const k of CURATED_ENV_KEYS) {
     if (upper.includes(k.toUpperCase())) return true
