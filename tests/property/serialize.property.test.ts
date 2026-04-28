@@ -106,4 +106,12 @@ describe('serialize round-trip property', () => {
       { numRuns: 100 },
     )
   })
+
+  test('serialized output always ends with a trailing newline', () => {
+    fc.assert(
+      fc.property(genCassetteFile, (cf) => {
+        return serialize(cf).endsWith('\n')
+      }),
+    )
+  })
 })
