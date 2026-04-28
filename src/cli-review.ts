@@ -12,8 +12,14 @@
  * change. Prompt strings are NOT API.
  */
 import { previewMatch } from './cli-output.js'
+import { matchesEnvKeyList } from './recorder.js'
 import { BUNDLED_PATTERNS } from './redact-patterns.js'
-import { collectSuppressedHashes, matchHash } from './redact-pipeline.js'
+import {
+  collectSuppressedHashes,
+  ENV_KEY_MATCH_RULE,
+  matchHash,
+  REDACTION_PLACEHOLDER_PATTERN,
+} from './redact-pipeline.js'
 import type { CassetteFile, Recording, RedactConfig, RedactSource } from './types.js'
 
 export type Finding = {
@@ -104,6 +110,31 @@ function scanRecording(
   const findings: Finding[] = []
 
   for (const [key, value] of Object.entries(rec.call.env)) {
+    // env-key-match: if the key matches the curated/user envKeys list, the
+    // recorder would have redacted the whole value regardless of pattern.
+    // Review must report this so cassettes that would have been redacted by
+    // record mode aren't falsely shown as clean. Skip if the value is already
+    // a redaction placeholder (don't double-report) or if its hash is
+    // suppressed.
+    if (matchesEnvKeyList(key, config.envKeys) && !REDACTION_PLACEHOLDER_PATTERN.test(value)) {
+      const hash = matchHash(value)
+      if (!skipSet.has(hash)) {
+        const position = `${key}:0`
+        findings.push({
+          id: `rec${index}-env-${position}-${ENV_KEY_MATCH_RULE}`,
+          recordingIndex: index,
+          source: 'env',
+          rule: ENV_KEY_MATCH_RULE,
+          match: value,
+          matchHash: hash,
+          matchLength: value.length,
+          matchPreview: previewMatch(value),
+          position,
+          context: { lineNumber: 1, before: [], line: value, after: [] },
+        })
+      }
+      continue // don't also pattern-scan; whole value is already sensitive
+    }
     findings.push(...scanValue(value, 'env', key, index, rules, config, skipSet, [], 1))
   }
 
