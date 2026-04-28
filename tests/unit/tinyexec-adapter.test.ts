@@ -8,9 +8,13 @@ vi.mock('tinyexec', () => ({
 }))
 
 const { x: realXMock } = await import('tinyexec')
-const { x } = await import('../../src/tinyexec.js')
+const { x, exec } = await import('../../src/tinyexec.js')
 
 describe('tinyexec adapter', () => {
+  test('exec is an alias of x', () => {
+    expect(exec).toBe(x)
+  })
+
   beforeEach(() => {
     _resetForTesting()
     vi.mocked(realXMock).mockReset()

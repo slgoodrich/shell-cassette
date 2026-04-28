@@ -126,3 +126,11 @@ function synthesize(rec: Recording, options: Partial<Options>): TinyResult {
   // or calling sync-only ProcessApi methods, must use real execution.
   return result as unknown as TinyResult
 }
+
+/**
+ * Alias for `x`. tinyexec exports both names (they reference the same callable);
+ * mirroring that here lets users redirect `import { exec } from 'tinyexec'` to
+ * `import { exec } from 'shell-cassette/tinyexec'` without renaming at every
+ * call site. Closes #77.
+ */
+export const exec = x
