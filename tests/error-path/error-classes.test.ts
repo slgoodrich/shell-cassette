@@ -7,6 +7,7 @@ import {
   CassetteCollisionError,
   CassetteCorruptError,
   CassetteIOError,
+  CassetteNotFoundError,
   ConcurrencyError,
   ReplayMissError,
   ShellCassetteError,
@@ -136,5 +137,15 @@ describe('all error classes are instanceof ShellCassetteError', () => {
   test('CassetteIOError on long path', () => {
     const longPath = `/repo/${'a'.repeat(300)}/test.ts`
     expect(() => cassettePath(longPath, [], 'test', '__cassettes__')).toThrow(CassetteIOError)
+  })
+
+  test('CassetteNotFoundError carries the missing path', () => {
+    const missing = '/nope/does-not-exist.json'
+    const err = new CassetteNotFoundError(missing)
+    expect(err).toBeInstanceOf(CassetteNotFoundError)
+    expect(err).toBeInstanceOf(ShellCassetteError)
+    expect(err.path).toBe(missing)
+    expect(err.message).toContain(missing)
+    expect(CassetteNotFoundError.code).toBe('CASSETTE_NOT_FOUND')
   })
 })
