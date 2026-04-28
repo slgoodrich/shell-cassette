@@ -34,6 +34,9 @@
   "engines": {
     "node": ">=18"
   },
+  "bin": {
+    "shell-cassette": "./dist/cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
