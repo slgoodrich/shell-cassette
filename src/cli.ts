@@ -1,4 +1,5 @@
 import { stderr, stdout } from './cli-output.js'
+import { runPrune } from './cli-prune.js'
 import { runReRedact } from './cli-re-redact.js'
 import { runReview } from './cli-review.js'
 import { runScan } from './cli-scan.js'
@@ -16,6 +17,7 @@ Commands:
   re-redact   Re-apply current redaction rules to existing cassettes.
   show        Pretty-print a cassette for human inspection.
   review      Walk un-redacted findings interactively (a/s/r/d/b/q/?).
+  prune       Remove recordings by index (--delete <indexes>) or list (--json).
 
 Options:
   --version   Print shell-cassette version and exit.
@@ -63,6 +65,8 @@ export async function main(argv: readonly string[]): Promise<number> {
       return runShow(args.rest)
     case 'review':
       return runReview(args.rest)
+    case 'prune':
+      return runPrune(args.rest)
     default:
       stderr(`error: unknown command '${args.command}'\n${HELP}`)
       return 2
