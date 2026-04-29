@@ -4,7 +4,7 @@ All notable changes to shell-cassette are documented here. The format is based o
 
 ## [Unreleased]
 
-## [0.5.0] - 2026-XX-XX
+## [0.5.0] - 2026-04-28
 
 No public API changes from the main `shell-cassette` entry. The cassette schema stays at version 2 (additive `_suppressed` field, no v3 bump). v0.4 cassettes load and replay correctly under v0.5; v0.4 readers ignore the new field.
 
