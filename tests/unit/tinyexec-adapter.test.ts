@@ -16,13 +16,12 @@ describe('tinyexec adapter', () => {
     expect(exec).toBe(x)
   })
 
-  test('xSync stub throws ShellCassetteError with v0.5 guidance', () => {
+  test('xSync stub throws ShellCassetteError pointing to issue #82', () => {
     expect(() => xSync()).toThrow(ShellCassetteError)
     try {
       xSync()
     } catch (e) {
       expect((e as Error).message).toContain('xSync')
-      expect((e as Error).message).toContain('v0.5')
       expect((e as Error).message).toContain('#82')
     }
   })

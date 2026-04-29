@@ -57,9 +57,8 @@ export type RedactSource = 'env' | 'args' | 'stdout' | 'stderr' | 'allLines'
 
 export type RedactRule = {
   /**
-   * Stable kebab-case identifier. API-stable: rule names ship locked at v0.4 and
-   * are never renamed. New patterns may be added additively (any version);
-   * removing or renaming is a breaking change.
+   * Lowercase kebab-case identifier. Appears in placeholder strings as
+   * <redacted:source:rule-name:N>.
    */
   name: string
   /**

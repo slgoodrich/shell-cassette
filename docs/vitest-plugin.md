@@ -20,7 +20,7 @@ export default defineConfig({
     setupFiles: ['./tests/sc-setup.ts'],
     server: {
       deps: {
-        inline: ['shell-cassette'],   // required - see Compatibility below
+        inline: ['shell-cassette'],   // required (see Compatibility below)
       },
     },
   },
@@ -48,7 +48,7 @@ Vitest externalizes node_modules packages by default. The plugin's top-level `be
 
 shell-cassette catches that throw at registration and rethrows as `VitestPluginRegistrationError` with the fix path inline (config snippets for both vitest 3.x and 4.x). You'll see the actionable error class instead of vitest's bare message.
 
-Add `'shell-cassette'` to `test.server.deps.inline` (vitest 3.x) or `test.deps.inline` (vitest 4.x). This is the standard pattern for vitest plugin packages - many plugins document it.
+Add `'shell-cassette'` to `test.server.deps.inline` (vitest 3.x) or `test.deps.inline` (vitest 4.x). This is the standard pattern for vitest plugin packages.
 
 See [troubleshooting](troubleshooting.md#vitestpluginregistrationerror-vitest-failed-to-find-the-runner) for the full snippet.
 
@@ -67,11 +67,11 @@ If your project already wraps the subprocess runner with `vi.mock` (e.g., for sa
 + import { x } from 'shell-cassette/tinyexec'
 ```
 
-If the existing `vi.mock` provided safety guards, you'll need to drop them or move them elsewhere. shell-cassette doesn't enforce sandbox-cwd or similar guards - it records and replays.
+If the existing `vi.mock` provided safety guards, you'll need to drop them or move them elsewhere. shell-cassette doesn't enforce sandbox-cwd or similar guards. It records and replays.
 
 ## Cassette path layout
 
-Default: cassettes land next to the test file in `__cassettes__/`:
+Default: cassettes are written next to the test file in `__cassettes__/`:
 
 ```
 tests/
@@ -118,7 +118,7 @@ Otherwise the cassette directory shows up as a phantom fixture on subsequent run
 
 The plugin uses a module-global to set the active cassette per test. Concurrent tests would race on this. The plugin throws `ConcurrencyError` at `beforeEach` time when it detects a `test.concurrent`.
 
-**Use `useCassette` explicitly inside concurrent tests instead** - its AsyncLocalStorage-based context isolates per call:
+**Use `useCassette` explicitly inside concurrent tests instead.** Its AsyncLocalStorage-based context isolates per call:
 
 ```ts
 import { useCassette } from 'shell-cassette'
@@ -156,4 +156,4 @@ For the curious. The plugin's behavior:
 - **`beforeEach(ctx)`**: derives the cassette path from `ctx.task` (file path + describe chain + test name, sanitized). Creates a `CassetteSession` and calls `setActiveCassette` to make it visible to wrapper calls.
 - **`afterEach()`**: persists `session.newRecordings` to disk (if any), emits the end-of-run summary, clears the active cassette.
 
-If you don't want auto-cassetting for a particular test (e.g., a test that's deliberately calling real subprocess for live state), there's no per-call mode override today. The escape hatch is to either move the test out of the auto-plugin's scope or stub manually.
+If you don't want auto-cassetting for a particular test (e.g., a test that's deliberately calling real subprocess for live state), there's no per-call mode override. The escape hatch is to either move the test out of the auto-plugin's scope or stub manually.

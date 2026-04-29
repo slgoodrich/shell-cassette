@@ -1,6 +1,6 @@
 # shell-cassette CLI reference
 
-The `shell-cassette` binary ships five subcommands as of v0.5:
+The `shell-cassette` binary includes five subcommands:
 
 | Subcommand   | Purpose                                                  | Read/Write          |
 | ------------ | -------------------------------------------------------- | ------------------- |
@@ -218,10 +218,10 @@ shell-cassette prune <path> --help
 
 Two modes (one is required when a path is provided):
 
-- `--delete <indexes>` — comma-separated 0-based indexes. The named recordings are removed; the remaining recordings keep their relative order. Atomic write via the temp-file + rename pipeline.
-- `--json` — structured listing of recordings (`pruneVersion: 1`). Read-only.
+- `--delete <indexes>` takes a comma-separated list of 0-based indexes. The named recordings are removed; the remaining recordings keep their relative order. Atomic write via the temp-file + rename pipeline.
+- `--json` emits a structured listing of recordings (`pruneVersion: 1`). Read-only.
 
-There is no interactive walk in v0.5. The typical workflow is `prune --json | jq` to choose indexes by command, args, or exit code, then `prune --delete <list>`.
+There is no interactive walk. The typical workflow is `prune --json | jq` to choose indexes by command, args, or exit code, then `prune --delete <list>`.
 
 ### Flags
 

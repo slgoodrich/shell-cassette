@@ -73,7 +73,7 @@ tinyexec returns a richer object than `Promise<Result>` - it's structurally `Pro
 | `for await (line of result)` | Throws `UnsupportedOptionError` | Interleaving order between stdout and stderr is lost in storage |
 | Synchronous reads of `proc.pid`, `proc.killed`, `proc.aborted` BEFORE `await` | Returns `undefined` | Replay returns `Promise<Result>`, not the live ProcessPromise shape |
 
-**Workaround:** `await` the result first, then read fields on the resolved object. All v0.2 validation targets (varlet-release, cac, eslint-import-resolver-typescript) follow this pattern, so it's the common case.
+**Workaround:** `await` the result first, then read fields on the resolved object. The validation targets (varlet-release, cac, eslint-import-resolver-typescript) all follow this pattern.
 
 ## Lossy mappings
 
@@ -81,7 +81,7 @@ The cassette schema is narrower than tinyexec's runtime result. One mapping stil
 
 - **`signal` (string vs boolean)**: tinyexec exposes `killed: boolean` but not the actual signal name. We unconditionally store `'SIGTERM'` on kill. The real signal name is lost.
 
-`aborted` is preserved through record/replay since v0.2 (captured from tinyexec's `aborted: true` when AbortSignal triggered, synthesized back to `aborted` on replay).
+`aborted` is preserved through record/replay (captured from tinyexec's `aborted: true` when AbortSignal triggered, synthesized back to `aborted` on replay).
 
 ## Supported tinyexec options
 
@@ -91,7 +91,7 @@ The cassette schema is narrower than tinyexec's runtime result. One mapping stil
 | `timeout` | Supported, passed through |
 | `nodeOptions` (with `cwd`, `env`, etc.) | Supported, options destructured into the cassette `Call` shape |
 | `throwOnError` | Supported on record AND replay (synthesized error matches tinyexec's shape) |
-| `stdin` (string) | Accepted, not stored in cassette in v0.2 (record-only) |
+| `stdin` (string) | Accepted, not stored in cassette (record-only) |
 | `persist: true` | **Rejected** (subprocess outliving host can't replay) |
 | `stdin: Result` (pipe chaining) | **Rejected** (chaining requires live process) |
 

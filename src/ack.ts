@@ -18,7 +18,7 @@ What does NOT get redacted (residual risk):
   * Encoded credentials (Authorization: Basic base64, base64-encoded YAML/JSON secrets)
   * Binary output (BinaryOutputError prevents recording)
   * cwd values
-  * Subprocess stdin (not captured until v0.5)
+  * Subprocess stdin (not captured)
 
 Verify before committing:  shell-cassette scan <path>
 Migrate when bundle expands: shell-cassette re-redact <path>

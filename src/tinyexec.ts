@@ -157,20 +157,19 @@ export const exec = x
 
 /**
  * Stub for tinyexec's sync subprocess entry point. Wrapping sync execution
- * requires synchronous lazy-load support, which is planned for v0.5 (#82).
+ * requires synchronous lazy-load support; tracked in #82.
  *
- * For v0.4, calling xSync through this adapter throws a clear error instead
- * of failing silently or returning undefined. Users with sync subprocess
- * tests should either:
- * - Import xSync directly from `tinyexec` (those calls bypass shell-cassette)
- * - Refactor to use async `x` (recommended; gets cassette coverage)
- * - Wait for v0.5
+ * Calling xSync through this adapter throws a clear error instead of failing
+ * silently or returning undefined. Users with sync subprocess tests should
+ * either import xSync directly from `tinyexec` (those calls bypass
+ * shell-cassette), or refactor to use async `x` (recommended; gets cassette
+ * coverage).
  */
 export function xSync(): never {
   throw new ShellCassetteError(
     'shell-cassette/tinyexec.xSync is not yet wrapped (tracked in #82). ' +
-      'Sync subprocess wrapping requires synchronous lazy-load support, planned for v0.5. ' +
-      'For now: use async `x` (recommended; gets cassette coverage), or import xSync ' +
+      'Sync subprocess wrapping requires synchronous lazy-load support. ' +
+      'Use async `x` (recommended; gets cassette coverage), or import xSync ' +
       'directly from `tinyexec` (those calls will not be cassetted).',
   )
 }
