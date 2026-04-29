@@ -10,6 +10,7 @@ const baseConfig: RedactConfig = {
   envKeys: [],
   warnLengthThreshold: 40,
   warnPathHeuristic: true,
+  suppressLengthWarningKeys: [],
 }
 
 describe('public redact() wraps pipeline', () => {

@@ -466,8 +466,8 @@ export function applyDecisions(
     }
 
     const newRedactEntries: RedactionEntry[] = []
-    const redactValue = (source: RedactSource, value: string): string => {
-      const r = redact({ source, value }, config, {
+    const redactValue = (source: RedactSource, value: string, key?: string): string => {
+      const r = redact({ source, value, key }, config, {
         counted: true,
         counters,
         suppressedHashes: skipSet,
@@ -478,7 +478,7 @@ export function applyDecisions(
 
     const env: Record<string, string> = {}
     for (const [key, value] of Object.entries(rec.call.env)) {
-      env[key] = redactValue('env', value)
+      env[key] = redactValue('env', value, key)
     }
     const args = rec.call.args.map((arg) => redactValue('args', arg))
     const stdoutLines = rec.result.stdoutLines.map((line) => redactValue('stdout', line))

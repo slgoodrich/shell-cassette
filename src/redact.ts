@@ -1,15 +1,15 @@
 import { BUNDLED_PATTERNS as _BUNDLED } from './redact-patterns.js'
-import { type RedactOptions, type RedactOutput, runPipeline } from './redact-pipeline.js'
+import {
+  type RedactInput,
+  type RedactOptions,
+  type RedactOutput,
+  runPipeline,
+} from './redact-pipeline.js'
 import type { RedactConfig, RedactionEntry, RedactRule, RedactSource } from './types.js'
 
 export const BUNDLED_PATTERNS: readonly RedactRule[] = _BUNDLED
 
-export type RedactInput = {
-  source: RedactSource
-  value: string
-}
-
-export type { RedactOptions, RedactOutput }
+export type { RedactInput, RedactOptions, RedactOutput }
 
 /**
  * Apply the redact pipeline to a single value.

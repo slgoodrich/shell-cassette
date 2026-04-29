@@ -17,6 +17,7 @@ const baseConfig: RedactConfig = {
   envKeys: [],
   warnLengthThreshold: 40,
   warnPathHeuristic: true,
+  suppressLengthWarningKeys: [],
 }
 
 // Both PATs are exactly ghp_ + 36 alphanumerics = 40 chars (the

@@ -138,6 +138,14 @@ export type RedactConfig = {
    * connection strings) without missing bare credential strings.
    */
   warnPathHeuristic: boolean
+  /**
+   * Env-var keys that suppress the length warning. Substring (case-insensitive)
+   * match against env-var keys, additive to a curated default list (PATHEXT,
+   * WSLENV, PSModulePath, __INTELLIJ_COMMAND_HISTFILE__). Use for project-
+   * specific env vars that always exceed the threshold without containing
+   * credentials.
+   */
+  suppressLengthWarningKeys: readonly string[]
 }
 
 export type UseCassetteOptions = {

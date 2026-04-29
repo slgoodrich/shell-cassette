@@ -236,7 +236,7 @@ function reRedactRecording(
 
   const env: Record<string, string> = {}
   for (const [key, value] of Object.entries(rec.call.env)) {
-    const r = redact({ source: 'env', value }, config, {
+    const r = redact({ source: 'env', key, value }, config, {
       counted: true,
       counters,
       suppressedHashes,

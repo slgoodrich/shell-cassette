@@ -76,6 +76,10 @@ describe('Config defaults: redact field', () => {
     expect(DEFAULT_CONFIG.redact.suppressPatterns).toEqual([])
     expect(DEFAULT_CONFIG.redact.envKeys).toEqual([])
   })
+
+  test('suppressLengthWarningKeys defaults to empty array (additive to curated default)', () => {
+    expect(DEFAULT_CONFIG.redact.suppressLengthWarningKeys).toEqual([])
+  })
 })
 
 describe('mergeWithDefaults: redact field', () => {
@@ -136,6 +140,14 @@ describe('mergeWithDefaults: redact field', () => {
     expect(Object.isFrozen(merged.redact.envKeys)).toBe(true)
     userArray.push('OPENAI_KEY')
     expect(merged.redact.envKeys.length).toBe(1)
+  })
+
+  test('user-supplied suppressLengthWarningKeys array is defensively copied and frozen', () => {
+    const userArray = ['MY_PROJECT_VAR']
+    const merged = mergeWithDefaults({ redact: { suppressLengthWarningKeys: userArray } })
+    expect(Object.isFrozen(merged.redact.suppressLengthWarningKeys)).toBe(true)
+    userArray.push('OTHER')
+    expect(merged.redact.suppressLengthWarningKeys.length).toBe(1)
   })
 })
 
@@ -258,6 +270,18 @@ describe('validateConfig: redact field', () => {
   test('rejects envKeys with non-string entries', () => {
     expect(() => validateConfig({ redact: { envKeys: [1, 2] } })).toThrow(
       /items must all be strings/,
+    )
+  })
+
+  test('rejects non-array suppressLengthWarningKeys', () => {
+    expect(() => validateConfig({ redact: { suppressLengthWarningKeys: 'foo' } })).toThrow(
+      /suppressLengthWarningKeys must be an array$/,
+    )
+  })
+
+  test('rejects suppressLengthWarningKeys with non-string entries', () => {
+    expect(() => validateConfig({ redact: { suppressLengthWarningKeys: [1, 2] } })).toThrow(
+      /suppressLengthWarningKeys items must all be strings/,
     )
   })
 

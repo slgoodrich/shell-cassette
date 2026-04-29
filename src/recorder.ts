@@ -42,7 +42,7 @@ function redactCall(call: Call, session: CassetteSession): Call {
       log(`redacted env var ${key} → ${session.path}`)
     } else {
       // Value-based: run through the pipeline for pattern-based detection.
-      const r = redact({ source: 'env', value }, session.redactConfig, {
+      const r = redact({ source: 'env', key, value }, session.redactConfig, {
         counted: true,
         counters: session.redactCounters,
       })
