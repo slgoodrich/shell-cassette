@@ -262,7 +262,7 @@ When the hook blocks: review the listed findings, run `npx shell-cassette re-red
 
 ## CLI usage
 
-shell-cassette ships a `shell-cassette` binary with two subcommands.
+shell-cassette ships a `shell-cassette` binary with five subcommands. Two write to cassettes (`re-redact`, `prune`), one walks them interactively (`review`), two are read-only (`scan`, `show`).
 
 ### `scan`
 
@@ -322,6 +322,72 @@ Common flags:
 
 Exit `0` no new redactions, `1` at least one cassette modified (or would be in dry-run), `2` error.
 
+### `show`
+
+Read-only. Pretty-prints a single cassette for human inspection.
+
+```bash
+npx shell-cassette show tests/__cassettes__/login.json
+npx shell-cassette show tests/__cassettes__/login.json --json | jq '.summary'
+npx shell-cassette show tests/__cassettes__/login.json --full   # disable truncation
+```
+
+Default output is sectioned (header + per-recording listing). `--json` emits structured output locked at `showVersion: 1`. See [`docs/cli.md`](./docs/cli.md#shell-cassette-show-path) for the full reference.
+
+Exit `0` ok, `2` error.
+
+### `review`
+
+Walk un-redacted findings interactively. For each finding, pick `(a)` accept, `(s)` skip, `(r)` replace, `(d)` delete, `(b)` back, or `(q)` quit. Decisions are batched and applied atomically on confirm. The skip action persists via the cassette's `_suppressed` field so `re-redact` and subsequent `review` runs do not re-flag the same match.
+
+```bash
+npx shell-cassette review tests/__cassettes__/foo.json
+npx shell-cassette review tests/__cassettes__/foo.json --json   # read-only finding listing
+```
+
+`--json` emits a finding listing locked at `reviewVersion: 1` with default-safe match output (sha256 hash + preview). Use `--include-match` to include raw match values; treat the resulting JSON as sensitive.
+
+Action keys (`a/s/r/d/b/q/?`) are API-locked at v0.5. Renames would be a breaking change. See [`docs/cli.md`](./docs/cli.md#shell-cassette-review-path) for the full reference.
+
+Exit `0` reviewed (with or without changes), `2` error.
+
+### `prune`
+
+Remove recordings by 0-based index. Atomic write.
+
+```bash
+npx shell-cassette prune tests/__cassettes__/foo.json --json   # list recordings
+npx shell-cassette prune tests/__cassettes__/foo.json --delete 0,2
+```
+
+There is no interactive walk in v0.5. Pipe `prune --json | jq` to pick indexes by command, args, or exit code, then pass the comma-separated list to `--delete`. Bare `prune <path>` (no flags) is an error. See [`docs/cli.md`](./docs/cli.md#shell-cassette-prune-path) for the full reference.
+
+Exit `0` ok, `2` error.
+
+### Cassette inspection workflow
+
+A typical flow when a freshly-recorded cassette has findings:
+
+```bash
+# 1. Record (the ack gate runs at record time)
+SHELL_CASSETTE_ACK_REDACTION=true npm test
+
+# 2. Verify nothing leaked
+npx shell-cassette scan tests/__cassettes__
+
+# 3. If scan is dirty, walk findings and decide per-match
+npx shell-cassette review tests/__cassettes__/the-dirty-one.json
+
+# 4. Optionally remove unwanted recordings
+npx shell-cassette prune tests/__cassettes__/the-dirty-one.json --json | jq ...
+npx shell-cassette prune tests/__cassettes__/the-dirty-one.json --delete 0,5
+
+# 5. Final verification before commit
+npx shell-cassette scan tests/__cassettes__
+git add tests/__cassettes__
+git commit
+```
+
 ### Ack-gate workflow
 
 Recording requires `SHELL_CASSETTE_ACK_REDACTION=true`. Replay does not. Typical flow:
@@ -340,7 +406,7 @@ npm test
 npm test  # CI=true is set by your CI provider
 ```
 
-Run `shell-cassette --help`, `shell-cassette scan --help`, and `shell-cassette re-redact --help` for the full flag list.
+Run `shell-cassette --help` for the full subcommand list, or `shell-cassette <command> --help` for per-subcommand flags.
 
 ## Adapter quirks
 

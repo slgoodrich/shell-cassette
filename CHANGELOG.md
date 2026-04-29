@@ -4,6 +4,32 @@ All notable changes to shell-cassette are documented here. The format is based o
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-XX-XX
+
+No public API changes from the main `shell-cassette` entry. The cassette schema stays at version 2 (additive `_suppressed` field, no v3 bump). v0.4 cassettes load and replay correctly under v0.5; v0.4 readers ignore the new field.
+
+### Added
+
+- **`shell-cassette show <path>` subcommand.** Pretty-prints a cassette for human inspection. Default terminal output is sectioned (header + per-recording with cwd, redacted env keys, exit + duration, line-count truncation). `--json` emits structured output locked at `showVersion: 1`. TTY-aware color, `--no-color` and `--color=always` overrides, `--full` to disable truncation, `--lines <N>` to set lines per stream (default 5).
+- **`shell-cassette review <path>` subcommand.** Interactive walkthrough of unredacted findings. Action keys (API-locked at v0.5): `(a)` accept (apply default redaction), `(s)` skip (persist via `_suppressed`), `(r)` replace (substitute custom string; not for args), `(d)` delete (remove the recording), `(b)` back (revisit previous finding), `(q)` quit (discard all decisions), `(?)` help. Decisions are batched and applied atomically on confirm. `--json` emits a read-only finding listing locked at `reviewVersion: 1` with default-safe match output (hash + preview); `--include-match` opts into raw match values (UNSAFE for piping to logs / CI artifacts).
+- **`shell-cassette prune <path>` subcommand.** Remove recordings by 0-based index. `--delete <indexes>` takes a comma-separated list, validates range and rejects duplicates, writes atomically. `--json` emits a read-only listing locked at `pruneVersion: 1` for `jq` composition. `--quiet` suppresses the stdout summary on `--delete`. Bare `prune <path>` (no flags) is an error; the workflow is `prune --json | jq` to pick indexes, then `prune --delete <list>`.
+- **Cassette schema additive: `_suppressed: [{source, rule, position, matchHash}]` per recording.** Written by `review`'s `(s)kip` action; consulted by `re-redact` and `review`'s pre-scan to avoid re-flagging matches the user previously chose to skip. Skip semantics key off `matchHash` (sha256 hex), so the same secret in different positions across recordings is suppressed uniformly.
+- **`CassetteInternalError`** typed `ShellCassetteError` subclass for exhaustiveness throws (`default: const _: never = action; throw new CassetteInternalError(...)`). Programmatic catches on `ShellCassetteError` still pick it up.
+
+### Changed
+
+- The bin's `--help` text now lists 5 subcommands (`scan`, `re-redact`, `show`, `review`, `prune`).
+- `re-redact` and `review`'s pre-scan both consult cassette `_suppressed` entries. Matches whose hash is in any recording's suppressed list are not re-flagged on subsequent runs.
+- `RedactOptions` (internal pipeline shape) gains optional `suppressedHashes: ReadonlySet<string>`. v0.4 callers (recorder, canonicalize) pass undefined and behave identically; v0.5's `re-redact` and `review` pass populated sets built from `_suppressed` entries.
+
+### Notes
+
+- **Action keys in `review` are API.** Renames would be a breaking change.
+- **Prompt strings are NOT API.** Bots should use `--json` modes plus `re-redact` for automation, not parse interactive prompt text.
+- **Match values in `--json` output default to hash + preview format.** Use `--include-match` for raw values; treat the resulting JSON as sensitive.
+- **`prune --interactive` was cut from v0.5.** `prune --json | jq` plus `prune --delete <list>` covers the workflow without a state machine. Revisit if users ask.
+- **`(r)eplace` in `review` is unavailable for args** (canonicalize-incompatible). Documented limitation; users can `(d)elete` the recording instead, or hand-edit the cassette JSON.
+
 ## [0.4.0] - 2026-04-28
 
 ### BREAKING CHANGES
