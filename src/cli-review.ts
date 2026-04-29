@@ -21,7 +21,7 @@ import {
 } from './cli-output.js'
 import { promptAction, promptText, promptYesNo } from './cli-prompt.js'
 import { loadConfigFromDir, loadConfigFromFile } from './config.js'
-import { CassetteConfigError, CassetteNotFoundError } from './errors.js'
+import { CassetteConfigError, CassetteInternalError, CassetteNotFoundError } from './errors.js'
 import { writeCassetteFile } from './io.js'
 import { loadCassette } from './loader.js'
 import { matchesEnvKeyList } from './recorder.js'
@@ -306,66 +306,90 @@ export function applyAction(state: ReviewState, action: ReviewAction): ReviewSta
     return state // already done/aborted; no further transitions
   }
 
-  if (action.kind === 'quit') {
-    return { ...state, step: 'aborted' }
-  }
-  if (action.kind === 'apply') {
-    if (state.step !== 'confirming') return state
-    return { ...state, step: 'done' }
-  }
-  if (action.kind === 'discard') {
-    if (state.step !== 'confirming') return state
-    return { ...state, step: 'done', decisions: new Map() }
-  }
-
-  if (action.kind === 'back') {
-    if (state.history.length === 0) return state
-    // biome-ignore lint/style/noNonNullAssertion: history.length > 0 guarantees last element
-    const newCursor = state.history[state.history.length - 1]!
-    const newHistory = state.history.slice(0, -1)
-    // Remove every decision recorded in the unwound [newCursor, oldCursor) range.
-    // For single-step advances this is just one decision; for `delete`'s
-    // multi-step skip it's the lead decision plus any moot in-recording entries.
-    const newDecisions = new Map(state.decisions)
-    for (let i = newCursor; i < state.cursor; i++) {
-      // biome-ignore lint/style/noNonNullAssertion: i in [newCursor, cursor) ⊂ valid indices
-      newDecisions.delete(state.findings[i]!.id)
-    }
-    return {
-      ...state,
-      cursor: newCursor,
-      history: newHistory,
-      decisions: newDecisions,
-      step: 'reviewing',
+  switch (action.kind) {
+    case 'quit':
+      return { ...state, step: 'aborted' }
+    case 'apply':
+      return state.step === 'confirming' ? { ...state, step: 'done' } : state
+    case 'discard':
+      return state.step === 'confirming' ? { ...state, step: 'done', decisions: new Map() } : state
+    case 'back':
+      return applyBack(state)
+    case 'accept':
+    case 'skip':
+    case 'replace':
+    case 'delete':
+      return state.step === 'reviewing' ? applyForward(state, action) : state
+    default: {
+      // Exhaustiveness guard: TypeScript narrows `action` to `never` here, so
+      // adding a new ReviewAction variant without a case above fails at
+      // compile time. The runtime throw is unreachable when the types are
+      // correct.
+      const _exhaustive: never = action
+      throw new CassetteInternalError(`unhandled review action: ${JSON.stringify(_exhaustive)}`)
     }
   }
+}
 
-  // From here on, forward actions are only valid in 'reviewing' step
-  if (state.step !== 'reviewing') return state
+function applyBack(state: ReviewState): ReviewState {
+  if (state.history.length === 0) return state
+  // biome-ignore lint/style/noNonNullAssertion: history.length > 0 guarantees last element
+  const newCursor = state.history[state.history.length - 1]!
+  const newHistory = state.history.slice(0, -1)
+  // Remove every decision recorded in the unwound [newCursor, oldCursor) range.
+  // For single-step advances this is just one decision; for `delete`'s
+  // multi-step skip it's the lead decision plus any moot in-recording entries.
+  const newDecisions = new Map(state.decisions)
+  for (let i = newCursor; i < state.cursor; i++) {
+    // biome-ignore lint/style/noNonNullAssertion: i in [newCursor, cursor) ⊂ valid indices
+    newDecisions.delete(state.findings[i]!.id)
+  }
+  return {
+    ...state,
+    cursor: newCursor,
+    history: newHistory,
+    decisions: newDecisions,
+    step: 'reviewing',
+  }
+}
 
+type ForwardAction = Extract<ReviewAction, { kind: 'accept' | 'skip' | 'replace' | 'delete' }>
+
+function applyForward(state: ReviewState, action: ForwardAction): ReviewState {
   // biome-ignore lint/style/noNonNullAssertion: cursor in [0, findings.length) when reviewing
   const current = state.findings[state.cursor]!
   const newDecisions = new Map(state.decisions)
   let advanceTo = state.cursor + 1
 
-  if (action.kind === 'accept') {
-    newDecisions.set(current.id, { kind: 'accept' })
-  } else if (action.kind === 'skip') {
-    newDecisions.set(current.id, { kind: 'skip' })
-  } else if (action.kind === 'replace') {
-    newDecisions.set(current.id, { kind: 'replace', with: action.with })
-  } else if (action.kind === 'delete') {
-    newDecisions.set(current.id, { kind: 'delete', recordingIndex: current.recordingIndex })
-    // Advance past every remaining finding in the same recording (moot once
-    // deleted). Findings are contiguous-by-recording because preScan walks
-    // cassette.recordings in order; a later caller producing an unsorted
-    // findings array would break this skip.
-    while (
-      advanceTo < state.findings.length &&
-      // biome-ignore lint/style/noNonNullAssertion: bounded by length check
-      state.findings[advanceTo]!.recordingIndex === current.recordingIndex
-    ) {
-      advanceTo++
+  switch (action.kind) {
+    case 'accept':
+      newDecisions.set(current.id, { kind: 'accept' })
+      break
+    case 'skip':
+      newDecisions.set(current.id, { kind: 'skip' })
+      break
+    case 'replace':
+      newDecisions.set(current.id, { kind: 'replace', with: action.with })
+      break
+    case 'delete':
+      newDecisions.set(current.id, { kind: 'delete', recordingIndex: current.recordingIndex })
+      // Advance past every remaining finding in the same recording (moot once
+      // deleted). Findings are contiguous-by-recording because preScan walks
+      // cassette.recordings in order; a later caller producing an unsorted
+      // findings array would break this skip.
+      while (
+        advanceTo < state.findings.length &&
+        // biome-ignore lint/style/noNonNullAssertion: bounded by length check
+        state.findings[advanceTo]!.recordingIndex === current.recordingIndex
+      ) {
+        advanceTo++
+      }
+      break
+    default: {
+      const _exhaustive: never = action
+      throw new CassetteInternalError(
+        `unhandled forward review action: ${JSON.stringify(_exhaustive)}`,
+      )
     }
   }
 
