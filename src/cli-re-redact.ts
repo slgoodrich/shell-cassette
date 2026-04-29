@@ -8,7 +8,7 @@
  * max(existing) + 1 per (source, rule). v1 cassettes are upgraded to v2
  * in place.
  */
-import { color, isTty, stderr, stdout } from './cli-output.js'
+import { color, setupCliColor, stderr, stdout } from './cli-output.js'
 import { walkCassettes } from './cli-walk.js'
 import { loadConfigFromDir, loadConfigFromFile } from './config.js'
 import { CassetteConfigError, CassetteNotFoundError } from './errors.js'
@@ -126,9 +126,7 @@ export async function runReRedact(args: readonly string[]): Promise<number> {
     return 2
   }
 
-  color.setEnabled(
-    isTty.shouldUseColor({ tty: isTty.detectStdoutTty(), override: flags.colorOverride }),
-  )
+  setupCliColor(flags.colorOverride)
 
   const config = flags.configPath
     ? await loadConfigFromFile(flags.configPath)

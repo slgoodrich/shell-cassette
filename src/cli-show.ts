@@ -14,7 +14,7 @@
  * Defaults: 5 lines per stream, 80 chars per line.
  */
 import { stat } from 'node:fs/promises'
-import { applyTruncation, color, formatBytes, isTty, stderr, stdout } from './cli-output.js'
+import { applyTruncation, color, formatBytes, setupCliColor, stderr, stdout } from './cli-output.js'
 import { CassetteConfigError, CassetteNotFoundError } from './errors.js'
 import { loadCassette } from './loader.js'
 import { REDACTION_PLACEHOLDER_PATTERN } from './redact-pipeline.js'
@@ -149,9 +149,7 @@ export async function runShow(args: readonly string[]): Promise<number> {
     return 2
   }
 
-  color.setEnabled(
-    isTty.shouldUseColor({ tty: isTty.detectStdoutTty(), override: flags.colorOverride }),
-  )
+  setupCliColor(flags.colorOverride)
 
   let cassette: CassetteFile
   let fileSize: number

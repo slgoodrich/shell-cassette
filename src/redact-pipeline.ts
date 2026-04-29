@@ -339,3 +339,47 @@ export function collectSuppressedHashes(cassette: CassetteFile): Set<string> {
   }
   return out
 }
+
+/**
+ * Build g-flagged regex copies of bundled + user-custom rules for matchAll
+ * usage. Function-typed custom rules are skipped because they can't expose
+ * individual match spans for position-precise findings.
+ *
+ * Used by both scan and review's pre-scan; identical regex preparation must
+ * land in both producer and consumer to keep position reporting consistent.
+ */
+export function buildGFlaggedRules(
+  config: Readonly<RedactConfig>,
+): readonly { name: string; pattern: RegExp }[] {
+  const rules: { name: string; pattern: RegExp }[] = []
+  if (config.bundledPatterns) {
+    for (const rule of BUNDLED_PATTERNS) {
+      if (rule.pattern instanceof RegExp) {
+        const flags = rule.pattern.flags.includes('g')
+          ? rule.pattern.flags
+          : `${rule.pattern.flags}g`
+        rules.push({ name: rule.name, pattern: new RegExp(rule.pattern.source, flags) })
+      }
+    }
+  }
+  for (const rule of config.customPatterns) {
+    if (rule.pattern instanceof RegExp) {
+      const flags = rule.pattern.flags.includes('g') ? rule.pattern.flags : `${rule.pattern.flags}g`
+      rules.push({ name: rule.name, pattern: new RegExp(rule.pattern.source, flags) })
+    }
+  }
+  return rules
+}
+
+/**
+ * True if any of the user-supplied suppress regexes matches the value.
+ * Resets `lastIndex` defensively because callers may pass g-flagged regexes
+ * whose state would otherwise leak across calls.
+ */
+export function isSuppressedValue(value: string, config: Readonly<RedactConfig>): boolean {
+  for (const sup of config.suppressPatterns) {
+    sup.lastIndex = 0
+    if (sup.test(value)) return true
+  }
+  return false
+}
