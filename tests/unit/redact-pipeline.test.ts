@@ -14,6 +14,7 @@ const baseConfig: RedactConfig = {
   envKeys: [],
   warnLengthThreshold: 40,
   warnPathHeuristic: true,
+  suppressLengthWarningKeys: [],
 }
 
 describe('redact-pipeline: suppress short-circuit', () => {
@@ -327,6 +328,82 @@ describe('redact-pipeline: length warning', () => {
     const value = SAMPLE_GITHUB_PAT_CLASSIC
     const result = runPipeline({ source: 'stdout', value }, config, { counted: false })
     expect(result.warnings).toEqual([])
+  })
+})
+
+describe('redact-pipeline: length warning (ANSI strip)', () => {
+  test('ANSI-coded value below stripped-length threshold: no warning', () => {
+    // 35 visible chars wrapped in compound ANSI; raw length > 40, stripped length = 35.
+    const value = `\x1B[1;31;42m${'a'.repeat(35)}\x1B[0m`
+    expect(value.length).toBeGreaterThan(40)
+    const result = runPipeline({ source: 'stdout', value }, baseConfig, { counted: false })
+    expect(result.warnings).toEqual([])
+  })
+
+  test('ANSI-coded value above stripped-length threshold: warning fires with stripped length', () => {
+    const value = `\x1B[31m${'a'.repeat(50)}\x1B[0m`
+    const result = runPipeline({ source: 'stdout', value }, baseConfig, { counted: false })
+    expect(result.warnings.length).toBe(1)
+    expect(result.warnings[0]).toContain('50')
+  })
+
+  test('multiple ANSI sequences stripped before measurement', () => {
+    // 35 visible chars across 3 ANSI groups; stripped = 35 (below default 40).
+    const value =
+      `\x1B[1m${'a'.repeat(10)}\x1B[0m` +
+      `\x1B[31m${'b'.repeat(10)}\x1B[0m` +
+      `\x1B[32m${'c'.repeat(15)}\x1B[0m`
+    const result = runPipeline({ source: 'stdout', value }, baseConfig, { counted: false })
+    expect(result.warnings).toEqual([])
+  })
+})
+
+describe('redact-pipeline: length warning (env-key suppress list)', () => {
+  test('PATHEXT env value: no warning at default config', () => {
+    const value = '.COM;.EXE;.BAT;.CMD;.VBS;.JS;.PS1;.PSC1;.MSC;.WSF'
+    const result = runPipeline({ source: 'env', key: 'PATHEXT', value }, baseConfig, {
+      counted: false,
+    })
+    expect(result.warnings).toEqual([])
+  })
+
+  test('WSLENV env value: no warning at default config', () => {
+    const value = 'a'.repeat(60)
+    const result = runPipeline({ source: 'env', key: 'WSLENV', value }, baseConfig, {
+      counted: false,
+    })
+    expect(result.warnings).toEqual([])
+  })
+
+  test('case-insensitive substring match: WSLENV_BACKUP also suppressed', () => {
+    const value = 'a'.repeat(60)
+    const result = runPipeline({ source: 'env', key: 'wslenv_backup', value }, baseConfig, {
+      counted: false,
+    })
+    expect(result.warnings).toEqual([])
+  })
+
+  test('user-extended suppress key: no warning', () => {
+    const config: RedactConfig = { ...baseConfig, suppressLengthWarningKeys: ['MY_PROJECT_VAR'] }
+    const value = 'a'.repeat(60)
+    const result = runPipeline({ source: 'env', key: 'MY_PROJECT_VAR', value }, config, {
+      counted: false,
+    })
+    expect(result.warnings).toEqual([])
+  })
+
+  test('non-suppressed env key still warns', () => {
+    const value = 'a'.repeat(60)
+    const result = runPipeline({ source: 'env', key: 'OTHER_VAR', value }, baseConfig, {
+      counted: false,
+    })
+    expect(result.warnings.length).toBe(1)
+  })
+
+  test('no key provided: no env-key suppression (existing behavior preserved)', () => {
+    const value = 'a'.repeat(60)
+    const result = runPipeline({ source: 'stdout', value }, baseConfig, { counted: false })
+    expect(result.warnings.length).toBe(1)
   })
 })
 

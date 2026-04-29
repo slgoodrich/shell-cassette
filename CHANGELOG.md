@@ -4,6 +4,25 @@ All notable changes to shell-cassette are documented here. The format is based o
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-04-29
+
+Heuristic refinement to the long-value warning. No API or schema changes from 0.5.0; cassettes recorded under any prior version load and replay unchanged.
+
+### Added
+
+- **`config.redact.suppressLengthWarningKeys: readonly string[]`**. Env-var keys (case-insensitive substring) that suppress the long-value warning, additive to a curated default list (`PATHEXT`, `WSLENV`, `__INTELLIJ_COMMAND_HISTFILE__`, `PSMODULEPATH`, `SHELL_SESSION_HISTFILE`).
+
+### Changed
+
+- The long-value warning strips ANSI escape sequences before measuring length. ANSI-decorated banners no longer trigger the warning when their visible length is below the threshold.
+- The pipeline skips the warning entirely for env-var keys that match the curated default list above. `PATHEXT` and `WSLENV` no longer emit warnings on Windows cassettes by default.
+- `RedactInput` (internal pipeline shape) gains an optional `key?: string` field. Callers that pass env values populate the key; other sources leave it undefined.
+
+### Notes
+
+- Only the warning behavior changes. Redaction itself is unchanged: nothing that was redacted before is now exposed, and nothing newly redacted. The warning is informational; this fix reduces log noise so genuine warnings (a real candidate credential not in any rule) are easier to spot.
+- Closes [#78](https://github.com/slgoodrich/shell-cassette/issues/78).
+
 ## [0.5.0] - 2026-04-28
 
 No public API changes from the main `shell-cassette` entry. The cassette schema stays at version 2 (additive `_suppressed` field, no v3 bump). v0.4 cassettes load and replay correctly under v0.5; v0.4 readers ignore the new field.

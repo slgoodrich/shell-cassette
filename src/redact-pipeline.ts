@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { DEFAULT_SUPPRESS_LENGTH_KEYS } from './curated-suppress-length-keys.js'
 import { ShellCassetteError } from './errors.js'
 import { BUNDLED_PATTERNS } from './redact-patterns.js'
 import type {
@@ -12,6 +13,13 @@ import type {
 export type RedactInput = {
   source: RedactSource
   value: string
+  /**
+   * Optional env-var key. Only meaningful when source is 'env'. Used by the
+   * length-warning suppress logic to skip warnings on known-benign system env
+   * vars (PATHEXT, WSLENV, etc.) and any user-extended keys via
+   * `config.redact.suppressLengthWarningKeys`.
+   */
+  key?: string
 }
 
 /**
@@ -64,6 +72,27 @@ const G_FLAGGED_BUNDLE: { name: string; pattern: RegExp }[] = BUNDLED_PATTERNS.f
 }))
 
 const PATH_OR_WHITESPACE_REGEX = /[/\\: ]/
+
+// CSI sequences (ESC [ params final-byte) cover the common color/style codes.
+// Used only for the length-warning heuristic so an ANSI-decorated 30-char
+// banner does not get flagged as a 60-char "candidate credential".
+// biome-ignore lint/suspicious/noControlCharactersInRegex: ESC byte is the literal ANSI prefix
+const ANSI_ESCAPE_REGEX = /\x1B\[[0-9;]*[a-zA-Z]/g
+
+function suppressLengthWarningForKey(
+  key: string | undefined,
+  userKeys: readonly string[],
+): boolean {
+  if (key === undefined) return false
+  const upper = key.toUpperCase()
+  for (const candidate of DEFAULT_SUPPRESS_LENGTH_KEYS) {
+    if (upper.includes(candidate.toUpperCase())) return true
+  }
+  for (const candidate of userKeys) {
+    if (upper.includes(candidate.toUpperCase())) return true
+  }
+  return false
+}
 
 /**
  * Apply the redact pipeline to a single value.
@@ -138,12 +167,14 @@ export function runPipeline(
   }
 
   const noRuleFired = output === value
-  const exceedsThreshold = output.length > config.warnLengthThreshold
+  const strippedLength = output.replace(ANSI_ESCAPE_REGEX, '').length
+  const exceedsThreshold = strippedLength > config.warnLengthThreshold
   const suppressedByHeuristic = config.warnPathHeuristic && PATH_OR_WHITESPACE_REGEX.test(output)
+  const suppressedByKey = suppressLengthWarningForKey(input.key, config.suppressLengthWarningKeys)
 
-  if (noRuleFired && exceedsThreshold && !suppressedByHeuristic) {
+  if (noRuleFired && exceedsThreshold && !suppressedByHeuristic && !suppressedByKey) {
     warnings.push(
-      `${input.source} value (${output.length} chars) exceeds threshold ${config.warnLengthThreshold} ` +
+      `${input.source} value (${strippedLength} chars) exceeds threshold ${config.warnLengthThreshold} ` +
         `and contains no path/whitespace characters; may be a credential not in any rule. ` +
         `Review or add a pattern to config.redact.customPatterns.`,
     )

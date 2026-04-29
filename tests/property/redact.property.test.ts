@@ -25,6 +25,7 @@ const baseConfig: RedactConfig = {
   envKeys: [],
   warnLengthThreshold: 40,
   warnPathHeuristic: true,
+  suppressLengthWarningKeys: [],
 }
 
 const sourceArb = fc.constantFrom<RedactSource>('env', 'args', 'stdout', 'stderr', 'allLines')

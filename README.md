@@ -217,7 +217,7 @@ Workarounds for each gap are in [docs/troubleshooting.md](docs/troubleshooting.m
 
 ### Long-value warnings
 
-Values 40+ characters that did NOT match any rule emit a warning at record time. The warning is logged but the value is NOT redacted (shell-cassette can't pattern-match an unknown shape safely). The threshold (default 40) and a path heuristic (skip warning when the value contains `/`, `\`, `:`, or whitespace) are tunable via `Config.redact.warnLengthThreshold` and `Config.redact.warnPathHeuristic`.
+Values 40+ characters that did NOT match any rule emit a warning at record time. The warning is logged but the value is NOT redacted (shell-cassette can't pattern-match an unknown shape safely). The pipeline strips ANSI escape sequences before measuring length (so a 30-char colored banner is not flagged as a 60-char candidate). The threshold (default 40) and a path heuristic (skip warning when the value contains `/`, `\`, `:`, or whitespace) are tunable via `Config.redact.warnLengthThreshold` and `Config.redact.warnPathHeuristic`. A curated list of env-var keys (`PATHEXT`, `WSLENV`, `__INTELLIJ_COMMAND_HISTFILE__`, `PSMODULEPATH`, `SHELL_SESSION_HISTFILE`) skip the warning by default; extend via `Config.redact.suppressLengthWarningKeys`.
 
 End-of-run summaries make redaction events visible:
 

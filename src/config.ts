@@ -30,6 +30,7 @@ const DEFAULT_REDACT: Readonly<RedactConfig> = Object.freeze({
   envKeys: Object.freeze([]) as readonly string[],
   warnLengthThreshold: 40,
   warnPathHeuristic: true,
+  suppressLengthWarningKeys: Object.freeze([]) as readonly string[],
 })
 
 export const DEFAULT_CONFIG: Readonly<Config> = Object.freeze({
@@ -52,6 +53,9 @@ export function mergeWithDefaults(input: PartialConfig | undefined): Readonly<Co
     envKeys: userRedact.envKeys ? Object.freeze([...userRedact.envKeys]) : DEFAULT_REDACT.envKeys,
     warnLengthThreshold: userRedact.warnLengthThreshold ?? DEFAULT_REDACT.warnLengthThreshold,
     warnPathHeuristic: userRedact.warnPathHeuristic ?? DEFAULT_REDACT.warnPathHeuristic,
+    suppressLengthWarningKeys: userRedact.suppressLengthWarningKeys
+      ? Object.freeze([...userRedact.suppressLengthWarningKeys])
+      : DEFAULT_REDACT.suppressLengthWarningKeys,
   }
 
   return Object.freeze({
@@ -144,6 +148,17 @@ function validateRedact(redact: unknown): void {
 
   if (r.warnPathHeuristic !== undefined && typeof r.warnPathHeuristic !== 'boolean') {
     throw new CassetteConfigError('config.redact.warnPathHeuristic must be boolean')
+  }
+
+  if (r.suppressLengthWarningKeys !== undefined) {
+    if (!Array.isArray(r.suppressLengthWarningKeys)) {
+      throw new CassetteConfigError('config.redact.suppressLengthWarningKeys must be an array')
+    }
+    if (!r.suppressLengthWarningKeys.every((k) => typeof k === 'string')) {
+      throw new CassetteConfigError(
+        'config.redact.suppressLengthWarningKeys items must all be strings',
+      )
+    }
   }
 }
 

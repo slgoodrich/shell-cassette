@@ -106,11 +106,26 @@ export default {
   redact: {
     warnLengthThreshold: 40,    // default
     warnPathHeuristic: true,    // default
+    suppressLengthWarningKeys: ['MY_LONG_BENIGN_VAR'],   // additive to curated default
   },
 }
 ```
 
 The 40-char threshold catches GitHub PATs, OpenAI keys, Stripe restricted, AWS Secret Access Keys without nagging on common path-shaped env vars. Tune lower (e.g., 24) if your workload has shorter unknown-shape secrets; tune higher if you see noise.
+
+The pipeline also strips ANSI escape sequences before measuring length, so a colored 30-char banner (raw bytes ~50 chars due to ANSI codes) does not trigger the warning. Stripping is internal to the heuristic; the recorded value keeps its original bytes.
+
+A curated default list of env-var keys (case-insensitive substring match) skip the length warning entirely:
+
+| Key prefix | Reason |
+|---|---|
+| `PATHEXT` | Windows path-extension list (`.COM;.EXE;.BAT;...`), 30-70 chars typical. |
+| `WSLENV` | WSL forwarded-env list, often long without path-heuristic chars. |
+| `__INTELLIJ_COMMAND_HISTFILE__` | IDE pollution; ~70 chars. |
+| `PSMODULEPATH` | PowerShell module search path on Windows. |
+| `SHELL_SESSION_HISTFILE` | Shell session history file path. |
+
+`suppressLengthWarningKeys` extends this list. Substring match: `MY_PROJECT` matches `MY_PROJECT_TOKEN_LIST`, `MY_PROJECT_BACKUP`, etc.
 
 ## See also
 
