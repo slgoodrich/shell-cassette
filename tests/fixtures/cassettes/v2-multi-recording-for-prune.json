@@ -1,0 +1,46 @@
+{
+  "version": 2,
+  "_warning": "REVIEW BEFORE COMMITTING.",
+  "_recorded_by": { "name": "shell-cassette", "version": "0.5.0" },
+  "recordings": [
+    {
+      "call": { "command": "echo", "args": ["one"], "cwd": null, "env": {}, "stdin": null },
+      "result": {
+        "stdoutLines": ["one"],
+        "stderrLines": [],
+        "allLines": null,
+        "exitCode": 0,
+        "signal": null,
+        "durationMs": 5,
+        "aborted": false
+      },
+      "_redactions": []
+    },
+    {
+      "call": { "command": "echo", "args": ["two"], "cwd": null, "env": {}, "stdin": null },
+      "result": {
+        "stdoutLines": ["two"],
+        "stderrLines": [],
+        "allLines": null,
+        "exitCode": 0,
+        "signal": null,
+        "durationMs": 5,
+        "aborted": false
+      },
+      "_redactions": []
+    },
+    {
+      "call": { "command": "echo", "args": ["three"], "cwd": null, "env": {}, "stdin": null },
+      "result": {
+        "stdoutLines": ["three"],
+        "stderrLines": [],
+        "allLines": null,
+        "exitCode": 0,
+        "signal": null,
+        "durationMs": 5,
+        "aborted": false
+      },
+      "_redactions": []
+    }
+  ]
+}
