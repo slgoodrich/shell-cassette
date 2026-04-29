@@ -1,22 +1,13 @@
-import { existsSync } from 'node:fs'
-import { copyFile, mkdtemp, readFile, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { copyFile, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { execa } from 'execa'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
+import { CLI, HAS_BUILT_CLI } from '../helpers/cli-e2e.js'
+import { useTmpDir } from '../helpers/tmp-dir.js'
 
 const FIXTURE = path.resolve('tests/fixtures/cassettes/v2-multi-recording-for-prune.json')
-const CLI = path.resolve('dist/bin.js')
 
-const HAS_BUILT_CLI = existsSync(CLI)
-
-let tmp: string
-beforeEach(async () => {
-  tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-prune-e2e-'))
-})
-afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true })
-})
+const tmp = useTmpDir('shell-cassette-prune-e2e-')
 
 describe.skipIf(!HAS_BUILT_CLI)('cli prune e2e', () => {
   test('--json mode emits pruneVersion: 1', async () => {
@@ -28,7 +19,7 @@ describe.skipIf(!HAS_BUILT_CLI)('cli prune e2e', () => {
   })
 
   test('--delete 0,2 removes recordings 0 and 2', async () => {
-    const targetPath = path.join(tmp, 'prune.json')
+    const targetPath = path.join(tmp.ref(), 'prune.json')
     await copyFile(FIXTURE, targetPath)
     const r = await execa('node', [CLI, 'prune', targetPath, '--delete', '0,2'])
     expect(r.exitCode).toBe(0)
@@ -38,7 +29,7 @@ describe.skipIf(!HAS_BUILT_CLI)('cli prune e2e', () => {
   })
 
   test('exit 2 on out-of-range index', async () => {
-    const targetPath = path.join(tmp, 'prune-bad.json')
+    const targetPath = path.join(tmp.ref(), 'prune-bad.json')
     await copyFile(FIXTURE, targetPath)
     const r = await execa('node', [CLI, 'prune', targetPath, '--delete', '99'], { reject: false })
     expect(r.exitCode).toBe(2)

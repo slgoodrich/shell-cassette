@@ -1,38 +1,17 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { runPrune } from '../../src/cli-prune.js'
 import { deserialize } from '../../src/serialize.js'
+import { useCapturedCliOutput } from '../helpers/capture-cli-output.js'
+import { useTmpDir } from '../helpers/tmp-dir.js'
 
-let tmp: string
-let outBuf: string[]
-let errBuf: string[]
-const origStdout = process.stdout.write.bind(process.stdout)
-const origStderr = process.stderr.write.bind(process.stderr)
-
-beforeEach(async () => {
-  tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-prune-write-'))
-  outBuf = []
-  errBuf = []
-  process.stdout.write = ((s: string) => {
-    outBuf.push(s)
-    return true
-  }) as typeof process.stdout.write
-  process.stderr.write = ((s: string) => {
-    errBuf.push(s)
-    return true
-  }) as typeof process.stderr.write
-})
-afterEach(async () => {
-  process.stdout.write = origStdout
-  process.stderr.write = origStderr
-  await rm(tmp, { recursive: true, force: true })
-})
+const tmp = useTmpDir('shell-cassette-prune-write-')
+useCapturedCliOutput()
 
 async function copyFixture(): Promise<string> {
   const src = path.resolve('tests/fixtures/cassettes/v2-multi-recording-for-prune.json')
-  const dst = path.join(tmp, 'fix.json')
+  const dst = path.join(tmp.ref(), 'fix.json')
   await writeFile(dst, await readFile(src, 'utf8'))
   return dst
 }

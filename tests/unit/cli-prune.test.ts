@@ -1,8 +1,9 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { parsePruneArgs, runPrune } from '../../src/cli-prune.js'
+import { useCapturedCliOutput } from '../helpers/capture-cli-output.js'
+import { useTmpDir } from '../helpers/tmp-dir.js'
 
 describe('parsePruneArgs', () => {
   test('--delete 0,2 parsed as [0, 2]', () => {
@@ -38,37 +39,19 @@ describe('parsePruneArgs', () => {
       /not a non-negative integer/,
     )
   })
+
+  test('throws on empty --delete= list', () => {
+    expect(() => parsePruneArgs(['./f.json', '--delete='])).toThrow(/list cannot be empty/)
+  })
 })
 
 describe('runPrune', () => {
-  let tmp: string
-  let outBuf: string[]
-  let errBuf: string[]
-  const origStdout = process.stdout.write.bind(process.stdout)
-  const origStderr = process.stderr.write.bind(process.stderr)
-
-  beforeEach(async () => {
-    tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-prune-'))
-    outBuf = []
-    errBuf = []
-    process.stdout.write = ((s: string) => {
-      outBuf.push(s)
-      return true
-    }) as typeof process.stdout.write
-    process.stderr.write = ((s: string) => {
-      errBuf.push(s)
-      return true
-    }) as typeof process.stderr.write
-  })
-  afterEach(async () => {
-    process.stdout.write = origStdout
-    process.stderr.write = origStderr
-    await rm(tmp, { recursive: true, force: true })
-  })
+  const tmp = useTmpDir('shell-cassette-prune-')
+  const cli = useCapturedCliOutput()
 
   async function copyFixture(): Promise<string> {
     const src = path.resolve('tests/fixtures/cassettes/v2-multi-recording-for-prune.json')
-    const dst = path.join(tmp, 'fix.json')
+    const dst = path.join(tmp.ref(), 'fix.json')
     await writeFile(dst, await readFile(src, 'utf8'))
     return dst
   }
@@ -76,7 +59,7 @@ describe('runPrune', () => {
   test('--json emits pruneVersion: 1 with all recordings listed', async () => {
     const fix = await copyFixture()
     expect(await runPrune([fix, '--json'])).toBe(0)
-    const out = JSON.parse(outBuf.join(''))
+    const out = JSON.parse(cli.stdout())
     expect(out.pruneVersion).toBe(1)
     expect(out.recordings).toHaveLength(3)
     expect(out.recordings[0]).toMatchObject({
@@ -107,35 +90,34 @@ describe('runPrune', () => {
   test('--delete with out-of-range index exits 2', async () => {
     const fix = await copyFixture()
     expect(await runPrune([fix, '--delete', '99'])).toBe(2)
-    expect(errBuf.join('')).toMatch(/index 99 out of range/)
+    expect(cli.stderr()).toMatch(/index 99 out of range/)
   })
 
   test('--delete with duplicate index exits 2', async () => {
     const fix = await copyFixture()
     expect(await runPrune([fix, '--delete', '0,0'])).toBe(2)
-    expect(errBuf.join('')).toMatch(/duplicate index/)
+    expect(cli.stderr()).toMatch(/duplicate index/)
   })
 
   test('bare prune <path> (no flags) exits 2 with guidance', async () => {
     const fix = await copyFixture()
     expect(await runPrune([fix])).toBe(2)
-    expect(errBuf.join('')).toMatch(/--delete <indexes> or --json/)
+    expect(cli.stderr()).toMatch(/--delete <indexes> or --json/)
   })
 
   test('--help returns 0', async () => {
     expect(await runPrune(['--help'])).toBe(0)
-    expect(outBuf.join('')).toContain('Usage:')
+    expect(cli.stdout()).toContain('Usage:')
   })
 
   test('exit 2 on missing path entirely', async () => {
     expect(await runPrune([])).toBe(2)
-    expect(errBuf.join('')).toMatch(/prune requires a path/)
+    expect(cli.stderr()).toMatch(/prune requires a path/)
   })
 
   test('--quiet --delete 0 suppresses stdout summary', async () => {
     const fix = await copyFixture()
-    outBuf.length = 0
     expect(await runPrune([fix, '--delete', '0', '--quiet'])).toBe(0)
-    expect(outBuf.join('')).toBe('')
+    expect(cli.stdout()).toBe('')
   })
 })

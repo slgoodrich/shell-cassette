@@ -9,7 +9,7 @@
  * Bare `prune <path>` (no flags) is an error. Workflow:
  * `prune --json | jq` to pick indexes, then `prune --delete <list>`.
  */
-import { setupCliColor, stderr, stdout } from './cli-output.js'
+import { type ColorOverride, setupCliColor, stderr, stdout } from './cli-output.js'
 import { CassetteConfigError, CassetteNotFoundError } from './errors.js'
 import { writeCassetteFile } from './io.js'
 import { loadCassette } from './loader.js'
@@ -42,8 +42,6 @@ Options:
   --color=always
   --help
 `
-
-type ColorOverride = 'auto' | 'always' | 'never'
 
 export type PruneFlags = {
   path: string | null
@@ -93,13 +91,15 @@ function parseIndexList(s: string): number[] {
     .split(',')
     .map((p) => p.trim())
     .filter((p) => p.length > 0)
+  if (parts.length === 0) {
+    throw new CassetteConfigError('--delete: list cannot be empty')
+  }
   const out: number[] = []
   for (const p of parts) {
-    const n = Number.parseInt(p, 10)
-    if (!Number.isInteger(n) || n < 0 || String(n) !== p) {
+    if (!/^\d+$/.test(p)) {
       throw new CassetteConfigError(`--delete: '${p}' is not a non-negative integer`)
     }
-    out.push(n)
+    out.push(Number.parseInt(p, 10))
   }
   return out
 }
