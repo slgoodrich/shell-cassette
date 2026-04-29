@@ -1,25 +1,14 @@
-import { existsSync } from 'node:fs'
-import { copyFile, mkdtemp, readFile, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { copyFile, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { execa } from 'execa'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
+import { CLI, HAS_BUILT_CLI } from '../helpers/cli-e2e.js'
 import { pacedStdin } from '../helpers/paced-stdin.js'
+import { useTmpDir } from '../helpers/tmp-dir.js'
 
 const FIXTURE = path.resolve('tests/fixtures/cassettes/v2-dirty.json')
-const CLI = path.resolve('dist/bin.js')
 
-// Skip the suite if dist isn't built so local `npm test` works without a prior
-// `npm run build`. CI builds before test, so all tests run there.
-const HAS_BUILT_CLI = existsSync(CLI)
-
-let tmp: string
-beforeEach(async () => {
-  tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-review-e2e-'))
-})
-afterEach(async () => {
-  await rm(tmp, { recursive: true, force: true })
-})
+const tmp = useTmpDir('shell-cassette-review-e2e-')
 
 describe.skipIf(!HAS_BUILT_CLI)('cli review e2e', () => {
   test('--json mode emits reviewVersion: 1 with findings', async () => {
@@ -32,7 +21,7 @@ describe.skipIf(!HAS_BUILT_CLI)('cli review e2e', () => {
   })
 
   test('interactive accept-then-confirm: drives stdin and writes redacted cassette', async () => {
-    const targetPath = path.join(tmp, 'review.json')
+    const targetPath = path.join(tmp.ref(), 'review.json')
     await copyFile(FIXTURE, targetPath)
 
     // Provide stdin: 'a' (accept the one finding) then 'y' (confirm apply).
@@ -51,7 +40,7 @@ describe.skipIf(!HAS_BUILT_CLI)('cli review e2e', () => {
   })
 
   test('interactive quit: cassette unchanged on disk', async () => {
-    const targetPath = path.join(tmp, 'review-quit.json')
+    const targetPath = path.join(tmp.ref(), 'review-quit.json')
     await copyFile(FIXTURE, targetPath)
     const before = await readFile(targetPath, 'utf8')
 

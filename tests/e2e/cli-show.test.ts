@@ -1,14 +1,9 @@
-import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { execa } from 'execa'
 import { describe, expect, test } from 'vitest'
+import { CLI, HAS_BUILT_CLI } from '../helpers/cli-e2e.js'
 
 const FIXTURE = path.resolve('tests/fixtures/cassettes/v2-dirty.json')
-const CLI = path.resolve('dist/bin.js')
-
-// Skip the suite if dist isn't built so local `npm test` works without a prior
-// `npm run build`. CI builds before test, so all tests run there.
-const HAS_BUILT_CLI = existsSync(CLI)
 
 describe.skipIf(!HAS_BUILT_CLI)('cli show e2e', () => {
   test('terminal mode emits header, version, redactions, recording sections', async () => {
