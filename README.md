@@ -7,8 +7,6 @@
 
 > Polly.js for shell commands. Record subprocess output once, replay deterministically forever. Credential redaction on by default, with `shell-cassette scan` as a pre-commit safety check.
 
-> **Migrating from v0.3?** v0.4 ships breaking changes. See the [migration callout](#migrating-from-v03) below or [CHANGELOG](CHANGELOG.md#040---2026-xx-xx).
-
 ## Why
 
 Tests that shell out are flaky in subtle ways. `git log` returns different output every commit. CI hits a registry that occasionally times out. `gh` and `aws` calls don't work on a plane. The CLI you're wrapping isn't installed on the CI image.
@@ -35,7 +33,7 @@ shell-cassette fits tests that **assert on subprocess output** (stdout, stderr, 
 
 It is NOT for:
 
-- Tests asserting on **which command was called** (`expect(execMock).toHaveBeenCalledWith(...)`). That's mock-for-assertion. Use `vi.mock` instead; that's a different problem and `vi.mock` is the right tool for it.
+- Tests asserting on **which command was called** (`expect(execMock).toHaveBeenCalledWith(...)`). That's mock-for-assertion. Use `vi.mock` instead.
 - Tests where the subprocess **mutates state** (creates a commit, installs packages, writes files) that non-mocked downstream code then reads. Replay returns recorded output but doesn't perform the mutation; downstream sees an unset-up state.
 
 See [What this doesn't do](#what-this-doesnt-do) for the full incompatibility list.
@@ -110,11 +108,11 @@ CI:
 npm test  # CI=true forces replay-strict
 ```
 
-Cassettes land at `__cassettes__/<test-file>/<test-name>.json`. Commit them.
+Cassettes are written to `__cassettes__/<test-file>/<test-name>.json`. Commit them.
 
 ## Adapters
 
-shell-cassette ships drop-in replacements for two subprocess libraries:
+shell-cassette provides drop-in replacements for two subprocess libraries:
 
 - **[execa](docs/execa.md)** (`shell-cassette/execa`)
 - **[tinyexec](docs/tinyexec.md)** (`shell-cassette/tinyexec`)
@@ -157,11 +155,11 @@ Set via `SHELL_CASSETTE_MODE=record|replay|passthrough|auto`. `CI=true` forces `
 
 ## Security: redaction
 
-shell-cassette refuses to record without `SHELL_CASSETTE_ACK_REDACTION=true`. The ack gate forces a conscious "I know what gets redacted and what doesn't" decision before any cassette lands on disk. Recording is the only mode that requires it; replay needs nothing.
+shell-cassette refuses to record without `SHELL_CASSETTE_ACK_REDACTION=true`. The ack gate forces a conscious "I know what gets redacted and what doesn't" decision before any cassette is written to disk. Recording is the only mode that requires it; replay needs nothing.
 
 ### Redacted by default
 
-shell-cassette ships **25 bundled credential patterns**, applied to env values, args, stdout lines, stderr lines, and `allLines`. Each pattern is anchored, character-class-locked, and length-bounded by the issuer's published format:
+shell-cassette provides **25 bundled credential patterns**, applied to env values, args, stdout lines, stderr lines, and `allLines`. Each pattern is anchored, character-class-locked, and length-bounded by the issuer's published format:
 
 - **GitHub** (`ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`, `github_pat_`)
 - **AWS access key IDs** (`AKIA`, `ASIA`, `AROA`, `AIDA`, `AGPA`, `ANPA`, `ANVA`, `APKA`, `ABIA`, `ACCA`)
@@ -180,7 +178,7 @@ shell-cassette ships **25 bundled credential patterns**, applied to env values, 
 - **Discord** (three-segment base64 bot tokens)
 - **Square** (`EAAA`)
 
-Full reference table with provider docs in [docs/redact-patterns.md](docs/redact-patterns.md). Rule names are API-stable: locked at v0.4 and never renamed.
+Full reference table with provider docs in [docs/redact-patterns.md](docs/redact-patterns.md).
 
 Each redaction replaces the credential with a counter-tagged placeholder: `<redacted:source:rule-name:N>`. The counter is per-cassette per (source, rule). Diff-friendly: re-recording a cassette with the same secrets produces identical placeholders.
 
@@ -213,9 +211,9 @@ shell-cassette redacts what it can detect with 100% reliability and warns on sus
 - **Encoded credentials.** `Authorization: Basic <base64>` headers, base64-encoded YAML/JSON secrets. shell-cassette doesn't decode. Add a custom rule if relevant.
 - **Binary output.** `BinaryOutputError` blocks recording when the subprocess emits non-UTF-8.
 - **`cwd` values.** Credentials in working-directory paths are vanishingly rare; not redacted.
-- **Subprocess `stdin`.** Not captured in v0.4. v0.5 will capture stdin and apply the same pipeline.
+- **Subprocess `stdin`.** Not captured.
 
-Workarounds for each gap are in [docs/troubleshooting.md](docs/troubleshooting.md#residual-risks-and-gaps-in-v04-redaction).
+Workarounds for each gap are in [docs/troubleshooting.md](docs/troubleshooting.md#residual-risks-and-gaps-in-redaction).
 
 ### Long-value warnings
 
@@ -233,7 +231,7 @@ Each cassette JSON also contains a top-level `_warning` field reminding reviewer
 
 ## Pre-commit hook
 
-The `shell-cassette scan` CLI walks cassette files (or directories) and reports any unredacted findings. Run it as a pre-commit hook to block credentials from ever landing in a commit.
+The `shell-cassette scan` CLI walks cassette files (or directories) and reports any unredacted findings. Run it as a pre-commit hook to block credentials from ever ending up in a commit.
 
 **husky:**
 
@@ -262,7 +260,7 @@ When the hook blocks: review the listed findings, run `npx shell-cassette re-red
 
 ## CLI usage
 
-shell-cassette ships a `shell-cassette` binary with two subcommands.
+shell-cassette includes a `shell-cassette` binary with five subcommands. Two write to cassettes (`re-redact`, `prune`), one walks them interactively (`review`), two are read-only (`scan`, `show`).
 
 ### `scan`
 
@@ -322,6 +320,72 @@ Common flags:
 
 Exit `0` no new redactions, `1` at least one cassette modified (or would be in dry-run), `2` error.
 
+### `show`
+
+Read-only. Pretty-prints a single cassette for human inspection.
+
+```bash
+npx shell-cassette show tests/__cassettes__/login.json
+npx shell-cassette show tests/__cassettes__/login.json --json | jq '.summary'
+npx shell-cassette show tests/__cassettes__/login.json --full   # disable truncation
+```
+
+Default output is sectioned (header + per-recording listing). `--json` emits structured output locked at `showVersion: 1`. See [`docs/cli.md`](./docs/cli.md#shell-cassette-show-path) for the full reference.
+
+Exit `0` ok, `2` error.
+
+### `review`
+
+Walk un-redacted findings interactively. For each finding, pick `(a)` accept, `(s)` skip, `(r)` replace, `(d)` delete, `(b)` back, or `(q)` quit. Decisions are batched and applied atomically on confirm. The skip action persists via the cassette's `_suppressed` field so `re-redact` and subsequent `review` runs do not re-flag the same match.
+
+```bash
+npx shell-cassette review tests/__cassettes__/foo.json
+npx shell-cassette review tests/__cassettes__/foo.json --json   # read-only finding listing
+```
+
+`--json` emits a finding listing locked at `reviewVersion: 1` with default-safe match output (sha256 hash + preview). Use `--include-match` to include raw match values; treat the resulting JSON as sensitive.
+
+See [`docs/cli.md`](./docs/cli.md#shell-cassette-review-path) for the full reference.
+
+Exit `0` reviewed (with or without changes), `2` error.
+
+### `prune`
+
+Remove recordings by 0-based index. Atomic write.
+
+```bash
+npx shell-cassette prune tests/__cassettes__/foo.json --json   # list recordings
+npx shell-cassette prune tests/__cassettes__/foo.json --delete 0,2
+```
+
+There is no interactive walk. Pipe `prune --json | jq` to pick indexes by command, args, or exit code, then pass the comma-separated list to `--delete`. Bare `prune <path>` (no flags) is an error. See [`docs/cli.md`](./docs/cli.md#shell-cassette-prune-path) for the full reference.
+
+Exit `0` ok, `2` error.
+
+### Cassette inspection workflow
+
+A typical flow when a freshly-recorded cassette has findings:
+
+```bash
+# 1. Record (the ack gate runs at record time)
+SHELL_CASSETTE_ACK_REDACTION=true npm test
+
+# 2. Verify nothing leaked
+npx shell-cassette scan tests/__cassettes__
+
+# 3. If scan is dirty, walk findings and decide per-match
+npx shell-cassette review tests/__cassettes__/the-dirty-one.json
+
+# 4. Optionally remove unwanted recordings
+npx shell-cassette prune tests/__cassettes__/the-dirty-one.json --json | jq ...
+npx shell-cassette prune tests/__cassettes__/the-dirty-one.json --delete 0,5
+
+# 5. Final verification before commit
+npx shell-cassette scan tests/__cassettes__
+git add tests/__cassettes__
+git commit
+```
+
 ### Ack-gate workflow
 
 Recording requires `SHELL_CASSETTE_ACK_REDACTION=true`. Replay does not. Typical flow:
@@ -340,14 +404,14 @@ npm test
 npm test  # CI=true is set by your CI provider
 ```
 
-Run `shell-cassette --help`, `shell-cassette scan --help`, and `shell-cassette re-redact --help` for the full flag list.
+Run `shell-cassette --help` for the full subcommand list, or `shell-cassette <command> --help` for per-subcommand flags.
 
 ## Adapter quirks
 
-A few v0.4 specifics worth knowing:
+A few v0.4 specifics:
 
 - **`shell-cassette/tinyexec` exports `exec` as an alias for `x`.** Mirrors tinyexec's own dual export so `import { exec } from 'tinyexec'` redirects to `import { exec } from 'shell-cassette/tinyexec'` without renaming.
-- **`shell-cassette/tinyexec.xSync` throws.** Sync subprocess wrapping requires synchronous lazy-load support, planned for v0.5. Use async `x` (recommended), or import `xSync` directly from `tinyexec` (those calls bypass shell-cassette).
+- **`shell-cassette/tinyexec.xSync` throws.** Sync subprocess wrapping is not supported. Use async `x` (recommended), or import `xSync` directly from `tinyexec` (those calls bypass shell-cassette).
 - **`result.process` on tinyexec replay throws** a clear `ShellCassetteError`. Tests reading `result.process.stdout` / `.stderr` / `.stdin` should switch to the buffered `result.stdout` / `result.stderr` fields, or run with `SHELL_CASSETTE_MODE=passthrough`.
 
 See [docs/tinyexec.md](docs/tinyexec.md) for the full set of replay limits.
@@ -466,26 +530,6 @@ The default canonicalize is conservative. These patterns are NOT normalized. Wri
 | Custom `$TMPDIR` outside the standard set (e.g., `/scratch/...`) | Compose your own pattern alongside `defaultCanonicalize` |
 | `process.cwd()` substrings inside args | Custom canonicalize that replaces `call.cwd ?? ''` with a token |
 
-## Migrating from v0.3
-
-v0.4 ships breaking changes around redaction and the cassette schema. The full list lives in the [CHANGELOG](CHANGELOG.md#040---2026-xx-xx); the practical migration steps are:
-
-1. **Update your config.** `Config.redactEnvKeys` moved under the new composed `Config.redact` shape:
-   ```diff
-   - export default { redactEnvKeys: ['STRIPE_API_KEY'] }
-   + export default { redact: { envKeys: ['STRIPE_API_KEY'] } }
-   ```
-2. **Remove any direct calls to `redactEnv()`.** The function is removed. The recorder applies redaction transparently at record time; if you need ad-hoc redaction in your code, use the exported `redact()` instead.
-3. **Upgrade existing cassettes.** v0.4 bumps the cassette schema from version 1 to version 2. v0.4 reads both; v0.3 readers reject v2. If you've already recorded under v0.3 and want v0.4's redaction applied to them in place:
-   ```bash
-   npx shell-cassette re-redact tests/__cassettes__/
-   ```
-   Idempotent; running twice yields identical output.
-4. **Add the pre-commit hook.** v0.4 ships the `shell-cassette scan` CLI; wire it as a pre-commit hook (see [Pre-commit hook](#pre-commit-hook) above).
-5. **Review residual gaps.** v0.4's bundle covers 25 credential shapes but does not cover AWS Secret Access Keys, JWTs, or encoded credentials. Check the [Not redacted (residual risks)](#not-redacted-residual-risks) section and [docs/troubleshooting.md](docs/troubleshooting.md#residual-risks-and-gaps-in-v04-redaction); add custom rules for project-specific shapes if needed.
-
-Mixed-version teams should pin to v0.4 across the team. Cassettes recorded by v0.4 are not loadable by v0.3.
-
 ## Common gotchas
 
 If you hit one of these, see [docs/troubleshooting.md](docs/troubleshooting.md):
@@ -505,7 +549,7 @@ If you hit one of these, see [docs/troubleshooting.md](docs/troubleshooting.md):
 
 Two patterns shell-cassette is not a fit for. 
 
-**Mock-for-assertion patterns.** shell-cassette captures and replays subprocess **output**, not subprocess invocations. Tests that assert on **which command was called** (`expect(execMock).toHaveBeenCalledWith('git', ['commit', ...])`) are testing the wrong abstraction layer. Use `vi.mock` for that pattern; it's a different concern. Examples in the wild: `prettier/pretty-quick`, `antfu/ni`, `jinghaihan/pncat`.
+**Mock-for-assertion patterns.** shell-cassette captures and replays subprocess **output**, not subprocess invocations. Tests that assert on **which command was called** (`expect(execMock).toHaveBeenCalledWith('git', ['commit', ...])`) are testing the wrong abstraction layer. Use `vi.mock` for that pattern. Examples in the wild: `prettier/pretty-quick`, `antfu/ni`, `jinghaihan/pncat`.
 
 **Subprocess as state mutator.** shell-cassette mocks subprocess **outputs** on replay; it does NOT actually re-execute the subprocess. Tests that use a subprocess to mutate state (`git commit` to make a real commit, `mkdir`/`touch` to create files, `npm install` to populate node_modules), then have downstream code that depends on that mutation, will fail in replay mode: setup is mocked, no real mutation happens, downstream sees an unset-up state. Two patterns to watch for:
 
@@ -516,10 +560,6 @@ shell-cassette is for **output-assertion** tests: spawn a subprocess, capture st
 
 ## Real-world results
 
-### Each claim, what proves it
-
-Every claim in [What this unlocks](#why) is backed by a concrete demonstration. The table below maps claim to evidence.
-
 | Claim | What was demonstrated |
 |---|---|
 | Reproducible CI failures | One subprocess call recorded, then replayed 10 times in sequence. All 10 replays produce byte-identical stdout, stderr, and exitCode. If any external variance leaked through, at least one of the ten would diverge. |
@@ -529,11 +569,9 @@ Every claim in [What this unlocks](#why) is backed by a concrete demonstration. 
 | Speed | Per-call: ~75ms record vs ~1.2ms replay on a trivial node-eval workload (60x). Full suite: unjs/nypm 211.72s record vs 0.263s replay (805x). See speedup table below. |
 | Credentials stay out | All 25 bundled patterns plus 5 curated env-key substrings exercised end-to-end. 30 cassettes recorded, scanned with `shell-cassette scan`, 0 dirty. The host's `LM_STUDIO_API_KEY` was caught by `API_KEY` substring match on every recording. Pattern reference: [docs/redact-patterns.md](docs/redact-patterns.md). |
 
-Demonstrations live in the validation harness alongside the project. The first four are new in v0.4 (`determinism`, `offline`, `failure-path`); credentials and full-suite speed have been validated since v0.3 (M9-M10) and v0.4 M14 respectively.
-
 ### Speedup measurements
 
-Three projects measured on Windows + Node 23.11 against v0.4. Point measurements, not benchmarks: directional only.
+Three projects measured on Windows + Node 23.11. Point measurements, not benchmarks.
 
 | Project | Tests / cassettes | Test-phase speedup | Wall speedup | Notes |
 |---|---:|---:|---:|---|
@@ -545,7 +583,7 @@ Wall-time speedup is bounded by vitest startup (~300-400ms regardless of mode). 
 
 **What "speedup" means here.** Record runs the real subprocess once, replay reads the cassette. The multiplier is record test-phase divided by replay test-phase. Wall-time speedup includes vitest startup and is the smaller number. Both numbers vary with machine state, Node version, and background load.
 
-**What "tests / cassettes" means here.** Not every test in a project's suite cleanly cassettes: tests that assert on subprocess side effects (filesystem state, network calls outside subprocess) can't replay because the side effect didn't happen. Tests reading `result.process.stdout` synchronously hit the same limit. The test count is the suite's full execution count under SC; the cassette count is what records cleanly. Tests outside the cassettable surface either fall to passthrough or fail in replay with actionable errors. See [docs/troubleshooting.md](docs/troubleshooting.md) for patterns and workarounds.
+**What "tests / cassettes" means here.** Not every test in a project's suite records to a cassette: tests that assert on subprocess side effects (filesystem state, network calls outside subprocess) can't replay because the side effect didn't happen. Tests reading `result.process.stdout` synchronously hit the same limit. The test count is the suite's full execution count under SC; the cassette count is what records without errors. Tests outside the cassettable surface either fall to passthrough or fail in replay with actionable errors. See [docs/troubleshooting.md](docs/troubleshooting.md) for patterns and workarounds.
 
 ## License
 

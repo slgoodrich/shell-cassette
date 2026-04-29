@@ -8,8 +8,7 @@
  *   - default: interactive terminal walk
  *   - --json: read-only structured listing of findings (locked at reviewVersion: 1)
  *
- * Action keys (a/s/r/d/b/q/?) are API-locked. Renames would be a breaking
- * change. Prompt strings are NOT API.
+ * Prompt strings are not part of the API; bots should use --json instead.
  */
 import {
   applyTruncation,

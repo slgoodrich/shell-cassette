@@ -138,7 +138,7 @@ If you previously relied on the mock for safety guards (e.g., refusing to run su
 
 ## `BinaryOutputError`
 
-Subprocess produced non-UTF-8 bytes in stdout/stderr. shell-cassette v0.2 only supports UTF-8 cassettes.
+Subprocess produced non-UTF-8 bytes in stdout/stderr. shell-cassette only supports UTF-8 cassettes.
 
 **Workaround:** if you control the subprocess, redirect binary output to a file:
 
@@ -169,11 +169,11 @@ The curated list (`TOKEN`, `SECRET`, `PASSWORD`, etc.) catches the common cases.
 
 ## What shell-cassette does NOT redact
 
-shell-cassette v0.4 redacts what it can detect with 100% reliability and warns on suspicious-looking unredacted values. The bundle covers 25 prefix-anchored credential formats (GitHub, AWS access key IDs, Stripe, OpenAI, Anthropic, Slack, npm, etc.; see [docs/redact-patterns.md](redact-patterns.md)) plus curated env-key matching plus your own custom rules. What it doesn't redact is below.
+shell-cassette redacts what it can detect with 100% reliability and warns on suspicious-looking unredacted values. The bundle covers 25 prefix-anchored credential formats (GitHub, AWS access key IDs, Stripe, OpenAI, Anthropic, Slack, npm, etc.; see [docs/redact-patterns.md](redact-patterns.md)) plus curated env-key matching plus your own custom rules. What it doesn't redact is below.
 
-### Residual risks and gaps in v0.4 redaction
+### Residual risks and gaps in redaction
 
-- **AWS Secret Access Keys.** 40-char base64 with no documented prefix. Indistinguishable from generic hashes/UUIDs/build IDs by pattern alone. The long-value warning catches them at length 40+ when the value doesn't look like a path. If you ship cassettes that may contain AWS Secret Access Keys, add them to `redact.envKeys` (so the env value is whole-value redacted by key match) or write a project-specific custom rule.
+- **AWS Secret Access Keys.** 40-char base64 with no documented prefix. Indistinguishable from generic hashes/UUIDs/build IDs by pattern alone. The long-value warning catches them at length 40+ when the value doesn't look like a path. If your cassettes may contain AWS Secret Access Keys, add them to `redact.envKeys` (so the env value is whole-value redacted by key match) or write a project-specific custom rule.
 - **JWTs.** Many JWTs in the wild are public ID tokens or JWKS responses, not bearer secrets. Bundling JWT detection produces false positives on routine OAuth flows. Opt-in via a custom rule when your JWTs are bearer-shaped:
   ```ts
   customPatterns: [{
@@ -182,9 +182,9 @@ shell-cassette v0.4 redacts what it can detect with 100% reliability and warns o
   }]
   ```
 - **Encoded credentials.** `Authorization: Basic <base64>` headers and base64-encoded YAML/JSON secrets pass through. shell-cassette doesn't decode. Add a custom rule if your test surface includes them.
-- **Binary output.** `BinaryOutputError` blocks recording when the subprocess emits non-UTF-8. Out of scope for v0.4.
+- **Binary output.** `BinaryOutputError` blocks recording when the subprocess emits non-UTF-8.
 - **`cwd` values.** Credentials in working-directory paths are vanishingly rare; not redacted.
-- **Subprocess `stdin`.** Not captured in v0.4; nothing on disk to redact. v0.5 will capture stdin and apply the same pipeline.
+- **Subprocess `stdin`.** Not captured; nothing on disk to redact.
 
 Each gap has a workaround: long-value warning catches length anomalies, custom rules cover project-specific shapes, suppress patterns silence known fixtures, and `useCassette({ redact: false })` disables the pipeline for cassettes that legitimately need raw values (DO NOT commit those).
 
@@ -243,7 +243,7 @@ After upgrading, commit the modified cassettes alongside the version bump. Revie
 
 ## When stdout contains a credential the test asserts on
 
-If your test asserts on stdout content that legitimately contains a credential (e.g., an OAuth flow test that prints a token), the v0.4 default pipeline replaces the credential with a placeholder. The replayed stdout your test sees is the placeholder, not the credential.
+If your test asserts on stdout content that legitimately contains a credential (e.g., an OAuth flow test that prints a token), the default redaction pipeline replaces the credential with a placeholder. The replayed stdout your test sees is the placeholder, not the credential.
 
 Two options, in order of preference:
 
@@ -312,7 +312,7 @@ Source code that memoizes a subprocess result at module level (`const hasCorepac
 2. **`vi.resetModules()` between tests.** Forces vitest to re-import modules, which re-fires the cache once per test inside that test's session. Works but adds overhead.
 3. **Use a single shared cassette per test file.** If the cached subprocess call genuinely should fire once per file, scope cassettes to the file (not the test) so all tests share the same recording. Requires custom path logic.
 
-shell-cassette can't auto-detect this pattern. The `_redactions` schema field and the path resolver work per-recording; a module-level cache is invisible to them. Tracked in [#76](https://github.com/slgoodrich/shell-cassette/issues/76); future work may add a shared-cassette mode.
+shell-cassette can't auto-detect this pattern. The `_redactions` schema field and the path resolver work per-recording; a module-level cache is invisible to them. Tracked in [#76](https://github.com/slgoodrich/shell-cassette/issues/76).
 
 ## Naive `resolve.alias` self-loops; use `shellCassetteAlias`
 
@@ -326,7 +326,7 @@ export default defineConfig({
 })
 ```
 
-shell-cassette ships a vite plugin that adds the importer guard:
+shell-cassette includes a vite plugin that adds the importer guard:
 
 ```ts
 // vitest.config.ts
@@ -357,13 +357,13 @@ Windows fails when total path length exceeds 240 chars. shell-cassette's path sa
 - **Shorten `cassetteDir`.** Default is `__cassettes__` (13 chars). If you've configured `tests/integration/__cassettes__/` (32 chars), consider moving cassettes to a shorter root.
 - **Move test files closer to the project root.** A test at `tests/feature.test.ts` produces a shorter cassette path than one at `packages/server/src/__tests__/integration/feature.test.ts`.
 
-A `cassettesRoot` config (project-root-relative cassette directory, decoupling cassette paths from test file location) is tracked in [#81](https://github.com/slgoodrich/shell-cassette/issues/81) for v0.5.
+A `cassettesRoot` config (project-root-relative cassette directory, decoupling cassette paths from test file location) is tracked in [#81](https://github.com/slgoodrich/shell-cassette/issues/81).
 
 ## `xSync` from shell-cassette/tinyexec throws
 
 shell-cassette/tinyexec's `xSync` is a stub that throws a clear error pointing to async `x`:
 
-> shell-cassette/tinyexec.xSync is not yet wrapped (tracked in #82). Sync subprocess wrapping requires synchronous lazy-load support, planned for v0.5.
+> shell-cassette/tinyexec.xSync is not yet wrapped (tracked in #82). Sync subprocess wrapping requires synchronous lazy-load support.
 
 **Why:** wrapping sync subprocess execution requires synchronous module loading for the peer dep, which shell-cassette doesn't currently support. The async `x` adapter uses top-level await for resolution.
 
@@ -371,7 +371,6 @@ shell-cassette/tinyexec's `xSync` is a stub that throws a clear error pointing t
 
 - **Use async `x`** (recommended). Refactor sync call sites to async; you get cassette coverage.
 - **Import `xSync` directly from `tinyexec`.** Those calls bypass shell-cassette and run real subprocess. Acceptable for pre-flight version checks and similar non-determinism-sensitive paths.
-- **Wait for v0.5** ([#82](https://github.com/slgoodrich/shell-cassette/issues/82)).
 
 ## `result.process` throws on tinyexec replay
 
@@ -385,4 +384,3 @@ Tests that read `result.process.stdout` (streaming) or `result.process.stderr` (
 
 - **Refactor to use `result.stdout` / `result.stderr`** (the buffered string fields). They contain the full captured output and are deterministic.
 - **`SHELL_CASSETTE_MODE=passthrough`** for tests that genuinely need stream access.
-- **Wait for v0.5**; future work may synthesize a fake stream from buffered output ([#83](https://github.com/slgoodrich/shell-cassette/issues/83)).

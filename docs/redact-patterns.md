@@ -1,6 +1,6 @@
 # Bundled redaction patterns
 
-shell-cassette ships 25 default-on credential patterns. Each pattern is anchored, character-class-locked, and length-bounded by the issuer's published format. Rule names are API-stable: they ship locked at v0.4 and are never renamed. New patterns may be added additively in any version; removing or renaming a rule name is a breaking change.
+shell-cassette provides 25 default-on credential patterns. Each pattern is anchored, character-class-locked, and length-bounded by the issuer's published format.
 
 For ambiguous credential shapes (AWS Secret Access Keys, JWTs, generic 32-hex tokens), the bundle deliberately does not include a pattern. The long-value warning catches them at length 40+ when they don't look like a path. Custom rules cover the rest.
 

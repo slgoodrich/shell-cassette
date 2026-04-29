@@ -4,6 +4,31 @@ All notable changes to shell-cassette are documented here. The format is based o
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-XX-XX
+
+No public API changes from the main `shell-cassette` entry. The cassette schema stays at version 2 (additive `_suppressed` field, no v3 bump). v0.4 cassettes load and replay correctly under v0.5; v0.4 readers ignore the new field.
+
+### Added
+
+- **`shell-cassette show <path>` subcommand.** Pretty-prints a cassette for human inspection. Default terminal output is sectioned (header + per-recording with cwd, redacted env keys, exit + duration, line-count truncation). `--json` emits structured output locked at `showVersion: 1`. TTY-aware color, `--no-color` and `--color=always` overrides, `--full` to disable truncation, `--lines <N>` to set lines per stream (default 5).
+- **`shell-cassette review <path>` subcommand.** Interactive walkthrough of unredacted findings. Action keys: `(a)` accept (apply default redaction), `(s)` skip (persist via `_suppressed`), `(r)` replace (substitute custom string; not for args), `(d)` delete (remove the recording), `(b)` back (revisit previous finding), `(q)` quit (discard all decisions), `(?)` help. Decisions are batched and applied atomically on confirm. `--json` emits a read-only finding listing locked at `reviewVersion: 1` with default-safe match output (hash + preview); `--include-match` opts into raw match values (UNSAFE for piping to logs / CI artifacts).
+- **`shell-cassette prune <path>` subcommand.** Remove recordings by 0-based index. `--delete <indexes>` takes a comma-separated list, validates range and rejects duplicates, writes atomically. `--json` emits a read-only listing locked at `pruneVersion: 1` for `jq` composition. `--quiet` suppresses the stdout summary on `--delete`. Bare `prune <path>` (no flags) is an error; the workflow is `prune --json | jq` to pick indexes, then `prune --delete <list>`.
+- **Cassette schema additive: `_suppressed: [{source, rule, position, matchHash}]` per recording.** Written by `review`'s `(s)kip` action; consulted by `re-redact` and `review`'s pre-scan to avoid re-flagging matches the user previously chose to skip. Skip semantics key off `matchHash` (sha256 hex), so the same secret in different positions across recordings is suppressed uniformly.
+- **`CassetteInternalError`** typed `ShellCassetteError` subclass for exhaustiveness throws (`default: const _: never = action; throw new CassetteInternalError(...)`). Programmatic catches on `ShellCassetteError` still pick it up.
+
+### Changed
+
+- The bin's `--help` text now lists 5 subcommands (`scan`, `re-redact`, `show`, `review`, `prune`).
+- `re-redact` and `review`'s pre-scan both consult cassette `_suppressed` entries. Matches whose hash is in any recording's suppressed list are not re-flagged on subsequent runs.
+- `RedactOptions` (internal pipeline shape) gains optional `suppressedHashes: ReadonlySet<string>`. v0.4 callers (recorder, canonicalize) pass undefined and behave identically; v0.5's `re-redact` and `review` pass populated sets built from `_suppressed` entries.
+
+### Notes
+
+- **Prompt strings are NOT API.** Bots should use `--json` modes plus `re-redact` for automation, not parse interactive prompt text.
+- **Match values in `--json` output default to hash + preview format.** Use `--include-match` for raw values; treat the resulting JSON as sensitive.
+- **`prune --interactive` was cut from v0.5.** `prune --json | jq` plus `prune --delete <list>` covers the workflow without a state machine. Revisit if users ask.
+- **`(r)eplace` in `review` is unavailable for args** (canonicalize-incompatible). Documented limitation; users can `(d)elete` the recording instead, or hand-edit the cassette JSON.
+
 ## [0.4.0] - 2026-04-28
 
 ### BREAKING CHANGES
@@ -19,7 +44,7 @@ All notable changes to shell-cassette are documented here. The format is based o
 
 ### Added
 
-- **25 bundled credential pattern rules** (see `docs/redact-patterns.md`). Default ON. Applies to env values, args, stdout lines, stderr lines, and `allLines`. Covers GitHub (6 token shapes), AWS access key IDs, Stripe (4), OpenAI, Anthropic, Google, Slack (token + webhook URL), GitLab, npm, DigitalOcean, SendGrid, Mailgun, Hugging Face, PyPI, Discord, Square. Rule names are API-stable: locked at v0.4 and never renamed.
+- **25 bundled credential pattern rules** (see `docs/redact-patterns.md`). Default ON. Applies to env values, args, stdout lines, stderr lines, and `allLines`. Covers GitHub (6 token shapes), AWS access key IDs, Stripe (4), OpenAI, Anthropic, Google, Slack (token + webhook URL), GitLab, npm, DigitalOcean, SendGrid, Mailgun, Hugging Face, PyPI, Discord, Square.
 - **User-supplied custom rules** via `Config.redact.customPatterns: RedactRule[]`. Each rule has a kebab-case `name`, a `pattern` (regex or `(s) => string` function), and an optional `description`. Same five-source coverage as the bundle.
 - **Suppress list** via `Config.redact.suppressPatterns: RegExp[]`. Checked first, before bundle and custom rules. A suppressed value is exempt from all rules and from the long-value warning.
 - **Per-cassette redaction override**: `useCassette(name, { redact: false }, fn)`. Coarse-grained; per-stream toggling not supported.
@@ -43,8 +68,7 @@ All notable changes to shell-cassette are documented here. The format is based o
 
 ### Notes
 
-- **Documented residual gaps** in the redaction surface: AWS Secret Access Keys (caught only by length warning), JWTs (default-off; opt-in via custom rule), encoded credentials (`Authorization: Basic ...`, base64 YAML/JSON), binary output (`BinaryOutputError`), `cwd` values, subprocess `stdin` (until v0.5). See README's "Not redacted (residual risks)" section and `docs/troubleshooting.md` "Residual risks and gaps in v0.4 redaction".
-- **v0.5 will add `show`, `review`, `prune` CLIs** to the same binary, plus the `_suppressed` schema field for `review`'s persistent skip semantics.
+- **Documented residual gaps** in the redaction surface: AWS Secret Access Keys (caught only by length warning), JWTs (default-off; opt-in via custom rule), encoded credentials (`Authorization: Basic ...`, base64 YAML/JSON), binary output (`BinaryOutputError`), `cwd` values, subprocess `stdin`. See README's "Not redacted (residual risks)" section and `docs/troubleshooting.md` "Residual risks and gaps in redaction".
 - **Cassettes recorded by v0.4 are NOT loadable by v0.3.** v0.3's deserializer rejects the schema version. v0.4 still loads v0.3 cassettes; mixed-version teams should pin to v0.4 across the team.
 
 ## [0.3.0] - 2026-04-26
