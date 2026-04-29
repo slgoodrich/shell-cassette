@@ -7,8 +7,6 @@
 
 > Polly.js for shell commands. Record subprocess output once, replay deterministically forever. Credential redaction on by default, with `shell-cassette scan` as a pre-commit safety check.
 
-> **Migrating from v0.3?** v0.4 ships breaking changes. See the [migration callout](#migrating-from-v03) below or [CHANGELOG](CHANGELOG.md#040---2026-xx-xx).
-
 ## Why
 
 Tests that shell out are flaky in subtle ways. `git log` returns different output every commit. CI hits a registry that occasionally times out. `gh` and `aws` calls don't work on a plane. The CLI you're wrapping isn't installed on the CI image.
@@ -531,26 +529,6 @@ The default canonicalize is conservative. These patterns are NOT normalized. Wri
 | Relative tmp paths via `path.relative(cwd, tmpPath)` | Custom canonicalize that resolves to absolute first |
 | Custom `$TMPDIR` outside the standard set (e.g., `/scratch/...`) | Compose your own pattern alongside `defaultCanonicalize` |
 | `process.cwd()` substrings inside args | Custom canonicalize that replaces `call.cwd ?? ''` with a token |
-
-## Migrating from v0.3
-
-v0.4 ships breaking changes around redaction and the cassette schema. The full list lives in the [CHANGELOG](CHANGELOG.md#040---2026-xx-xx); the practical migration steps are:
-
-1. **Update your config.** `Config.redactEnvKeys` moved under the new composed `Config.redact` shape:
-   ```diff
-   - export default { redactEnvKeys: ['STRIPE_API_KEY'] }
-   + export default { redact: { envKeys: ['STRIPE_API_KEY'] } }
-   ```
-2. **Remove any direct calls to `redactEnv()`.** The function is removed. The recorder applies redaction transparently at record time; if you need ad-hoc redaction in your code, use the exported `redact()` instead.
-3. **Upgrade existing cassettes.** v0.4 bumps the cassette schema from version 1 to version 2. v0.4 reads both; v0.3 readers reject v2. If you've already recorded under v0.3 and want v0.4's redaction applied to them in place:
-   ```bash
-   npx shell-cassette re-redact tests/__cassettes__/
-   ```
-   Idempotent; running twice yields identical output.
-4. **Add the pre-commit hook.** v0.4 ships the `shell-cassette scan` CLI; wire it as a pre-commit hook (see [Pre-commit hook](#pre-commit-hook) above).
-5. **Review residual gaps.** v0.4's bundle covers 25 credential shapes but does not cover AWS Secret Access Keys, JWTs, or encoded credentials. Check the [Not redacted (residual risks)](#not-redacted-residual-risks) section and [docs/troubleshooting.md](docs/troubleshooting.md#residual-risks-and-gaps-in-v04-redaction); add custom rules for project-specific shapes if needed.
-
-Mixed-version teams should pin to v0.4 across the team. Cassettes recorded by v0.4 are not loadable by v0.3.
 
 ## Common gotchas
 
