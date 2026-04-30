@@ -5,18 +5,25 @@
 [![Node.js](https://img.shields.io/node/v/shell-cassette.svg)](https://www.npmjs.com/package/shell-cassette)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-> Polly.js for shell commands. Record subprocess output once, replay deterministically forever. Credential redaction on by default, with `shell-cassette scan` as a pre-commit safety check.
+> Snapshot testing for subprocess output. Run your tests with real CLIs once; cassettes capture stdout, stderr, and exit codes. Replay is fast, deterministic, and works without the CLI installed.
+>
+> Built for libraries that wrap a CLI and assert on its output: package-manager wrappers, gh and oclif extensions, deploy-CLI wrappers, git tooling.
 
 ## Why
 
-Tests that shell out are flaky in subtle ways. `git log` returns different output every commit. CI hits a registry that occasionally times out. `gh` and `aws` calls don't work on a plane. The CLI you're wrapping isn't installed on the CI image.
+Three problems, depending on the CLI you wrap:
 
-You're choosing between two bad options:
+- **Wrapping a network CLI** (gh, deploy CLIs, package managers that hit a registry)? No API calls in tests. No rate limits. No credentials in CI.
+- **Wrapping a local CLI** (git, basic POSIX, language toolchains)? Subprocess spawn cost eliminated. Test loops run at memory speed.
+- **CLI not in your default CI image** (Docker, kubectl, terraform)? Replay works without the binary installed.
 
-- **Run real subprocesses every test.** Slow, flaky, depends on your machine, doesn't work offline.
-- **Hand-roll mocks.** Fast and deterministic, but you're guessing what the real subprocess returns. Mocks drift; the test passes when reality wouldn't.
+Without shell-cassette, you're picking among three painful options:
 
-shell-cassette is the third option: **real subprocess output captured once, replayed deterministically forever.** Real like a subprocess, fast like a mock. With 25 bundled credential patterns redacting on every record, plus `shell-cassette scan` to verify before commit.
+- **Run real subprocesses every test.** Slow. Flaky for network-dependent CLIs. Depends on the wrapped binary being installed and credentialed in CI.
+- **Hand-roll fixtures.** Fast and deterministic, but the fixtures drift from the wrapped CLI's actual behavior. Tests pass while reality wouldn't.
+- **`vi.mock` the runner and assert on call shape.** Brittle. Tests pass when the wrapper invokes the right command, but the wrapped CLI changed its actual output.
+
+shell-cassette captures real subprocess output once and replays it deterministically forever. Real like a subprocess, fast like a mock, accurate like neither.
 
 What this unlocks:
 
@@ -29,14 +36,16 @@ What this unlocks:
 
 ### Is this for you?
 
-shell-cassette fits tests that **assert on subprocess output** (stdout, stderr, exit code, signal).
+shell-cassette fits tests that treat subprocess output as a contract: invoke the CLI, capture stdout/stderr/exit code, assert on it.
 
-It is NOT for:
+It is NOT for tests that:
 
-- Tests asserting on **which command was called** (`expect(execMock).toHaveBeenCalledWith(...)`). That's mock-for-assertion. Use `vi.mock` instead.
-- Tests where the subprocess **mutates state** (creates a commit, installs packages, writes files) that non-mocked downstream code then reads. Replay returns recorded output but doesn't perform the mutation; downstream sees an unset-up state.
+- **Use the subprocess as a state mutator** (filesystem changes, db writes, IPC) that downstream tests inherit. Replay returns recorded output but doesn't perform the mutation; downstream sees an unset-up state.
+- **Read `result.stdout`/`result.stderr` as live streams synchronously.** shell-cassette captures buffered output, not stream events.
+- **Use `vi.mock` to assert on call shape** (`expect(execMock).toHaveBeenCalledWith(...)`). That's testing the wrapper's invocation, not the wrapped CLI's behavior. Use `vi.mock` for that pattern.
+- **Pipe-chain subprocesses** via `.pipe()` mid-execution. Replay can't recreate live pipe semantics.
 
-See [What this doesn't do](#what-this-doesnt-do) for the full incompatibility list.
+See [What this doesn't do](#what-this-doesnt-do) for examples and workarounds.
 
 ## Install
 
@@ -204,7 +213,7 @@ export default {
 
 ### Not redacted (residual risks)
 
-shell-cassette redacts what it can detect with 100% reliability and warns on suspicious-looking unredacted values. Some shapes can't be detected reliably:
+shell-cassette redacts what it can detect reliably and warns on suspicious-looking unredacted values. Some shapes can't be detected reliably:
 
 - **AWS Secret Access Keys.** 40-char base64, no documented prefix. Caught by the long-value warning at length 40+ when the value isn't path-shaped. Add the env key to `redact.envKeys` if your tests carry one as an env var.
 - **JWTs.** Many JWTs in the wild are public ID tokens or JWKS responses, not bearer secrets. Default-off; opt-in via a custom rule when your JWTs are bearer-shaped.
@@ -268,57 +277,25 @@ Read-only. Walks cassette paths and reports unredacted findings.
 
 ```bash
 npx shell-cassette scan tests/__cassettes__/
-npx shell-cassette scan path/to/single-cassette.json
 npx shell-cassette scan --json tests/__cassettes__/   # structured output for tooling
-npx shell-cassette scan --quiet tests/__cassettes__/  # exit code only
 ```
 
-Common flags:
-
-| Flag | Behavior |
-|---|---|
-| `--json` | Structured output (locked schema, `scanVersion: 1`). |
-| `--quiet` | Suppress stdout; use the exit code only. |
-| `--include-match` | With `--json`, include raw match values. UNSAFE for piping; use only for local debugging. |
-| `--config <path>` | Override config discovery. |
-| `--no-bundled` | Skip bundled patterns; check user rules and suppress list only. |
-| `--no-color` / `--color=always` | Color override. |
-
-Example output:
-
-```
-tests/__cassettes__/login.test.ts/test-1.json: 2 unredacted finding(s)
-  [rec0-stdout-1:0-github-pat-classic]: ghp_aBcD1234... (40 chars)
-  [rec0-env-GH_TOKEN:0-env-key-match]: ghp_aBcD1234... (40 chars)
-
-1 cassette(s) scanned, 1 dirty, 0 error(s).
-```
+`--json` emits structured output locked at `scanVersion: 1`. See [`docs/cli.md`](./docs/cli.md#shell-cassette-scan-paths) for the full reference.
 
 Exit `0` clean, `1` dirty, `2` error.
 
 ### `re-redact`
 
-Re-applies the current redaction rules to existing cassettes. Idempotent: running twice yields identical output. Use this when the bundle expands or when you add a custom rule and want to upgrade existing cassettes.
+Re-applies the current redaction rules to existing cassettes. Idempotent. Use this when the bundle expands or you add a custom rule.
 
 ```bash
 npx shell-cassette re-redact tests/__cassettes__/
 npx shell-cassette re-redact --dry-run tests/__cassettes__/   # preview
-npx shell-cassette re-redact path/to/single-cassette.json
 ```
 
-Existing placeholders are preserved; new findings get counters at `max(existing) + 1` per (source, rule). v1 cassettes are upgraded to v2 in place.
+Existing placeholders are kept; new findings get counters at `max(existing) + 1` per (source, rule). v1 cassettes upgrade to v2 in place. See [`docs/cli.md`](./docs/cli.md#shell-cassette-re-redact-paths) for the full reference.
 
-Common flags:
-
-| Flag | Behavior |
-|---|---|
-| `--dry-run` | Preview changes without writing. |
-| `--quiet` | Suppress stdout summary. |
-| `--config <path>` | Override config discovery. |
-| `--no-bundled` | Skip bundled patterns. |
-| `--no-color` / `--color=always` | Color override. |
-
-Exit `0` no new redactions, `1` at least one cassette modified (or would be in dry-run), `2` error.
+Exit `0` no new redactions, `1` modified, `2` error.
 
 ### `show`
 
@@ -547,16 +524,20 @@ If you hit one of these, see [docs/troubleshooting.md](docs/troubleshooting.md):
 
 ## What this doesn't do
 
-Two patterns shell-cassette is not a fit for. 
+Four paradigms shell-cassette doesn't fit. Each is a fundamentally different test pattern, not a missing feature.
 
-**Mock-for-assertion patterns.** shell-cassette captures and replays subprocess **output**, not subprocess invocations. Tests that assert on **which command was called** (`expect(execMock).toHaveBeenCalledWith('git', ['commit', ...])`) are testing the wrong abstraction layer. Use `vi.mock` for that pattern. Examples in the wild: `prettier/pretty-quick`, `antfu/ni`, `jinghaihan/pncat`.
-
-**Subprocess as state mutator.** shell-cassette mocks subprocess **outputs** on replay; it does NOT actually re-execute the subprocess. Tests that use a subprocess to mutate state (`git commit` to make a real commit, `mkdir`/`touch` to create files, `npm install` to populate node_modules), then have downstream code that depends on that mutation, will fail in replay mode: setup is mocked, no real mutation happens, downstream sees an unset-up state. Two patterns to watch for:
+**Subprocess as state mutator.** shell-cassette replays recorded subprocess output; it does NOT actually re-execute the subprocess. Tests that use a subprocess to mutate state (`git commit` to make a real commit, `mkdir`/`touch` to create files, `npm install` to populate node_modules), then have downstream code that depends on that mutation, fail in replay mode: setup is mocked, no real mutation happens, downstream sees an unset-up state. Two patterns to watch for:
 
 - Setup uses wrapped `exec` for state changes; a non-wrapped library (or a `vi.mock` chain that calls real `actual.x`) reads the resulting state. The wrapped calls return mocked output but the state never changed. The unwrapped reads see the true (unmutated) state.
 - A test branches on subprocess output (`if status === clean`) and the branch performs writes the next assertion depends on. Replay returns the recorded "clean" output but the writes that depended on a real subprocess having run never happen.
 
-shell-cassette is for **output-assertion** tests: spawn a subprocess, capture stdout / exit code / signal, assert on it. For state orchestration where a real mutation has to happen, run those calls outside shell-cassette's scope (or in `passthrough` mode).
+For state orchestration where a real mutation has to happen, run those calls outside shell-cassette's scope (or in `passthrough` mode).
+
+**Sync stream reads.** Tests that read `result.process.stdout` / `.stderr` / `.stdin` as live streams synchronously (rather than awaiting buffered `result.stdout` / `result.stderr` strings) hit a replay limit. shell-cassette captures buffered output, not stream events. Refactor the test to await the buffered fields, or run with `SHELL_CASSETTE_MODE=passthrough`.
+
+**Mock-for-assertion patterns.** shell-cassette captures and replays subprocess **output**, not subprocess invocations. Tests that assert on **which command was called** (`expect(execMock).toHaveBeenCalledWith('git', ['commit', ...])`) are testing the wrong abstraction layer. Use `vi.mock` for that pattern. Examples in the wild: `prettier/pretty-quick`, `antfu/ni`, `jinghaihan/pncat`.
+
+**Pipe-chaining subprocesses.** `.pipe()` between subprocesses (real-time stdout-to-stdin streaming) requires a live producer subprocess. shell-cassette has no live subprocess on replay. Calls to `.pipe()` on a replayed result throw `ShellCassetteError`. Tests that pipe-chain need to either run with `SHELL_CASSETTE_MODE=passthrough` or refactor to consume buffered output between calls.
 
 ## Real-world results
 
@@ -566,7 +547,7 @@ shell-cassette is for **output-assertion** tests: spawn a subprocess, capture st
 | Determinism | Same demo as above. The recorded subprocess output drives every replay regardless of host node version, system clock, or locale. |
 | Offline development | Subprocess script written to a temp file, recorded, then the script file is **deleted before replay**. A pre-replay sanity check uses Node's built-in `child_process` to confirm a real exec would now fail with ENOENT. Replay still returns the recorded output. The cassette is the only place the bytes can come from. |
 | Failure-path testing | Successful subprocess (`exitCode: 0`) recorded. Cassette JSON read, mutated to `exitCode: 137`, written back. Replay throws an ExecaError-shaped object with `exitCode === 137`, `failed === true`. The user's `try/catch` runs. With `reject: false`, replay returns the same shape without throwing. |
-| Speed | Per-call: ~75ms record vs ~1.2ms replay on a trivial node-eval workload (60x). Full suite: unjs/nypm 211.72s record vs 0.263s replay (805x). See speedup table below. |
+| Speed | Full suite (end-to-end): unjs/nypm 98.8s record vs 0.9s replay (~110x). Tests-phase only: 211.72s vs 0.263s (~800x). Per-call: ~75ms vs ~1.2ms on a trivial node-eval workload (~60x). See speedup table below. |
 | Credentials stay out | All 25 bundled patterns plus 5 curated env-key substrings exercised end-to-end. 30 cassettes recorded, scanned with `shell-cassette scan`, 0 dirty. The host's `LM_STUDIO_API_KEY` was caught by `API_KEY` substring match on every recording. Pattern reference: [docs/redact-patterns.md](docs/redact-patterns.md). |
 
 ### Speedup measurements
