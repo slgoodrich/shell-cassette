@@ -55,7 +55,7 @@ export type CassetteFile = {
 
 export type Canonicalize = (call: Call, redactConfig: Readonly<RedactConfig>) => Partial<Call>
 
-export type RedactSource = 'env' | 'args' | 'stdout' | 'stderr' | 'allLines'
+export type RedactSource = 'env' | 'args' | 'stdin' | 'stdout' | 'stderr' | 'allLines'
 
 export type RedactRule = {
   /**

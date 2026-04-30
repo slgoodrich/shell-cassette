@@ -6,7 +6,7 @@ const SCHEMA_VERSION = 2
 const REVIEW_WARNING =
   'REVIEW BEFORE COMMITTING. shell-cassette redacts bundled credential patterns + ' +
   'curated env-key values + your custom rules. It does NOT redact: AWS Secret Access Keys, ' +
-  'JWTs (without opt-in), encoded credentials, binary output, cwd, stdin. ' +
+  'JWTs (without opt-in), encoded credentials, binary output, cwd. ' +
   'Run `shell-cassette scan <path>` to verify before committing. ' +
   'See https://github.com/slgoodrich/shell-cassette/blob/main/docs/troubleshooting.md'
 
