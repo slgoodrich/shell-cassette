@@ -23,7 +23,7 @@ Without shell-cassette, you're picking among three painful options:
 - **Hand-roll fixtures.** Fast and deterministic, but the fixtures drift from the wrapped CLI's actual behavior. Tests pass while reality wouldn't.
 - **`vi.mock` the runner and assert on call shape.** Brittle. Tests pass when the wrapper invokes the right command, but the wrapped CLI changed its actual output.
 
-shell-cassette captures real subprocess output once and replays it deterministically forever. Real like a subprocess, fast like a mock, accurate like neither.
+shell-cassette captures real subprocess output once and replays it deterministically forever. Real like a subprocess, fast like a mock.
 
 What this unlocks:
 
