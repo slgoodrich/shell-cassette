@@ -6,6 +6,7 @@ import { execa } from '../../src/execa.js'
 import { x } from '../../src/tinyexec.js'
 import { useCassette } from '../../src/use-cassette.js'
 import { restoreEnv } from '../helpers/env.js'
+import { NODE_ECHO_STDIN } from '../helpers/subprocess-targets.js'
 import { useTmpDir } from '../helpers/tmp-dir.js'
 
 const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
@@ -22,10 +23,6 @@ afterEach(() => {
   restoreEnv('SHELL_CASSETTE_MODE', originalMode)
 })
 
-// `node -e 'process.stdin.pipe(process.stdout)'` is portable across
-// Linux/macOS/Windows. cat(1) is not available on stock Windows.
-const ECHO_STDIN = ['-e', 'process.stdin.pipe(process.stdout)']
-
 describe('e2e record + replay with input: string', () => {
   const tmp = useTmpDir('sc-stdin-')
 
@@ -34,13 +31,13 @@ describe('e2e record + replay with input: string', () => {
 
     let firstStdout: string | undefined
     await useCassette(cp, async () => {
-      const r = await execa('node', ECHO_STDIN, { input: 'foo' })
+      const r = await execa('node', NODE_ECHO_STDIN, { input: 'foo' })
       firstStdout = r.stdout
       expect(firstStdout).toBe('foo')
     })
 
     await useCassette(cp, async () => {
-      const r = await execa('node', ECHO_STDIN, { input: 'foo' })
+      const r = await execa('node', NODE_ECHO_STDIN, { input: 'foo' })
       expect(r.stdout).toBe(firstStdout)
     })
 
@@ -54,7 +51,7 @@ describe('e2e record + replay with input: string', () => {
 
     // Record with input: 'foo'
     await useCassette(cp, async () => {
-      const r = await execa('node', ECHO_STDIN, { input: 'foo' })
+      const r = await execa('node', NODE_ECHO_STDIN, { input: 'foo' })
       expect(r.stdout).toBe('foo')
     })
 
@@ -64,7 +61,7 @@ describe('e2e record + replay with input: string', () => {
     try {
       await useCassette(cp, async () => {
         try {
-          await execa('node', ECHO_STDIN, { input: 'bar' })
+          await execa('node', NODE_ECHO_STDIN, { input: 'bar' })
           throw new Error('should not reach')
         } catch (e) {
           expect(e).toBeInstanceOf(ReplayMissError)
@@ -84,13 +81,13 @@ describe('tinyexec stdin', () => {
 
     let firstStdout: string | undefined
     await useCassette(cp, async () => {
-      const r = await x('node', ECHO_STDIN, { stdin: 'foo' })
+      const r = await x('node', NODE_ECHO_STDIN, { stdin: 'foo' })
       firstStdout = r.stdout
       expect(firstStdout).toBe('foo')
     })
 
     await useCassette(cp, async () => {
-      const r = await x('node', ECHO_STDIN, { stdin: 'foo' })
+      const r = await x('node', NODE_ECHO_STDIN, { stdin: 'foo' })
       expect(r.stdout).toBe(firstStdout)
     })
 
@@ -103,7 +100,7 @@ describe('tinyexec stdin', () => {
     const cp = path.join(tmp.ref(), 'stdin-mismatch.json')
 
     await useCassette(cp, async () => {
-      const r = await x('node', ECHO_STDIN, { stdin: 'foo' })
+      const r = await x('node', NODE_ECHO_STDIN, { stdin: 'foo' })
       expect(r.stdout).toBe('foo')
     })
 
@@ -111,7 +108,7 @@ describe('tinyexec stdin', () => {
     try {
       await useCassette(cp, async () => {
         try {
-          await x('node', ECHO_STDIN, { stdin: 'bar' })
+          await x('node', NODE_ECHO_STDIN, { stdin: 'bar' })
           throw new Error('should not reach')
         } catch (e) {
           expect(e).toBeInstanceOf(ReplayMissError)

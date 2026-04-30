@@ -5,6 +5,7 @@ import { BinaryInputError, ShellCassetteError } from '../../src/errors.js'
 import { execa } from '../../src/execa.js'
 import { useCassette } from '../../src/use-cassette.js'
 import { restoreEnv } from '../helpers/env.js'
+import { NODE_ECHO_STDIN } from '../helpers/subprocess-targets.js'
 import { useTmpDir } from '../helpers/tmp-dir.js'
 
 const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
@@ -20,8 +21,6 @@ afterEach(() => {
   restoreEnv('SHELL_CASSETTE_MODE', originalMode)
 })
 
-const ECHO_STDIN = ['-e', 'process.stdin.pipe(process.stdout)']
-
 // Lone 0xC3 followed by 0x28 is an invalid UTF-8 sequence (0xC3 expects a
 // continuation byte in 0x80-0xBF, and 0x28 is outside that range).
 const INVALID_UTF8 = Buffer.from([0xc3, 0x28])
@@ -36,7 +35,7 @@ describe('BinaryInputError on inputFile', () => {
 
     try {
       await useCassette(cp, async () => {
-        await execa('node', ECHO_STDIN, { inputFile: fixture })
+        await execa('node', NODE_ECHO_STDIN, { inputFile: fixture })
       })
       throw new Error('should not reach')
     } catch (e) {
@@ -53,7 +52,7 @@ describe('BinaryInputError on inputFile', () => {
     // Record with a UTF-8 fixture so a recording exists.
     await writeFile(fixture, 'utf-8 content', 'utf8')
     await useCassette(cp, async () => {
-      await execa('node', ECHO_STDIN, { inputFile: fixture })
+      await execa('node', NODE_ECHO_STDIN, { inputFile: fixture })
     })
 
     // Swap the file for binary content. BuildCall reads the file before
@@ -64,7 +63,7 @@ describe('BinaryInputError on inputFile', () => {
     process.env.SHELL_CASSETTE_MODE = 'replay'
     try {
       await useCassette(cp, async () => {
-        await execa('node', ECHO_STDIN, { inputFile: fixture })
+        await execa('node', NODE_ECHO_STDIN, { inputFile: fixture })
       })
       throw new Error('should not reach')
     } catch (e) {

@@ -78,7 +78,8 @@ export async function runWrapped<Opts, ResultShape>(
     }
     const recording = loaded.matcher.findMatch(call)
     if (recording === null) {
-      throw buildReplayMissError(call, loaded, hasNodeFlag(options))
+      const hint = hasNodeFlag(options) ? `\n\n${NODE_FLAG_HINT}` : ''
+      throw buildReplayMissError(call, loaded, hint)
     }
     return hooks.synthesize(recording, options)
   }
@@ -176,10 +177,8 @@ function captureAndRecord<Opts, ResultShape>(
 
 const REPLAY_MISS_DIAGNOSTIC_LIMIT = 10
 
-// Tells `buildReplayMissError` whether to append the node-flag mismatch
-// hint. Computed at the call site rather than threading `options: Opts`
-// through the helper so the runner-agnostic helper stays decoupled from
-// adapter-specific option shapes.
+// Adapter-specific hint helpers. Kept here at one instance; refactor to a
+// hooks-based design (e.g., `RunnerHooks.buildMissHints`) at the third hint.
 function hasNodeFlag(options: unknown): boolean {
   return (
     typeof options === 'object' && options !== null && (options as { node?: unknown }).node === true
@@ -189,17 +188,12 @@ function hasNodeFlag(options: unknown): boolean {
 const NODE_FLAG_HINT = `(canonical forms ignore the \`node\` flag. \`execaNode(f)\` and \`execa(f, [], { node: true })\` share recordings with calls made without the flag. If you mix node-mode and non-node-mode for the same command in one test, the cassette may serve the wrong recording.)`
 
 /**
- * Constructs a `ReplayMissError` for an in-session matcher miss. The third
- * parameter is required (no default) so future refactors that extend the
- * wrapper must explicitly compute it via `hasNodeFlag(options)` or pass
- * `false` deliberately. A silent `false` default would drop the node-flag
- * hint at refactor time without any compile-time signal.
+ * Constructs a `ReplayMissError` for an in-session matcher miss. The `hint`
+ * parameter is required (no default) so callers must compute it deliberately;
+ * a silent empty default would drop hint content at refactor time without any
+ * compile-time signal. Pass `''` when no hint applies.
  */
-function buildReplayMissError(
-  call: Call,
-  session: LoadedSession,
-  nodeFlagSet: boolean,
-): ReplayMissError {
+function buildReplayMissError(call: Call, session: LoadedSession, hint: string): ReplayMissError {
   const canonical = session.canonicalize(call, session.redactConfig)
   const recordings = session.loadedFile?.recordings ?? []
   const shown = recordings.slice(0, REPLAY_MISS_DIAGNOSTIC_LIMIT)
@@ -215,7 +209,6 @@ function buildReplayMissError(
         .map((r) => JSON.stringify(session.canonicalize(r.call, session.redactConfig)))
         .join('\n  - ') + truncated
     : '(none)'
-  const hint = nodeFlagSet ? `\n\n${NODE_FLAG_HINT}` : ''
   return new ReplayMissError(
     `no matching recording for \`${formatCallSignature(call)}\`
   cassette:        ${session.path}
