@@ -4,6 +4,32 @@ All notable changes to shell-cassette are documented here. The format is based o
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-04-30
+
+Surface coverage for stdin and the previously-rejected execa input options. The cassette schema stays at version 2; v0.5 cassettes load and replay unchanged. v0.5 cassettes have `stdin: null` and continue to match calls that pass no input option.
+
+### Added
+
+- **`input: 'string'` on execa.** Buffered stdin is stored on `Call.stdin` and included in the default match-tuple. Non-string `input` (Uint8Array, Readable) is still rejected.
+- **`inputFile` on execa.** The file is read by shell-cassette before the matcher runs, stored on `Call.stdin`, and included in the match-tuple. UTF-8 only.
+- **`node: true` on execa, plus `execaNode` named export.** Routed to real `execaNode` on record. The `node` flag is not stored in the cassette, so recordings made via `node: true` and `execaNode(...)` are interchangeable.
+- **`stdin: 'string'` on tinyexec is now stored in cassettes** and included in the match-tuple. Calls carrying stdin match only against recordings made with the same stdin.
+- **`lines` object form on execa** (`{ stdout, stderr, all, fd1, fd2 }`). Toggles per-stream array vs. string output.
+- **`BinaryInputError` typed `ShellCassetteError` subclass.** Thrown when `inputFile` points at a non-UTF-8 file. Static code: `CASSETTE_BINARY_INPUT`.
+- **Stdin in the default canonicalize.** `defaultCanonicalize` now includes `stdin` (with the same redaction-normalization as args/stdout/stderr). Custom canonicalize functions that omit stdin keep their existing behavior.
+- **Stdin redaction.** `RedactSource` extends to include `'stdin'`. Bundled patterns, custom rules, and the suppress list all apply to stdin values.
+
+### Changed
+
+- **Cassette `_warning` text drops `stdin` from the not-redacted list.** The text continues to enumerate the residual gaps that remain (AWS Secret Access Keys, JWTs, encoded credentials, binary output, cwd).
+- **`defaultCanonicalize` includes `stdin`.** Existing cassettes recorded under v0.5 stored `Call.stdin` as `null`; those continue to match calls that pass no input option.
+- **`RunnerHooks.buildCall` is now async.** This is an internal API; users importing only the high-level entries (`shell-cassette/execa`, `shell-cassette/tinyexec`) are unaffected. The async signature is required to read `inputFile` before the matcher runs.
+
+### Notes
+
+- **Cassette schema stays at version 2.** v0.5 cassettes load and replay correctly under v0.6. The `stdin` field on `Call` was already present in v0.5 cassettes (as `null` for calls without stdin); v0.6 just starts storing values into it.
+- **`inputFile` is read twice** on the record path (once by shell-cassette to populate `Call.stdin`, once by real execa). Tracked for v0.7 optimization; functionally equivalent today.
+
 ## [0.5.1] - 2026-04-29
 
 Heuristic refinement to the long-value warning. No API or schema changes from 0.5.0; cassettes recorded under any prior version load and replay unchanged.
