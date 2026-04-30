@@ -167,3 +167,131 @@ describe('synthesize: lines option resolution', () => {
     expect('all' in result).toBe(false)
   })
 })
+
+// Pre-PR-3 the synthesize path used `slice(0, -1)` unconditionally. That
+// works for cassettes recorded from arrays or trailing-newline strings (the
+// '' marker exists), but over-trims cassettes recorded from plain strings
+// without a trailing newline (no '' marker, so the real last line gets
+// dropped). The dropTrailingMarker helper is conditional: drop only if the
+// final element actually IS the '' marker.
+describe('synthesize: dropTrailingMarker (string-origin, no-trailing-newline cassettes)', () => {
+  beforeEach(() => {
+    _resetForTesting()
+    vi.mocked(realExecaMock).mockReset()
+    delete process.env.SHELL_CASSETTE_MODE
+    delete process.env.SHELL_CASSETTE_ACK_REDACTION
+    delete process.env.CI
+  })
+
+  afterEach(() => {
+    _resetForTesting()
+    clearActiveCassette()
+  })
+
+  test('string-origin no-trailing-newline single line under lines: true preserves the line', async () => {
+    // toLines('foo') -> ['foo']. Pre-fix: slice(0,-1) -> []. Post-fix: ['foo'].
+    const result = (await replayWithLines(
+      { lines: true },
+      { stdoutLines: ['foo'], stderrLines: [''] },
+    )) as { stdout: unknown }
+    expect(result.stdout).toEqual(['foo'])
+  })
+
+  test('string-origin no-trailing-newline multi-line under lines: true preserves all lines', async () => {
+    // toLines('foo\nbar') -> ['foo', 'bar']. Pre-fix: ['foo']. Post-fix: ['foo', 'bar'].
+    const result = (await replayWithLines(
+      { lines: true },
+      { stdoutLines: ['foo', 'bar'], stderrLines: [''] },
+    )) as { stdout: unknown }
+    expect(result.stdout).toEqual(['foo', 'bar'])
+  })
+
+  test('mid-output empty line preserved under lines: true', async () => {
+    // toLines('foo\n\nbar') -> ['foo', '', 'bar']. No trailing marker -> no slice.
+    const result = (await replayWithLines(
+      { lines: true },
+      { stdoutLines: ['foo', '', 'bar'], stderrLines: [''] },
+    )) as { stdout: unknown }
+    expect(result.stdout).toEqual(['foo', '', 'bar'])
+  })
+
+  test('trailing empty line preserved, marker stripped under lines: true', async () => {
+    // toLines('foo\n\n') -> ['foo', '', '']. Trailing '' is the marker; the
+    // legitimate empty line at index 1 must survive.
+    const result = (await replayWithLines(
+      { lines: true },
+      { stdoutLines: ['foo', '', ''], stderrLines: [''] },
+    )) as { stdout: unknown }
+    expect(result.stdout).toEqual(['foo', ''])
+  })
+
+  test('array-origin recording still works under lines: true', async () => {
+    // toLines(['foo', 'bar']) -> ['foo', 'bar', '']. Marker present, slice it.
+    const result = (await replayWithLines(
+      { lines: true },
+      { stdoutLines: ['foo', 'bar', ''], stderrLines: [''] },
+    )) as { stdout: unknown }
+    expect(result.stdout).toEqual(['foo', 'bar'])
+  })
+
+  test('empty stdoutLines [""] under lines: true returns []', async () => {
+    // toLines(undefined) -> ['']. Only element is the marker; result is [].
+    const result = (await replayWithLines(
+      { lines: true },
+      { stdoutLines: [''], stderrLines: [''] },
+    )) as { stdout: unknown }
+    expect(result.stdout).toEqual([])
+  })
+
+  test('stderr string-origin no-trailing-newline preserves the line under lines: true', async () => {
+    const result = (await replayWithLines(
+      { lines: true },
+      { stdoutLines: [''], stderrLines: ['boom'] },
+    )) as { stderr: unknown }
+    expect(result.stderr).toEqual(['boom'])
+  })
+
+  test('stderr empty array [""] under lines: true returns []', async () => {
+    const result = (await replayWithLines(
+      { lines: true },
+      { stdoutLines: [''], stderrLines: [''] },
+    )) as { stderr: unknown }
+    expect(result.stderr).toEqual([])
+  })
+
+  test('stderr array-origin still works under lines: true', async () => {
+    const result = (await replayWithLines(
+      { lines: true },
+      { stdoutLines: [''], stderrLines: ['e1', 'e2', ''] },
+    )) as { stderr: unknown }
+    expect(result.stderr).toEqual(['e1', 'e2'])
+  })
+
+  test('result.all string-origin no-trailing-newline under lines: { all: true } preserves the line', async () => {
+    // toLines('x\ny') -> ['x', 'y']. Pre-fix: ['x']. Post-fix: ['x', 'y'].
+    const result = (await replayWithLines({ all: true, lines: { all: true } } as Options, {
+      stdoutLines: [''],
+      stderrLines: [''],
+      allLines: ['x', 'y'],
+    })) as { all: unknown }
+    expect(result.all).toEqual(['x', 'y'])
+  })
+
+  test('result.all array-origin still works under lines: { all: true }', async () => {
+    const result = (await replayWithLines({ all: true, lines: { all: true } } as Options, {
+      stdoutLines: [''],
+      stderrLines: [''],
+      allLines: ['x', 'y', ''],
+    })) as { all: unknown }
+    expect(result.all).toEqual(['x', 'y'])
+  })
+
+  test('result.all missing allLines under lines: { all: true } falls back to []', async () => {
+    const result = (await replayWithLines({ all: true, lines: { all: true } } as Options, {
+      stdoutLines: [''],
+      stderrLines: [''],
+      allLines: null,
+    })) as { all: unknown }
+    expect(result.all).toEqual([])
+  })
+})

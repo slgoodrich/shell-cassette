@@ -123,16 +123,30 @@ function resolveLines(opts: Options): { stdout: boolean; stderr: boolean; all: b
   return { stdout, stderr, all }
 }
 
+// The cassette format does not encode whether a recording's stdout/stderr was
+// originally a string or an array. `toLines` on capture appends '' as a
+// trailing marker only when the source was an array OR a string that ended in
+// '\n' (split('\n') leaves a trailing '' in that case). A plain string without
+// a trailing newline records as `['foo']` (no marker). On replay under
+// `lines: true`, unconditionally trimming the last element over-trims that
+// case. Conditional slice: only drop the last element when it actually IS the
+// '' marker. Handles both old and new cassettes.
+function dropTrailingMarker(lines: readonly string[]): string[] {
+  return lines.length > 0 && lines[lines.length - 1] === '' ? lines.slice(0, -1) : lines.slice()
+}
+
 function synthesize(rec: Recording, options: Options): unknown {
   const linesByStream = resolveLines(options)
   const stdoutAsString = rec.result.stdoutLines.join('\n')
   const stderrAsString = rec.result.stderrLines.join('\n')
-  const stdout = linesByStream.stdout ? rec.result.stdoutLines.slice(0, -1) : stdoutAsString
-  const stderr = linesByStream.stderr ? rec.result.stderrLines.slice(0, -1) : stderrAsString
+  const stdout = linesByStream.stdout ? dropTrailingMarker(rec.result.stdoutLines) : stdoutAsString
+  const stderr = linesByStream.stderr ? dropTrailingMarker(rec.result.stderrLines) : stderrAsString
   const all =
     options.all === true
       ? linesByStream.all
-        ? (rec.result.allLines?.slice(0, -1) ?? [])
+        ? rec.result.allLines
+          ? dropTrailingMarker(rec.result.allLines)
+          : []
         : (rec.result.allLines?.join('\n') ?? stdoutAsString + stderrAsString)
       : undefined
   const result = {
