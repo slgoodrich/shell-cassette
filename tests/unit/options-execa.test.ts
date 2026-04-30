@@ -47,8 +47,8 @@ describe('validateOptions', () => {
     expect(() => validateOptions({ input: { read: () => null } })).toThrow(UnsupportedOptionError)
   })
 
-  test('throws on node:true (execaNode)', () => {
-    expect(() => validateOptions({ node: true })).toThrow(UnsupportedOptionError)
+  test('accepts node:true (execaNode is supported)', () => {
+    expect(() => validateOptions({ node: true })).not.toThrow()
   })
 
   test('error message includes the option name and backlog reference', () => {
