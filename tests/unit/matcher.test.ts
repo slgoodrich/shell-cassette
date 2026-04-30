@@ -2,6 +2,10 @@ import { describe, expect, test, vi } from 'vitest'
 import { DEFAULT_CONFIG } from '../../src/config.js'
 import { defaultCanonicalize, MatcherState } from '../../src/matcher.js'
 import type { Call, Canonicalize } from '../../src/types.js'
+import {
+  SAMPLE_GITHUB_PAT_CLASSIC,
+  SAMPLE_STRIPE_SECRET_LIVE,
+} from '../helpers/credential-fixtures.js'
 import { callOf, recordingOf } from '../helpers/fixtures.js'
 
 describe('defaultCanonicalize', () => {
@@ -59,6 +63,45 @@ describe('defaultCanonicalize', () => {
     expect(defaultCanonicalize(c, DEFAULT_CONFIG.redact)).toEqual(
       defaultCanonicalize(c, DEFAULT_CONFIG.redact),
     )
+  })
+
+  test('raw stdin token round-trips against redacted placeholder', () => {
+    // Fresh-call canonical: raw token is matched and reduced to stripped form.
+    const fresh = defaultCanonicalize(
+      callOf('curl', [], { stdin: SAMPLE_GITHUB_PAT_CLASSIC }),
+      DEFAULT_CONFIG.redact,
+    )
+    // Cassette canonical: counter-tagged placeholder strips to the same form.
+    const recorded = defaultCanonicalize(
+      callOf('curl', [], { stdin: '<redacted:stdin:github-pat-classic:1>' }),
+      DEFAULT_CONFIG.redact,
+    )
+    expect(fresh.stdin).toBe(recorded.stdin)
+    expect(fresh.stdin).toBe('<redacted:stdin:github-pat-classic>')
+  })
+
+  test('counter-stripped equivalence: different counter values produce equal canonical', () => {
+    const a = defaultCanonicalize(
+      callOf('curl', [], { stdin: '<redacted:stdin:github-pat-classic:5>' }),
+      DEFAULT_CONFIG.redact,
+    )
+    const b = defaultCanonicalize(
+      callOf('curl', [], { stdin: '<redacted:stdin:github-pat-classic:99>' }),
+      DEFAULT_CONFIG.redact,
+    )
+    expect(a.stdin).toBe(b.stdin)
+  })
+
+  test('different rules do not collapse: stripe key and github PAT remain distinct', () => {
+    const stripe = defaultCanonicalize(
+      callOf('curl', [], { stdin: SAMPLE_STRIPE_SECRET_LIVE }),
+      DEFAULT_CONFIG.redact,
+    )
+    const githubPat = defaultCanonicalize(
+      callOf('curl', [], { stdin: SAMPLE_GITHUB_PAT_CLASSIC }),
+      DEFAULT_CONFIG.redact,
+    )
+    expect(stripe.stdin).not.toBe(githubPat.stdin)
   })
 })
 
