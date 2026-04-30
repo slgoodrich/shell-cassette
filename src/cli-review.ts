@@ -590,7 +590,7 @@ Usage:
 Walks unredacted findings interactively. For each finding the user picks:
   (a) accept     apply default redaction (counter-tagged placeholder)
   (s) skip       leave match in body, persist via _suppressed
-  (r) replace    substitute user-provided string (NOT for args)
+  (r) replace    substitute user-provided string (NOT for args or stdin)
   (d) delete     remove the entire recording
   (b) back       revisit previous finding
   (q) quit       discard all decisions
