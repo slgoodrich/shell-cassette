@@ -90,12 +90,39 @@ describe('e2e record + replay with lines object form', () => {
     }
   })
 
+  test('no-trailing-newline stdout round-trips under lines: true', async () => {
+    // process.stdout.write('foo') (no '\n') was previously over-trimmed on
+    // replay: the cassette stored ['foo'] (no trailing '' marker), and the
+    // synthesize path's slice(0, -1) dropped the only line, returning []
+    // instead of ['foo']. The dropTrailingMarker helper now slices only
+    // when the last element actually IS the marker.
+    const cp = path.join(tmp.ref(), 'no-newline.json')
+
+    let recordedStdout: unknown
+    await useCassette(cp, async () => {
+      const r = await execa('node', ['-e', 'process.stdout.write("foo")'], {
+        lines: true,
+      })
+      recordedStdout = r.stdout
+      expect(r.stdout).toEqual(['foo'])
+    })
+
+    process.env.SHELL_CASSETTE_MODE = 'replay'
+    try {
+      await useCassette(cp, async () => {
+        const r = await execa('node', ['-e', 'process.stdout.write("foo")'], {
+          lines: true,
+        })
+        expect(r.stdout).toEqual(recordedStdout)
+        expect(r.stdout).toEqual(['foo'])
+      })
+    } finally {
+      process.env.SHELL_CASSETTE_MODE = 'auto'
+    }
+  })
+
   test('lines: { fd1: true } round-trips: array stdout on both record and replay', async () => {
-    // Realistic pattern: same `lines` shape on record and replay. Cross-mode
-    // replay (record with one shape, replay with another) is not exercised
-    // here because `toLines` does not preserve the array-vs-string origin
-    // when the string lacks a trailing newline; mixing modes runs into a
-    // pre-existing edge in the cassette format that is out of scope here.
+    // Realistic pattern: same `lines` shape on record and replay.
     const cp = path.join(tmp.ref(), 'fd1.json')
 
     let recordedStdout: unknown
