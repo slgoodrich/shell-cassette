@@ -4,7 +4,13 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { type Reader, setReader } from '../../src/cli-prompt.js'
 import type { Finding, ReviewState } from '../../src/cli-review.js'
-import { applyAction, preScan, runReview } from '../../src/cli-review.js'
+import {
+  applyAction,
+  applyDecisions,
+  type Decision,
+  preScan,
+  runReview,
+} from '../../src/cli-review.js'
 import { ENV_KEY_MATCH_RULE, matchHash } from '../../src/redact-pipeline.js'
 import type { CassetteFile, RedactConfig } from '../../src/types.js'
 import { makeRecording } from '../helpers/recording.js'
@@ -181,6 +187,48 @@ describe('preScan', () => {
     const config: RedactConfig = { ...minimalConfig, envKeys: ['TOKEN'] }
     expect(preScan(cassette, config)).toEqual([])
   })
+
+  test('stdin with credential: finding produced with source=stdin and 0:<col> position', () => {
+    const pat = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789'
+    const cassette: CassetteFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [
+        makeRecording({
+          call: {
+            command: 'curl',
+            args: [],
+            cwd: null,
+            env: {},
+            stdin: `Bearer ${pat}`,
+          },
+        }),
+      ],
+    }
+    const findings = preScan(cassette, minimalConfig)
+    expect(findings).toHaveLength(1)
+    expect(findings[0]).toMatchObject({
+      recordingIndex: 0,
+      source: 'stdin',
+      rule: 'github-pat-classic',
+      position: '0:7',
+      matchLength: pat.length,
+    })
+    expect(findings[0]?.id).toBe('rec0-stdin-0:7-github-pat-classic')
+  })
+
+  test('stdin null: no stdin findings', () => {
+    const cassette: CassetteFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [
+        makeRecording({
+          call: { command: 'echo', args: [], cwd: null, env: {}, stdin: null },
+        }),
+      ],
+    }
+    expect(preScan(cassette, minimalConfig)).toEqual([])
+  })
 })
 
 function mkFinding(
@@ -309,6 +357,95 @@ describe('applyAction', () => {
     state = applyAction(state, { kind: 'discard' })
     expect(state.step).toBe('done')
     expect(state.decisions.size).toBe(0)
+  })
+})
+
+describe('applyDecisions: stdin source', () => {
+  test('replace decision on stdin finding writes call.stdin = replacement', () => {
+    const pat = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789'
+    const cassette: CassetteFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [
+        makeRecording({
+          call: {
+            command: 'curl',
+            args: [],
+            cwd: null,
+            env: {},
+            stdin: `Bearer ${pat}`,
+          },
+        }),
+      ],
+    }
+    const findings = preScan(cassette, minimalConfig)
+    expect(findings).toHaveLength(1)
+    // biome-ignore lint/style/noNonNullAssertion: assertion above
+    const finding = findings[0]!
+    expect(finding.source).toBe('stdin')
+    const decisions = new Map<string, Decision>([[finding.id, { kind: 'replace', with: 'STUB' }]])
+    const updated = applyDecisions(cassette, findings, decisions, minimalConfig)
+    // The replace branch substitutes the entire stdin value (whole-value, like env).
+    // This mirrors env's defensive branch; readNextAction normally gates 'r' for
+    // stdin, so this asserts the defensive path works when decisions arrive
+    // through a non-interactive path.
+    expect(updated.recordings[0]?.call.stdin).toBe('STUB')
+  })
+
+  test('accept decision on stdin finding produces a redacted placeholder in stdin', () => {
+    const pat = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789'
+    const cassette: CassetteFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [
+        makeRecording({
+          call: {
+            command: 'curl',
+            args: [],
+            cwd: null,
+            env: {},
+            stdin: `Bearer ${pat}`,
+          },
+        }),
+      ],
+    }
+    const findings = preScan(cassette, minimalConfig)
+    // biome-ignore lint/style/noNonNullAssertion: preScan finds one match
+    const finding = findings[0]!
+    const decisions = new Map<string, Decision>([[finding.id, { kind: 'accept' }]])
+    const updated = applyDecisions(cassette, findings, decisions, minimalConfig)
+    expect(updated.recordings[0]?.call.stdin).toBe('Bearer <redacted:stdin:github-pat-classic:1>')
+  })
+
+  test('skip decision on stdin finding leaves stdin verbatim and adds a SuppressedEntry', () => {
+    const pat = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789'
+    const cassette: CassetteFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [
+        makeRecording({
+          call: {
+            command: 'curl',
+            args: [],
+            cwd: null,
+            env: {},
+            stdin: `Bearer ${pat}`,
+          },
+        }),
+      ],
+    }
+    const findings = preScan(cassette, minimalConfig)
+    // biome-ignore lint/style/noNonNullAssertion: preScan finds one match
+    const finding = findings[0]!
+    const decisions = new Map<string, Decision>([[finding.id, { kind: 'skip' }]])
+    const updated = applyDecisions(cassette, findings, decisions, minimalConfig)
+    expect(updated.recordings[0]?.call.stdin).toBe(`Bearer ${pat}`)
+    expect(updated.recordings[0]?.suppressed).toContainEqual({
+      source: 'stdin',
+      rule: 'github-pat-classic',
+      position: '0:7',
+      matchHash: finding.matchHash,
+    })
   })
 })
 
@@ -515,6 +652,53 @@ describe('runReview interactive (driven via fake reader)', () => {
     )
     // Sanity check: stdout was actually captured (renderFinding ran).
     expect(outBuf.join('')).toContain('[Finding')
+  })
+
+  test('stdin finding: prompt omits replace key (gated like args)', async () => {
+    const PAT = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789'
+    const cassette = {
+      version: 2,
+      _warning: '',
+      _recorded_by: null,
+      recordings: [
+        {
+          call: { command: 'curl', args: [], cwd: null, env: {}, stdin: `Bearer ${PAT}` },
+          result: {
+            stdoutLines: [],
+            stderrLines: [],
+            allLines: null,
+            exitCode: 0,
+            signal: null,
+            durationMs: 0,
+            aborted: false,
+          },
+          _redactions: [],
+        },
+      ],
+    }
+    const fixturePath = path.join(tmp, 'stdin-dirty.json')
+    await writeFile(fixturePath, `${JSON.stringify(cassette, null, 2)}\n`)
+
+    const prompts: string[] = []
+    const queue = ['a', 'y']
+    setReader({
+      question: async (p: string) => {
+        prompts.push(p)
+        return queue.shift() ?? ''
+      },
+      close: () => {},
+    })
+    const exit = await runReview([fixturePath, '--no-color'])
+    expect(exit).toBe(0)
+    // The action prompt for the stdin finding must NOT include 'r' but MUST
+    // include the gated set: a, s, d, b, q, ?.
+    const actionPrompt = prompts.find((p) => p.startsWith('Action?'))
+    expect(actionPrompt).toBeDefined()
+    expect(actionPrompt).not.toMatch(/\br\b/)
+    expect(actionPrompt).toContain('a/s/d/b/q/?')
+    // Sanity: the cassette was actually written with stdin redacted.
+    const after = JSON.parse(await readFile(fixturePath, 'utf8'))
+    expect(after.recordings[0].call.stdin).toBe('Bearer <redacted:stdin:github-pat-classic:1>')
   })
 
   test('quit discards decisions; cassette unchanged', async () => {
