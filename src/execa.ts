@@ -101,13 +101,42 @@ function toLines(input: string | string[] | undefined): string[] {
   return input.split('\n')
 }
 
+// Resolve execa's `lines` option to per-stream booleans. The object form lets
+// users set `lines` independently per fd, e.g. `{ stdout: true, stderr: false }`.
+// Precedence matches execa's own resolution (see node_modules/execa/types/
+// arguments/specific.d.ts FdNumberToFromOption): for fd1, `stdout` wins over
+// `fd1` wins over `all`; for fd2, `stderr` wins over `fd2` wins over `all`.
+// The `??` cascade matches that semantics: the first non-nullish key in the
+// chain decides the value. The OR-form (`a === true || b === true`) was
+// rejected because it gives the wrong shape on conflicting keys (e.g.
+// `{ stdout: false, all: true }` should yield string stdout, not array).
+function resolveLines(opts: Options): { stdout: boolean; stderr: boolean; all: boolean } {
+  const lines = opts.lines
+  if (lines === true) return { stdout: true, stderr: true, all: true }
+  if (lines === false || lines === undefined || typeof lines !== 'object' || lines === null) {
+    return { stdout: false, stderr: false, all: false }
+  }
+  const o = lines as Record<string, boolean | undefined>
+  const stdout = o.stdout ?? o.fd1 ?? o.all ?? false
+  const stderr = o.stderr ?? o.fd2 ?? o.all ?? false
+  const all = o.all ?? false
+  return { stdout, stderr, all }
+}
+
 function synthesize(rec: Recording, options: Options): unknown {
-  const stdout = rec.result.stdoutLines.join('\n')
-  const stderr = rec.result.stderrLines.join('\n')
+  const linesByStream = resolveLines(options)
+  const stdoutAsString = rec.result.stdoutLines.join('\n')
+  const stderrAsString = rec.result.stderrLines.join('\n')
+  const stdout = linesByStream.stdout ? rec.result.stdoutLines.slice(0, -1) : stdoutAsString
+  const stderr = linesByStream.stderr ? rec.result.stderrLines.slice(0, -1) : stderrAsString
   const all =
-    options.all === true ? (rec.result.allLines?.join('\n') ?? stdout + stderr) : undefined
+    options.all === true
+      ? linesByStream.all
+        ? (rec.result.allLines?.slice(0, -1) ?? [])
+        : (rec.result.allLines?.join('\n') ?? stdoutAsString + stderrAsString)
+      : undefined
   const result = {
-    stdout: options.lines === true ? rec.result.stdoutLines.slice(0, -1) : stdout,
+    stdout,
     stderr,
     exitCode: rec.result.exitCode,
     signal: rec.result.signal,
