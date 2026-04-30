@@ -199,6 +199,38 @@ describe('e2e: stdin credential round-trips redacted in cassette JSON', () => {
       count: 1,
     })
   })
+
+  test('replay matches when cassette has redacted stdin and fresh call has raw token', async () => {
+    const cp = path.join(tmp.ref(), 'redact-stdin-replay.json')
+
+    // Record: stdin contains a real PAT. Cassette captures redacted form.
+    await useCassette(cp, async () => {
+      await execa('node', NODE_ECHO_STDIN, { input: SAMPLE_GITHUB_PAT_CLASSIC })
+    })
+
+    const cassette = JSON.parse(await readFile(cp, 'utf8'))
+    expect(cassette.recordings).toHaveLength(1)
+    expect(cassette.recordings[0].call.stdin).toBe('<redacted:stdin:github-pat-classic:1>')
+
+    // Replay-strict: same call with the same raw token must match the
+    // redacted recording. defaultCanonicalize must reduce both arms to the
+    // same stripped placeholder. Without this fix the replay throws
+    // ReplayMissError because cassette stdin is the placeholder while the
+    // fresh call's stdin is the raw token.
+    process.env.SHELL_CASSETTE_MODE = 'replay'
+    try {
+      await useCassette(cp, async () => {
+        // The replayed result is whatever the cassette stored (the redacted
+        // stdout), but the assertion that matters is that the call matched
+        // at all — no ReplayMissError thrown.
+        const r = await execa('node', NODE_ECHO_STDIN, { input: SAMPLE_GITHUB_PAT_CLASSIC })
+        expect(r.exitCode).toBe(0)
+        expect(r.stdout).toBe('<redacted:stdout:github-pat-classic:1>')
+      })
+    } finally {
+      process.env.SHELL_CASSETTE_MODE = 'auto'
+    }
+  })
 })
 
 describe('logging never includes stdin content', () => {

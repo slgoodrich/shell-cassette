@@ -11,7 +11,16 @@ import type { Call, Canonicalize, MatcherStateLike, Recording, RedactConfig } fr
 export const defaultCanonicalize: Canonicalize = (call, redactConfig) => {
   return {
     command: call.command,
-    stdin: call.stdin,
+    // stdin canonicalize mirrors args (minus tmp normalization, which is
+    // path-specific). Counter strip + counted:false redact lets a redacted
+    // cassette stdin (`<redacted:stdin:github-pat-classic:1>`) round-trip
+    // match against a fresh call with the raw token in `input`.
+    stdin:
+      call.stdin === null
+        ? null
+        : redact({ source: 'stdin', value: stripCounter(call.stdin) }, redactConfig, {
+            counted: false,
+          }).output,
     args: call.args.map((arg) => {
       // 1. v0.3: normalize mkdtemp paths
       const tmpNormalized = normalizeTmpPath(arg)
