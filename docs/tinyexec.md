@@ -91,7 +91,7 @@ The cassette schema is narrower than tinyexec's runtime result. One mapping stil
 | `timeout` | Supported, passed through |
 | `nodeOptions` (with `cwd`, `env`, etc.) | Supported, options destructured into the cassette `Call` shape |
 | `throwOnError` | Supported on record AND replay (synthesized error matches tinyexec's shape) |
-| `stdin` (string) | Accepted, not stored in cassette (record-only) |
+| `stdin` (string) | Supported. Stored on `Call.stdin` and included in the match-tuple, so a call carrying stdin only matches a recording made with the same stdin. |
 | `persist: true` | **Rejected** (subprocess outliving host can't replay) |
 | `stdin: Result` (pipe chaining) | **Rejected** (chaining requires live process) |
 

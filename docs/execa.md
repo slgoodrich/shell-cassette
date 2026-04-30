@@ -105,14 +105,15 @@ execa's options pass through to the wrapped call. shell-cassette validates them 
 | Option | Status |
 |---|---|
 | `cwd`, `env`, `timeout`, `signal`, `argv0`, `cleanup`, etc. | Supported, passed to real execa on record, captured in cassette where relevant |
-| `lines: true` | Supported (returns `string[]` from stdout/stderr) |
+| `lines: true` | Supported. Boolean form returns `string[]` from stdout/stderr; object form (`{ stdout, stderr, all, fd1, fd2 }`) toggles per-stream array vs. string output |
 | `all: true` | Supported (merged stdout+stderr in `result.all`) |
 | `reject: false` | Supported on both record and replay |
+| `input: 'string'` | Supported. Buffered stdin is stored on `Call.stdin` and included in the match-tuple. Non-string `input` (Uint8Array, Readable) is rejected. |
+| `inputFile` | Supported. The file is read by shell-cassette before the matcher runs, stored on `Call.stdin`, and included in the match-tuple. Non-UTF-8 input throws `BinaryInputError`. |
+| `node: true` | Supported. Routed to real `execaNode` on record; the `node` flag is not stored in the cassette so recordings made via `node: true` and `execaNode(...)` are interchangeable. |
+| `execaNode(file, args, options)` (named export) | Supported. Equivalent to `execa(file, args, { ...options, node: true })`. |
 | `buffer: false` | **Rejected** (streaming) |
 | `ipc: true` | **Rejected** (IPC channels) |
-| `inputFile` | **Rejected** (stdin from file) |
-| `input: 'string'` | **Rejected** (buffered stdin) |
-| `node: true` | **Rejected** (execaNode) |
 
 Rejected options throw `UnsupportedOptionError` at the record-mode wrapper entry.
 
