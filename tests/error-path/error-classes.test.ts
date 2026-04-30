@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test } from 'vitest'
 import {
   AckRequiredError,
   CassetteCollisionError,
@@ -19,23 +19,13 @@ import { deriveCassettePathFromTask } from '../../src/plugin.js'
 import { deserialize } from '../../src/serialize.js'
 import { clearActiveCassette, setActiveCassette } from '../../src/state.js'
 import { useCassette } from '../../src/use-cassette.js'
-import { restoreEnv } from '../helpers/env.js'
+import { useRecordingEnv } from '../helpers/recording-env.js'
 import { makeSession } from '../helpers/session.js'
 
-const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
-const originalMode = process.env.SHELL_CASSETTE_MODE
-
-beforeEach(() => {
-  process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
-  // Pin the mode so CI=true on the runner doesn't force replay-strict.
-  // The ReplayMissError test below explicitly sets SHELL_CASSETTE_MODE='replay' to override.
-  process.env.SHELL_CASSETTE_MODE = 'auto'
-})
-
+// The ReplayMissError test below explicitly sets SHELL_CASSETTE_MODE='replay' to override.
+useRecordingEnv()
 afterEach(() => {
   clearActiveCassette()
-  restoreEnv('SHELL_CASSETTE_ACK_REDACTION', originalAck)
-  restoreEnv('SHELL_CASSETTE_MODE', originalMode)
 })
 
 describe('all error classes are instanceof ShellCassetteError', () => {
