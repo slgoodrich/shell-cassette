@@ -32,6 +32,19 @@ export function execa(
   return runWrapped(file, args ?? [], options ?? {}, execaHooks) as ResultPromise<Options>
 }
 
+// Mirrors real execa's `execaNode`: runs the script under the current Node
+// runtime by forcing `node: true`. The user-provided file is preserved as
+// `Call.command` (e.g. `'script.mjs'`, not `'node script.mjs'`), and the
+// `node` flag is not stored in the cassette. So `execaNode(f)` and
+// `execa(f, [], { node: true })` share recordings via canonical form.
+export function execaNode(
+  file: string,
+  args?: readonly string[],
+  options?: Options,
+): ResultPromise<Options> {
+  return execa(file, args, { ...options, node: true })
+}
+
 const execaHooks: RunnerHooks<Options, unknown> = {
   validate: (opts) => validateOptions(opts as Record<string, unknown> | undefined),
   buildCall,

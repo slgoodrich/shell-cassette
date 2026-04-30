@@ -31,9 +31,4 @@ export function validateOptions(options: Record<string, unknown> | undefined): v
       'execa options `input` and `inputFile` cannot be combined. Pick one source of stdin.',
     )
   }
-  if (options.node === true) {
-    throw new UnsupportedOptionError(
-      'execa option `node: true` (execaNode) not supported. Tracked in backlog.',
-    )
-  }
 }
