@@ -301,6 +301,7 @@ function walkStringsForPlaceholders(
   const values = [
     ...Object.values(rec.call.env),
     ...rec.call.args,
+    ...(rec.call.stdin !== null ? [rec.call.stdin] : []),
     ...rec.result.stdoutLines,
     ...rec.result.stderrLines,
     ...(rec.result.allLines ?? []),
