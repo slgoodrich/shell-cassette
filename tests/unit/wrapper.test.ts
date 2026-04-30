@@ -17,7 +17,7 @@ const baseHooks = (
   realCall: (file: string, args: readonly string[], options: FakeOpts) => Promise<FakeResult>,
 ): RunnerHooks<FakeOpts, FakeResult> => ({
   validate: () => {},
-  buildCall: (file, args) => ({
+  buildCall: async (file, args) => ({
     command: file,
     args: [...args],
     cwd: null,

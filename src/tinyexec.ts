@@ -45,7 +45,11 @@ const tinyexecHooks: RunnerHooks<Partial<Options>, TinyResult> = {
   synthesize,
 }
 
-function buildCall(file: string, args: readonly string[], options: Partial<Options>): Call {
+async function buildCall(
+  file: string,
+  args: readonly string[],
+  options: Partial<Options>,
+): Promise<Call> {
   const nodeOptions = (options as { nodeOptions?: { cwd?: string; env?: NodeJS.ProcessEnv } })
     .nodeOptions
   return {

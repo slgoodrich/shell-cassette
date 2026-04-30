@@ -20,7 +20,7 @@ CI=true forces replay mode by default; without a session shell-cassette refuses 
 
 export type RunnerHooks<Opts, ResultShape> = {
   validate: (options: Opts | undefined) => void
-  buildCall: (file: string, args: readonly string[], options: Opts) => Call
+  buildCall: (file: string, args: readonly string[], options: Opts) => Promise<Call>
   realCall: (file: string, args: readonly string[], options: Opts) => Promise<ResultShape>
   // The wrapper measures elapsed time around realCall and passes it here.
   // Adapters use this value rather than reading runner-provided fields so
@@ -68,7 +68,7 @@ export async function runWrapped<Opts, ResultShape>(
     return hooks.realCall(file, args, options)
   }
 
-  const call = hooks.buildCall(file, args, options)
+  const call = await hooks.buildCall(file, args, options)
 
   if (mode === 'replay') {
     if (loaded.loadedFile === null) {
