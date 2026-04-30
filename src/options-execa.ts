@@ -24,8 +24,7 @@ export function validateOptions(options: Record<string, unknown> | undefined): v
   // `input` and `inputFile` together is ambiguous: execa would silently prefer
   // one, and the cassette would store only one source of truth. Reject so the
   // user picks. Any non-undefined `input` (including null and empty string)
-  // combined with a set `inputFile` triggers this; tested via the conflict
-  // matrix in tests/error-path/input-file-conflict.test.ts.
+  // combined with a set `inputFile` triggers this.
   if (options.inputFile !== undefined && options.input !== undefined) {
     throw new UnsupportedOptionError(
       'execa options `input` and `inputFile` cannot be combined. Pick one source of stdin.',

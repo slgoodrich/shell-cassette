@@ -4,6 +4,7 @@ import { CassetteIOError, ShellCassetteError } from '../../src/errors.js'
 import { execa } from '../../src/execa.js'
 import { useCassette } from '../../src/use-cassette.js'
 import { restoreEnv } from '../helpers/env.js'
+import { NODE_ECHO_STDIN } from '../helpers/subprocess-targets.js'
 import { useTmpDir } from '../helpers/tmp-dir.js'
 
 const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
@@ -28,7 +29,7 @@ describe('CassetteIOError on missing inputFile', () => {
 
     try {
       await useCassette(cp, async () => {
-        await execa('node', ['-e', 'process.stdin.pipe(process.stdout)'], { inputFile: missing })
+        await execa('node', NODE_ECHO_STDIN, { inputFile: missing })
       })
       throw new Error('should not reach')
     } catch (e) {

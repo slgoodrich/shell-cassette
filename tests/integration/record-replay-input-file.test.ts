@@ -5,6 +5,7 @@ import { CassetteIOError, ReplayMissError } from '../../src/errors.js'
 import { execa } from '../../src/execa.js'
 import { useCassette } from '../../src/use-cassette.js'
 import { restoreEnv } from '../helpers/env.js'
+import { NODE_ECHO_STDIN } from '../helpers/subprocess-targets.js'
 import { useTmpDir } from '../helpers/tmp-dir.js'
 
 const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
@@ -20,9 +21,6 @@ afterEach(() => {
   restoreEnv('SHELL_CASSETTE_MODE', originalMode)
 })
 
-// Portable stdin echo across platforms (cat is not on stock Windows).
-const ECHO_STDIN = ['-e', 'process.stdin.pipe(process.stdout)']
-
 describe('e2e record + replay with inputFile', () => {
   const tmp = useTmpDir('sc-input-file-')
 
@@ -33,13 +31,13 @@ describe('e2e record + replay with inputFile', () => {
 
     let firstStdout: string | undefined
     await useCassette(cp, async () => {
-      const r = await execa('node', ECHO_STDIN, { inputFile: fixture })
+      const r = await execa('node', NODE_ECHO_STDIN, { inputFile: fixture })
       firstStdout = r.stdout
       expect(firstStdout).toBe('hello-from-file')
     })
 
     await useCassette(cp, async () => {
-      const r = await execa('node', ECHO_STDIN, { inputFile: fixture })
+      const r = await execa('node', NODE_ECHO_STDIN, { inputFile: fixture })
       expect(r.stdout).toBe(firstStdout)
     })
 
@@ -53,7 +51,7 @@ describe('e2e record + replay with inputFile', () => {
     await writeFile(fixture, 'original', 'utf8')
 
     await useCassette(cp, async () => {
-      const r = await execa('node', ECHO_STDIN, { inputFile: fixture })
+      const r = await execa('node', NODE_ECHO_STDIN, { inputFile: fixture })
       expect(r.stdout).toBe('original')
     })
 
@@ -63,7 +61,7 @@ describe('e2e record + replay with inputFile', () => {
     try {
       await useCassette(cp, async () => {
         try {
-          await execa('node', ECHO_STDIN, { inputFile: fixture })
+          await execa('node', NODE_ECHO_STDIN, { inputFile: fixture })
           throw new Error('should not reach')
         } catch (e) {
           expect(e).toBeInstanceOf(ReplayMissError)
@@ -80,7 +78,7 @@ describe('e2e record + replay with inputFile', () => {
     await writeFile(fixture, 'pre-delete', 'utf8')
 
     await useCassette(cp, async () => {
-      const r = await execa('node', ECHO_STDIN, { inputFile: fixture })
+      const r = await execa('node', NODE_ECHO_STDIN, { inputFile: fixture })
       expect(r.stdout).toBe('pre-delete')
     })
 
@@ -90,7 +88,7 @@ describe('e2e record + replay with inputFile', () => {
     try {
       await useCassette(cp, async () => {
         try {
-          await execa('node', ECHO_STDIN, { inputFile: fixture })
+          await execa('node', NODE_ECHO_STDIN, { inputFile: fixture })
           throw new Error('should not reach')
         } catch (e) {
           expect(e).toBeInstanceOf(CassetteIOError)
