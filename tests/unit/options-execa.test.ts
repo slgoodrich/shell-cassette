@@ -24,12 +24,27 @@ describe('validateOptions', () => {
     expect(() => validateOptions({ ipc: true })).toThrow(UnsupportedOptionError)
   })
 
-  test('throws on inputFile', () => {
-    expect(() => validateOptions({ inputFile: '/tmp/x' })).toThrow(UnsupportedOptionError)
+  test('accepts inputFile as a string path', () => {
+    expect(() => validateOptions({ inputFile: '/tmp/x' })).not.toThrow()
   })
 
-  test('throws on input (stdin)', () => {
-    expect(() => validateOptions({ input: 'data' })).toThrow(UnsupportedOptionError)
+  test('accepts input as a string', () => {
+    expect(() => validateOptions({ input: 'data' })).not.toThrow()
+    expect(() => validateOptions({ input: '' })).not.toThrow()
+  })
+
+  test('rejects input as Uint8Array', () => {
+    expect(() => validateOptions({ input: new Uint8Array([1, 2, 3]) })).toThrow(
+      UnsupportedOptionError,
+    )
+    expect(() => validateOptions({ input: new Uint8Array([1, 2, 3]) })).toThrow(/input/)
+  })
+
+  test('rejects input as a Readable-like object', () => {
+    // The validator branches on `typeof input !== 'string'` so any non-string
+    // (object, number, boolean, ...) hits the same path. A bare object stands in
+    // for a Readable here without pulling node:stream into the test.
+    expect(() => validateOptions({ input: { read: () => null } })).toThrow(UnsupportedOptionError)
   })
 
   test('throws on node:true (execaNode)', () => {
@@ -43,5 +58,40 @@ describe('validateOptions', () => {
       expect((e as Error).message).toContain('ipc')
       expect((e as Error).message).toContain('Tracked in backlog')
     }
+  })
+
+  test('rejection message for non-string input does not embed a version number', () => {
+    try {
+      validateOptions({ input: new Uint8Array([1, 2, 3]) })
+      throw new Error('should not reach')
+    } catch (e) {
+      expect(e).toBeInstanceOf(UnsupportedOptionError)
+      expect((e as Error).message).not.toMatch(/v0\.\d/)
+    }
+  })
+
+  describe('input + inputFile conflict matrix', () => {
+    test('inputFile alone is accepted (input undefined)', () => {
+      expect(() => validateOptions({ inputFile: '/tmp/x' })).not.toThrow()
+    })
+
+    test("input: 'foo' with inputFile rejects with UnsupportedOptionError", () => {
+      expect(() => validateOptions({ input: 'foo', inputFile: '/tmp/x' })).toThrow(
+        UnsupportedOptionError,
+      )
+      expect(() => validateOptions({ input: 'foo', inputFile: '/tmp/x' })).toThrow(/inputFile/)
+    })
+
+    test("input: '' with inputFile rejects (empty string is still set)", () => {
+      expect(() => validateOptions({ input: '', inputFile: '/tmp/x' })).toThrow(
+        UnsupportedOptionError,
+      )
+    })
+
+    test('input: null with inputFile rejects (null is still defined)', () => {
+      expect(() => validateOptions({ input: null, inputFile: '/tmp/x' })).toThrow(
+        UnsupportedOptionError,
+      )
+    })
   })
 })
