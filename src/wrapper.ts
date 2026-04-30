@@ -78,7 +78,7 @@ export async function runWrapped<Opts, ResultShape>(
     }
     const recording = loaded.matcher.findMatch(call)
     if (recording === null) {
-      throw buildReplayMissError(call, loaded)
+      throw buildReplayMissError(call, loaded, hasNodeFlag(options))
     }
     return hooks.synthesize(recording, options)
   }
@@ -176,7 +176,23 @@ function captureAndRecord<Opts, ResultShape>(
 
 const REPLAY_MISS_DIAGNOSTIC_LIMIT = 10
 
-function buildReplayMissError(call: Call, session: LoadedSession): ReplayMissError {
+// Tells `buildReplayMissError` whether to append the node-flag mismatch
+// hint. Computed at the call site rather than threading `options: Opts`
+// through the helper so the runner-agnostic helper stays decoupled from
+// adapter-specific option shapes.
+function hasNodeFlag(options: unknown): boolean {
+  return (
+    typeof options === 'object' && options !== null && (options as { node?: unknown }).node === true
+  )
+}
+
+const NODE_FLAG_HINT = `(canonical forms ignore the \`node\` flag. \`execaNode(f)\` and \`execa(f, [], { node: true })\` share recordings with calls made without the flag. If you mix node-mode and non-node-mode for the same command in one test, the cassette may serve the wrong recording.)`
+
+function buildReplayMissError(
+  call: Call,
+  session: LoadedSession,
+  nodeFlagSet: boolean,
+): ReplayMissError {
   const canonical = session.canonicalize(call, session.redactConfig)
   const recordings = session.loadedFile?.recordings ?? []
   const shown = recordings.slice(0, REPLAY_MISS_DIAGNOSTIC_LIMIT)
@@ -192,6 +208,7 @@ function buildReplayMissError(call: Call, session: LoadedSession): ReplayMissErr
         .map((r) => JSON.stringify(session.canonicalize(r.call, session.redactConfig)))
         .join('\n  - ') + truncated
     : '(none)'
+  const hint = nodeFlagSet ? `\n\n${NODE_FLAG_HINT}` : ''
   return new ReplayMissError(
     `no matching recording for \`${formatCallSignature(call)}\`
   cassette:        ${session.path}
@@ -204,7 +221,7 @@ Recorded calls in this cassette:
 Recorded canonical forms:
   - ${recordedCanonical}
 
-To re-record: delete the cassette file and run tests again.`,
+To re-record: delete the cassette file and run tests again.${hint}`,
   )
 }
 
