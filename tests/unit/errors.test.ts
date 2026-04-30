@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
   AckRequiredError,
+  BinaryInputError,
   BinaryOutputError,
   CassetteCollisionError,
   CassetteConfigError,
@@ -21,6 +22,7 @@ describe('error classes', () => {
     expect(new ReplayMissError('msg')).toBeInstanceOf(ShellCassetteError)
     expect(new ConcurrencyError('msg')).toBeInstanceOf(ShellCassetteError)
     expect(new BinaryOutputError('msg')).toBeInstanceOf(ShellCassetteError)
+    expect(new BinaryInputError('msg')).toBeInstanceOf(ShellCassetteError)
     expect(new CassetteCorruptError('msg')).toBeInstanceOf(ShellCassetteError)
     expect(new CassetteCollisionError('msg')).toBeInstanceOf(ShellCassetteError)
     expect(new CassetteIOError('msg', new Error('cause'))).toBeInstanceOf(ShellCassetteError)
@@ -35,6 +37,7 @@ describe('error classes', () => {
     expect(ReplayMissError.code).toBe('CASSETTE_REPLAY_MISS')
     expect(ConcurrencyError.code).toBe('CASSETTE_CONCURRENT')
     expect(BinaryOutputError.code).toBe('CASSETTE_BINARY_OUTPUT')
+    expect(BinaryInputError.code).toBe('CASSETTE_BINARY_INPUT')
     expect(CassetteCorruptError.code).toBe('CASSETTE_CORRUPT')
     expect(CassetteCollisionError.code).toBe('CASSETTE_COLLISION')
     expect(CassetteIOError.code).toBe('CASSETTE_IO')
@@ -52,5 +55,10 @@ describe('error classes', () => {
   test('all errors have name matching class name', () => {
     expect(new AckRequiredError('').name).toBe('AckRequiredError')
     expect(new ReplayMissError('').name).toBe('ReplayMissError')
+  })
+
+  test('BinaryInputError preserves the supplied message verbatim', () => {
+    const err = new BinaryInputError('inputFile contains non-UTF-8 bytes: /tmp/x.bin')
+    expect(err.message).toBe('inputFile contains non-UTF-8 bytes: /tmp/x.bin')
   })
 })
