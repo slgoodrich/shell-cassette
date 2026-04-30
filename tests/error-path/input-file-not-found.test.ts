@@ -1,24 +1,13 @@
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { CassetteIOError, ShellCassetteError } from '../../src/errors.js'
 import { execa } from '../../src/execa.js'
 import { useCassette } from '../../src/use-cassette.js'
-import { restoreEnv } from '../helpers/env.js'
+import { useRecordingEnv } from '../helpers/recording-env.js'
 import { NODE_ECHO_STDIN } from '../helpers/subprocess-targets.js'
 import { useTmpDir } from '../helpers/tmp-dir.js'
 
-const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
-const originalMode = process.env.SHELL_CASSETTE_MODE
-
-beforeEach(() => {
-  process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
-  process.env.SHELL_CASSETTE_MODE = 'auto'
-})
-
-afterEach(() => {
-  restoreEnv('SHELL_CASSETTE_ACK_REDACTION', originalAck)
-  restoreEnv('SHELL_CASSETTE_MODE', originalMode)
-})
+useRecordingEnv()
 
 describe('CassetteIOError on missing inputFile', () => {
   const tmp = useTmpDir('sc-input-missing-')

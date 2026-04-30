@@ -1,31 +1,21 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test } from 'vitest'
 import { execa as wrappedExeca } from '../../src/execa.js'
 import { writeCassetteFile } from '../../src/io.js'
 import { serialize } from '../../src/serialize.js'
 import { clearActiveCassette, setActiveCassette } from '../../src/state.js'
 import type { CassetteSession } from '../../src/types.js'
-import { restoreEnv } from '../helpers/env.js'
+import { useRecordingEnv } from '../helpers/recording-env.js'
 import { makeSession } from '../helpers/session.js'
 
 const sessionAt = (sessionPath: string): CassetteSession =>
   makeSession({ name: 'test', path: sessionPath, loadedFile: null, matcher: null })
 
-const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
-const originalMode = process.env.SHELL_CASSETTE_MODE
-
-beforeEach(() => {
-  process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
-  // Pin the mode so CI=true on the runner doesn't force replay-strict.
-  process.env.SHELL_CASSETTE_MODE = 'auto'
-})
-
+useRecordingEnv()
 afterEach(() => {
   clearActiveCassette()
-  restoreEnv('SHELL_CASSETTE_ACK_REDACTION', originalAck)
-  restoreEnv('SHELL_CASSETTE_MODE', originalMode)
 })
 
 describe('wrapped execa', () => {

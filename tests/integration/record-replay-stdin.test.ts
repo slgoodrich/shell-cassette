@@ -1,27 +1,15 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { ReplayMissError } from '../../src/errors.js'
 import { execa } from '../../src/execa.js'
 import { x } from '../../src/tinyexec.js'
 import { useCassette } from '../../src/use-cassette.js'
-import { restoreEnv } from '../helpers/env.js'
+import { useRecordingEnv } from '../helpers/recording-env.js'
 import { NODE_ECHO_STDIN } from '../helpers/subprocess-targets.js'
 import { useTmpDir } from '../helpers/tmp-dir.js'
 
-const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
-const originalMode = process.env.SHELL_CASSETTE_MODE
-
-beforeEach(() => {
-  process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
-  // Pin auto so CI=true on the runner does not force replay-strict.
-  process.env.SHELL_CASSETTE_MODE = 'auto'
-})
-
-afterEach(() => {
-  restoreEnv('SHELL_CASSETTE_ACK_REDACTION', originalAck)
-  restoreEnv('SHELL_CASSETTE_MODE', originalMode)
-})
+useRecordingEnv()
 
 describe('e2e record + replay with input: string', () => {
   const tmp = useTmpDir('sc-stdin-')
