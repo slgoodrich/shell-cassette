@@ -12,7 +12,179 @@ The `shell-cassette` binary includes five subcommands:
 
 All subcommands share the same color and TTY conventions (TTY auto-detect, `NO_COLOR` env var honored, `--no-color` and `--color=always` overrides) and the same exit-code semantics: 0 on success, 2 on error. `scan` additionally returns 1 when at least one cassette is dirty; `re-redact` returns 1 when at least one cassette was modified.
 
-`scan` and `re-redact` are documented in the [README](../README.md). The rest of this file covers `show`, `review`, and `prune`.
+---
+
+## `shell-cassette scan <paths>`
+
+Walk cassette files (or directories of them) and report any unredacted findings. Read-only.
+
+### Synopsis
+
+```
+shell-cassette scan [paths...] [--json] [--quiet] [--include-match] [--config <path>] [--no-bundled] [--no-color] [--color=always] [--help]
+```
+
+### Description
+
+Walks each path, recursively expanding directories. For each cassette, applies the same regex rules as the recorder (bundled + custom) plus the env-key-match path (env values whose key is in the curated list), and reports any matches that did not already get a placeholder. Function-typed custom rules are skipped (they can't report exact positions).
+
+By default, output is human-readable (per-cassette listing of findings with sha256 + preview). `--json` emits a structured payload locked at `scanVersion: 1` for tooling consumption.
+
+`scan` is the canonical pre-commit hook entry point.
+
+### Flags
+
+| Flag                 | Default     | Description                                                                                |
+| -------------------- | ----------- | ------------------------------------------------------------------------------------------ |
+| `--json`             | off         | Structured output (locked schema, `scanVersion: 1`).                                       |
+| `--quiet`            | off         | Suppress stdout; use the exit code only.                                                   |
+| `--include-match`    | off         | With `--json`, include raw match values. **UNSAFE for piping to logs / CI artifacts.**     |
+| `--config <path>`    |             | Override config discovery.                                                                 |
+| `--no-bundled`       | off         | Skip bundled patterns; check user rules and suppress list only.                            |
+| `--no-color`         | env-aware   | Force color off.                                                                           |
+| `--color=always`     | env-aware   | Force color on.                                                                            |
+| `--help`             |             | Print usage.                                                                               |
+
+### Exit codes
+
+| Code | Meaning                                              |
+| ---- | ---------------------------------------------------- |
+| 0    | All cassettes clean.                                 |
+| 1    | At least one cassette has unredacted findings.       |
+| 2    | Missing path, malformed cassette, conflicting flags. |
+
+### Human output format
+
+```
+tests/__cassettes__/login.test.ts/test-1.json: 2 unredacted finding(s)
+  [rec0-stdout-1:0-github-pat-classic]: ghp_aBcD1234... (40 chars)
+  [rec0-env-GH_TOKEN:0-env-key-match]: ghp_aBcD1234... (40 chars)
+
+1 cassette(s) scanned, 1 dirty, 0 error(s).
+```
+
+Each finding line is `[<id>]: <preview> (<length> chars)`. Ids follow the `rec<recordingIndex>-<source>-<position>-<rule>` shape; see the `review` section below for position format details.
+
+### `--json` output shape
+
+Locked at `scanVersion: 1`:
+
+```json
+{
+  "scanVersion": 1,
+  "summary": {
+    "scanned": 12,
+    "clean": 10,
+    "dirty": 1,
+    "errors": 1,
+    "totalFindings": 3
+  },
+  "cassettes": [
+    {
+      "path": "tests/__cassettes__/clean.json",
+      "status": "clean",
+      "redactionsApplied": 5
+    },
+    {
+      "path": "tests/__cassettes__/dirty.json",
+      "status": "dirty",
+      "redactionsApplied": 2,
+      "findings": [
+        {
+          "id": "rec0-stdout-1:0-github-pat-classic",
+          "recordingIndex": 0,
+          "source": "stdout",
+          "rule": "github-pat-classic",
+          "matchHash": "sha256:abc123...",
+          "matchLength": 40,
+          "matchPreview": "ghp_...7890"
+        }
+      ]
+    },
+    {
+      "path": "tests/__cassettes__/broken.json",
+      "status": "error",
+      "redactionsApplied": 0,
+      "error": "..."
+    }
+  ]
+}
+```
+
+With `--include-match`, each finding gains a `match` field with the raw matched string. Treat the resulting JSON as sensitive.
+
+### Examples
+
+```bash
+# Verify a tree
+shell-cassette scan tests/__cassettes__/
+
+# Verify a single cassette
+shell-cassette scan path/to/single-cassette.json
+
+# JSON for CI tooling
+shell-cassette scan --json tests/__cassettes__/
+
+# Exit code only (pre-commit)
+shell-cassette scan --quiet tests/__cassettes__/
+```
+
+---
+
+## `shell-cassette re-redact <paths>`
+
+Re-apply current redaction rules to existing cassettes. Idempotent: running twice yields identical output. Writes.
+
+### Synopsis
+
+```
+shell-cassette re-redact [paths...] [--dry-run] [--quiet] [--config <path>] [--no-bundled] [--no-color] [--color=always] [--help]
+```
+
+### Description
+
+Use this when the bundled pattern set expands, when you add a custom rule, or when you want to upgrade existing cassettes to the current redaction state.
+
+Existing placeholders are preserved. New findings get counters starting at `max(existing) + 1` per (source, rule) so the relative numbering stays stable across runs. v1 cassettes are upgraded to v2 in place.
+
+`--dry-run` previews the changes without writing. The exit code reflects what would change.
+
+There is no `--json` mode.
+
+### Flags
+
+| Flag             | Default     | Description                                  |
+| ---------------- | ----------- | -------------------------------------------- |
+| `--dry-run`      | off         | Preview changes without writing.             |
+| `--quiet`        | off         | Suppress stdout summary.                     |
+| `--config <path>`|             | Override config discovery.                   |
+| `--no-bundled`   | off         | Skip bundled patterns.                       |
+| `--no-color`     | env-aware   | Force color off.                             |
+| `--color=always` | env-aware   | Force color on.                              |
+| `--help`         |             | Print usage.                                 |
+
+### Exit codes
+
+| Code | Meaning                                                                  |
+| ---- | ------------------------------------------------------------------------ |
+| 0    | No new redactions applied (all cassettes already covered).               |
+| 1    | At least one cassette was modified (or would be in `--dry-run`).         |
+| 2    | Missing path, malformed cassette, conflicting flags.                     |
+
+### Examples
+
+```bash
+# Re-apply current rules across the cassette tree
+shell-cassette re-redact tests/__cassettes__/
+
+# Preview changes
+shell-cassette re-redact --dry-run tests/__cassettes__/
+
+# Single cassette
+shell-cassette re-redact path/to/cassette.json
+```
+
+When `re-redact` writes a cassette, it stamps `recordedBy` with the current shell-cassette identity so the file's recorder metadata reflects the most recent write (consistent with `review`'s confirm-write and `prune`).
 
 ---
 
