@@ -1,23 +1,11 @@
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { execa } from '../../src/execa.js'
 import { useCassette } from '../../src/use-cassette.js'
-import { restoreEnv } from '../helpers/env.js'
+import { useRecordingEnv } from '../helpers/recording-env.js'
 import { useTmpDir } from '../helpers/tmp-dir.js'
 
-const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
-const originalMode = process.env.SHELL_CASSETTE_MODE
-
-beforeEach(() => {
-  process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
-  // Pin auto so CI=true on the runner does not force replay-strict.
-  process.env.SHELL_CASSETTE_MODE = 'auto'
-})
-
-afterEach(() => {
-  restoreEnv('SHELL_CASSETTE_ACK_REDACTION', originalAck)
-  restoreEnv('SHELL_CASSETTE_MODE', originalMode)
-})
+useRecordingEnv()
 
 // Two-line target on each stream so we can tell array-form (length 2) from
 // string-form (a single string with one '\n'). `lines` is NOT part of the

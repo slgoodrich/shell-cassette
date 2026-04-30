@@ -1,29 +1,17 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { execa } from '../../src/execa.js'
 import { useCassette } from '../../src/use-cassette.js'
 import { SAMPLE_GITHUB_PAT_CLASSIC } from '../helpers/credential-fixtures.js'
-import { restoreEnv } from '../helpers/env.js'
+import { useRecordingEnv } from '../helpers/recording-env.js'
 import { useTmpDir } from '../helpers/tmp-dir.js'
 
 const tmpDir = useTmpDir('shell-cassette-per-cassette-override-')
 
-const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
-const originalMode = process.env.SHELL_CASSETTE_MODE
-
 const FAKE_PAT = SAMPLE_GITHUB_PAT_CLASSIC
 
-beforeEach(() => {
-  process.env.SHELL_CASSETTE_ACK_REDACTION = 'true'
-  // Pin the mode so CI=true on the runner doesn't force replay-strict.
-  process.env.SHELL_CASSETTE_MODE = 'auto'
-})
-
-afterEach(() => {
-  restoreEnv('SHELL_CASSETTE_ACK_REDACTION', originalAck)
-  restoreEnv('SHELL_CASSETTE_MODE', originalMode)
-})
+useRecordingEnv()
 
 describe('useCassette per-cassette redact override', () => {
   test('redact: true (default) redacts a credential in stdout', async () => {
