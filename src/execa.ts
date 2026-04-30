@@ -110,12 +110,13 @@ function toLines(input: string | string[] | undefined): string[] {
 // chain decides the value. The OR-form (`a === true || b === true`) was
 // rejected because it gives the wrong shape on conflicting keys (e.g.
 // `{ stdout: false, all: true }` should yield string stdout, not array).
-function resolveLines(opts: Options): { stdout: boolean; stderr: boolean; all: boolean } {
-  const lines = opts.lines
+function resolveLines(lines: Options['lines']): { stdout: boolean; stderr: boolean; all: boolean } {
   if (lines === true) return { stdout: true, stderr: true, all: true }
   if (lines === false || lines === undefined || typeof lines !== 'object' || lines === null) {
     return { stdout: false, stderr: false, all: false }
   }
+  // execa's lines object type is structurally complex (FdGenericOption<boolean>);
+  // cast to a uniform key→bool map for the ?? cascade.
   const o = lines as Record<string, boolean | undefined>
   const stdout = o.stdout ?? o.fd1 ?? o.all ?? false
   const stderr = o.stderr ?? o.fd2 ?? o.all ?? false
@@ -136,7 +137,7 @@ function dropTrailingMarker(lines: readonly string[]): string[] {
 }
 
 function synthesize(rec: Recording, options: Options): unknown {
-  const linesByStream = resolveLines(options)
+  const linesByStream = resolveLines(options.lines)
   const stdoutAsString = rec.result.stdoutLines.join('\n')
   const stderrAsString = rec.result.stderrLines.join('\n')
   const stdout = linesByStream.stdout ? dropTrailingMarker(rec.result.stdoutLines) : stdoutAsString
