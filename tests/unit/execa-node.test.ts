@@ -59,7 +59,7 @@ describe('execaNode', () => {
       isCanceled: false,
     } as never)
 
-    await execaNode('script.mjs', [], { node: false } as never)
+    await execaNode('script.mjs', [], { node: false })
 
     const call = vi.mocked(realExecaMock).mock.calls[0]
     if (!call) throw new Error('expected execa to be called once')

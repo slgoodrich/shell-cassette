@@ -188,6 +188,13 @@ function hasNodeFlag(options: unknown): boolean {
 
 const NODE_FLAG_HINT = `(canonical forms ignore the \`node\` flag. \`execaNode(f)\` and \`execa(f, [], { node: true })\` share recordings with calls made without the flag. If you mix node-mode and non-node-mode for the same command in one test, the cassette may serve the wrong recording.)`
 
+/**
+ * Constructs a `ReplayMissError` for an in-session matcher miss. The third
+ * parameter is required (no default) so future refactors that extend the
+ * wrapper must explicitly compute it via `hasNodeFlag(options)` or pass
+ * `false` deliberately. A silent `false` default would drop the node-flag
+ * hint at refactor time without any compile-time signal.
+ */
 function buildReplayMissError(
   call: Call,
   session: LoadedSession,
