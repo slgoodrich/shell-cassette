@@ -1,4 +1,5 @@
 import { afterEach, beforeEach } from 'vitest'
+import type { Mode } from '../../src/types.js'
 import { restoreEnv } from './env.js'
 
 /**
@@ -13,9 +14,7 @@ import { restoreEnv } from './env.js'
  *   useRecordingEnv()                       // mode: 'auto'
  *   useRecordingEnv({ mode: 'replay' })     // pinned to replay
  */
-export function useRecordingEnv(
-  opts: { mode?: 'auto' | 'replay' | 'record' | 'passthrough' } = {},
-): void {
+export function useRecordingEnv(opts: { mode?: Mode } = {}): void {
   const originalAck = process.env.SHELL_CASSETTE_ACK_REDACTION
   const originalMode = process.env.SHELL_CASSETTE_MODE
   const targetMode = opts.mode ?? 'auto'
