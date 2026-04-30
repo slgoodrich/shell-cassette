@@ -40,17 +40,7 @@ const execaHooks: RunnerHooks<Options, unknown> = {
   synthesize,
 }
 
-/**
- * Internal: exported only so unit tests can exercise stdin extraction
- * (string `input`, `inputFile` reads, neither set) without going through the
- * full wrapper machinery. Not part of the public `shell-cassette/execa`
- * surface; users should call `execa` from this module instead.
- */
-export async function buildCall(
-  file: string,
-  args: readonly string[],
-  options: Options,
-): Promise<Call> {
+async function buildCall(file: string, args: readonly string[], options: Options): Promise<Call> {
   // Validator already rejected the invalid shapes (Uint8Array/Readable input,
   // input+inputFile conflict). At this point `input` is either undefined,
   // null, or a string; `inputFile` is either undefined or a string-like.
