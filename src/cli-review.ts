@@ -135,6 +135,11 @@ function scanRecording(
     )
   }
 
+  // stdin: single string source. Position label is '0' (no line/index dimension).
+  if (rec.call.stdin !== null) {
+    findings.push(...scanValue(rec.call.stdin, 'stdin', '0', index, rules, config, skipSet, [], 1))
+  }
+
   for (let lineIdx = 0; lineIdx < rec.result.stdoutLines.length; lineIdx++) {
     findings.push(
       ...scanValue(
@@ -481,6 +486,7 @@ export function applyDecisions(
       env[key] = redactValue('env', value, key)
     }
     const args = rec.call.args.map((arg) => redactValue('args', arg))
+    const stdin = rec.call.stdin === null ? null : redactValue('stdin', rec.call.stdin)
     const stdoutLines = rec.result.stdoutLines.map((line) => redactValue('stdout', line))
     const stderrLines = rec.result.stderrLines.map((line) => redactValue('stderr', line))
     const allLines =
@@ -500,7 +506,7 @@ export function applyDecisions(
     }
 
     updatedRecordings.push({
-      call: { ...rec.call, env, args },
+      call: { ...rec.call, env, args, stdin },
       result: { ...rec.result, stdoutLines, stderrLines, allLines },
       redactions: aggregateEntries([...rec.redactions, ...newCustomEntries, ...newRedactEntries]),
       suppressed: newSuppressed,
@@ -516,12 +522,16 @@ export function applyDecisions(
 
 /**
  * Replace the match span identified by `finding` with `replacement`.
- * Position is structured: env values are whole-value, args/stdout/stderr/
+ * Position is structured: env and stdin are whole-value, args/stdout/stderr/
  * allLines have line+col.
  *
- * Replace is documented as not available for args during the interactive
- * loop (canonicalize-incompatible), but applyReplace handles args
+ * Replace is documented as not available for args or stdin during the
+ * interactive loop (canonicalize-incompatible), but applyReplace handles both
  * defensively in case the user's --json mode bypasses the dispatcher.
+ *
+ * The cascading-if pattern below has no compile-time exhaustiveness guarantee
+ * over RedactSource members; conversion to a switch with `never` exhaustion
+ * is tracked separately in #101.
  */
 function applyReplace(rec: Recording, finding: Finding, replacement: string): Recording {
   const { source } = finding
@@ -538,6 +548,12 @@ function applyReplace(rec: Recording, finding: Finding, replacement: string): Re
     const arg = args[argIdx]!
     args[argIdx] = arg.slice(0, col) + replacement + arg.slice(col + finding.matchLength)
     return { ...rec, call: { ...rec.call, args } }
+  }
+  if (source === 'stdin') {
+    // Whole-value replacement; stdin is a single string. Defensive parallel to
+    // env's branch. Should not be reached in normal flow because readNextAction
+    // gates 'r' for stdin findings.
+    return { ...rec, call: { ...rec.call, stdin: replacement } }
   }
   const lineNumber = Number.parseInt(finding.position.split(':')[0] ?? '1', 10)
   const col = Number.parseInt(finding.position.split(':')[1] ?? '0', 10)
@@ -801,9 +817,12 @@ function countDecisions(state: ReviewState): {
 async function readNextAction(state: ReviewState): Promise<ReviewAction> {
   // biome-ignore lint/style/noNonNullAssertion: cursor in range when reviewing
   const finding = state.findings[state.cursor]!
-  // (r)eplace is unavailable for args (canonicalize-incompatible).
+  // (r)eplace is unavailable for sources participating in canonicalize-then-match
+  // (args and stdin: both feed into the matcher tuple).
   const allowed =
-    finding.source === 'args' ? ['a', 's', 'd', 'b', 'q', '?'] : ['a', 's', 'r', 'd', 'b', 'q', '?']
+    finding.source === 'args' || finding.source === 'stdin'
+      ? ['a', 's', 'd', 'b', 'q', '?']
+      : ['a', 's', 'r', 'd', 'b', 'q', '?']
   while (true) {
     const key = await promptAction(allowed)
     if (key === '?') {
