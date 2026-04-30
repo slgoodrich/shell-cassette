@@ -8,30 +8,30 @@ For ambiguous credential shapes (AWS Secret Access Keys, JWTs, generic 32-hex to
 
 | Rule name | Provider | Prefix | Length | Doc |
 |---|---|---|---|---|
-| `github-pat-classic` | GitHub | `ghp_` | 36 char body | https://github.blog/2021-04-05-behind-githubs-new-authentication-token-formats/ |
+| `github-pat-classic` | GitHub | `ghp_` | 36 char body | https://github.blog/engineering/platform-security/behind-githubs-new-authentication-token-formats/ |
 | `github-pat-fine-grained` | GitHub | `github_pat_` | 82 char body | (same) |
 | `github-oauth` | GitHub | `gho_` | 36 | (same) |
 | `github-user-to-server` | GitHub | `ghu_` | 36 | (same) |
 | `github-server-to-server` | GitHub | `ghs_` | 36 | (same) |
 | `github-refresh` | GitHub | `ghr_` | 36 | (same) |
 | `aws-access-key-id` | AWS | `AKIA` / `ASIA` / `AROA` / `AIDA` / `AGPA` / `ANPA` / `ANVA` / `APKA` / `ABIA` / `ACCA` | 16 char body | https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html |
-| `stripe-secret-live` | Stripe | `sk_live_` | 24+ | https://stripe.com/docs/keys |
+| `stripe-secret-live` | Stripe | `sk_live_` | 24+ | https://docs.stripe.com/keys |
 | `stripe-secret-test` | Stripe | `sk_test_` | 24+ | (same) |
 | `stripe-restricted-live` | Stripe | `rk_live_` | 24+ | (same) |
 | `stripe-restricted-test` | Stripe | `rk_test_` | 24+ | (same) |
-| `anthropic-api-key` | Anthropic | `sk-ant-(api03\|sid01\|admin01)-` | 80+ | https://docs.anthropic.com/en/api/getting-started |
+| `anthropic-api-key` | Anthropic | `sk-ant-(api03\|sid01\|admin01)-` | 80+ | https://platform.claude.com/docs/en/api/getting-started |
 | `openai-api-key` | OpenAI | `sk-` (also `sk-proj-`, `sk-svcacct-`, `sk-admin-`) | 40+ | https://platform.openai.com/docs/api-reference/authentication |
-| `google-api-key` | Google | `AIza` | 35 | https://cloud.google.com/api-keys/docs/overview |
-| `slack-token` | Slack | `xox[baprso]-` | 10+ | https://api.slack.com/authentication/token-types |
+| `google-api-key` | Google | `AIza` | 35 | https://docs.cloud.google.com/api-keys/docs/overview |
+| `slack-token` | Slack | `xox[baprso]-` | 10+ | https://docs.slack.dev/authentication/tokens |
 | `slack-webhook-url` | Slack | `https://hooks.slack.com/services/T*/B*/*` | structured | (same) |
-| `gitlab-pat` | GitLab | `glpat-` | 20 | https://docs.gitlab.com/ee/security/token_overview.html |
+| `gitlab-pat` | GitLab | `glpat-` | 20 | https://docs.gitlab.com/security/tokens/ |
 | `npm-token` | npm | `npm_` | 36 | https://docs.npmjs.com/about-access-tokens |
 | `digitalocean-pat` | DigitalOcean | `dop_v1_` | 64 hex | https://docs.digitalocean.com/reference/api/create-personal-access-token/ |
-| `sendgrid-api-key` | SendGrid | `SG.` | 22 + `.` + 43 | https://docs.sendgrid.com/api-reference/api-keys/create-api-keys |
-| `mailgun-api-key` | Mailgun | `key-` | 32 hex | https://documentation.mailgun.com/en/latest/api-intro.html#authentication |
+| `sendgrid-api-key` | SendGrid | `SG.` | 22 + `.` + 43 | https://www.twilio.com/docs/sendgrid/api-reference/api-keys/create-api-keys |
+| `mailgun-api-key` | Mailgun | `key-` | 32 hex | https://documentation.mailgun.com/docs/mailgun/api-reference/mg-auth |
 | `huggingface-token` | Hugging Face | `hf_` | 34 | https://huggingface.co/docs/hub/security-tokens |
 | `pypi-token` | PyPI | `pypi-AgE` | 50+ | https://pypi.org/help/#apitoken |
-| `discord-bot-token` | Discord | `[MN]` | 23 + `.` + 6 + `.` + 27+ | https://discord.com/developers/docs/reference#authentication |
+| `discord-bot-token` | Discord | `[MN]` | 23 + `.` + 6 + `.` + 27+ | https://docs.discord.com/developers/reference |
 | `square-production-token` | Square | `EAAA` | 60+ | https://developer.squareup.com/docs/build-basics/access-tokens |
 
 Patterns apply to env values, args, stdout lines, stderr lines, and `allLines`. The same pattern is shared across all five sources; the placeholder records which source it fired in: `<redacted:source:rule-name:N>`.

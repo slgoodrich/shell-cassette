@@ -18,7 +18,7 @@ import type { RedactRule } from './types.js'
 
 export const BUNDLED_PATTERNS: readonly RedactRule[] = [
   // GitHub family
-  // https://github.blog/2021-04-05-behind-githubs-new-authentication-token-formats/
+  // https://github.blog/engineering/platform-security/behind-githubs-new-authentication-token-formats/
   {
     name: 'github-pat-classic',
     pattern: /ghp_[A-Za-z0-9]{36}/,
@@ -59,7 +59,7 @@ export const BUNDLED_PATTERNS: readonly RedactRule[] = [
   },
 
   // Stripe
-  // https://stripe.com/docs/keys
+  // https://docs.stripe.com/keys
   {
     name: 'stripe-secret-live',
     pattern: /sk_live_[A-Za-z0-9]{24,}/,
@@ -83,7 +83,7 @@ export const BUNDLED_PATTERNS: readonly RedactRule[] = [
   },
 
   // Anthropic
-  // https://docs.anthropic.com/en/api/getting-started
+  // https://platform.claude.com/docs/en/api/getting-started
   // Note: Anthropic must precede OpenAI in this list. The OpenAI pattern's
   // bare sk- prefix would otherwise match Anthropic keys (sk-ant-...) first
   // and tag them as openai-api-key in placeholders.
@@ -102,7 +102,7 @@ export const BUNDLED_PATTERNS: readonly RedactRule[] = [
   },
 
   // Google API
-  // https://cloud.google.com/api-keys/docs/overview
+  // https://docs.cloud.google.com/api-keys/docs/overview
   {
     name: 'google-api-key',
     pattern: /AIza[A-Za-z0-9_-]{35}/,
@@ -110,7 +110,7 @@ export const BUNDLED_PATTERNS: readonly RedactRule[] = [
   },
 
   // Slack
-  // https://api.slack.com/authentication/token-types
+  // https://docs.slack.dev/authentication/tokens
   {
     name: 'slack-token',
     pattern: /xox[baprso]-[A-Za-z0-9-]{10,}/,
@@ -123,7 +123,7 @@ export const BUNDLED_PATTERNS: readonly RedactRule[] = [
   },
 
   // GitLab
-  // https://docs.gitlab.com/ee/security/token_overview.html
+  // https://docs.gitlab.com/security/tokens/
   {
     name: 'gitlab-pat',
     pattern: /glpat-[A-Za-z0-9_-]{20}/,
@@ -147,7 +147,7 @@ export const BUNDLED_PATTERNS: readonly RedactRule[] = [
   },
 
   // SendGrid
-  // https://docs.sendgrid.com/api-reference/api-keys/create-api-keys
+  // https://www.twilio.com/docs/sendgrid/api-reference/api-keys/create-api-keys
   {
     name: 'sendgrid-api-key',
     pattern: /SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/,
@@ -155,7 +155,7 @@ export const BUNDLED_PATTERNS: readonly RedactRule[] = [
   },
 
   // Mailgun
-  // https://documentation.mailgun.com/en/latest/api-intro.html#authentication
+  // https://documentation.mailgun.com/docs/mailgun/api-reference/mg-auth
   {
     name: 'mailgun-api-key',
     pattern: /key-[a-f0-9]{32}/,
@@ -179,7 +179,7 @@ export const BUNDLED_PATTERNS: readonly RedactRule[] = [
   },
 
   // Discord
-  // https://discord.com/developers/docs/reference#authentication
+  // https://docs.discord.com/developers/reference
   {
     name: 'discord-bot-token',
     pattern: /[MN][A-Za-z0-9_-]{23}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,}/,
