@@ -449,8 +449,8 @@ export default {
 
   // Custom canonicalize fn (default: defaultCanonicalize, command exact +
   // args with absolute mkdtemp paths normalized to <tmp>; cwd, env omitted
-  // from the canonical form so cassettes are portable across machines.
-  // stdin is included by default; opt out via custom canonicalize if needed.)
+  // from the canonical form so cassettes are portable across machines;
+  // stdin is included by default; opt out via custom canonicalize if needed)
   canonicalize: (call) => ({
     ...defaultCanonicalize(call),
     command: basenameCommand(call.command),  // /usr/bin/git matches git
