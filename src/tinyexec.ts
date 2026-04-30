@@ -57,7 +57,7 @@ async function buildCall(
     args: [...args],
     cwd: nodeOptions?.cwd ?? null,
     env: (nodeOptions?.env as Record<string, string> | undefined) ?? {},
-    stdin: null,
+    stdin: typeof options.stdin === 'string' ? options.stdin : null,
   }
 }
 
