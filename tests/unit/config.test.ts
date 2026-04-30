@@ -7,11 +7,12 @@ describe('DEFAULT_CONFIG', () => {
     expect(DEFAULT_CONFIG.cassetteDir).toBe('__cassettes__')
   })
 
-  test('default canonicalize returns command + args', () => {
+  test('default canonicalize returns command + args + stdin', () => {
     const call = { command: 'git', args: ['status'], cwd: null, env: {}, stdin: null } as const
     expect(DEFAULT_CONFIG.canonicalize(call, DEFAULT_CONFIG.redact)).toEqual({
       command: 'git',
       args: ['status'],
+      stdin: null,
     })
   })
 })

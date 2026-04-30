@@ -4,11 +4,14 @@ import { redact } from './redact.js'
 import { stripCounter } from './redact-pipeline.js'
 import type { Call, Canonicalize, MatcherStateLike, Recording, RedactConfig } from './types.js'
 
-// cwd/env/stdin are omitted: their values vary per-machine and would break
-// cross-machine replay. Users who need them must opt in via custom canonicalize.
+// cwd/env are omitted: their values vary per-machine and would break
+// cross-machine replay. stdin is included because its value is whatever
+// the test code chose to pass; different stdin should match different
+// recordings. Users who need cwd/env must opt in via custom canonicalize.
 export const defaultCanonicalize: Canonicalize = (call, redactConfig) => {
   return {
     command: call.command,
+    stdin: call.stdin,
     args: call.args.map((arg) => {
       // 1. v0.3: normalize mkdtemp paths
       const tmpNormalized = normalizeTmpPath(arg)
