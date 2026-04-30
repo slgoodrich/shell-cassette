@@ -184,7 +184,7 @@ shell-cassette redacts what it can detect with 100% reliability and warns on sus
 - **Encoded credentials.** `Authorization: Basic <base64>` headers and base64-encoded YAML/JSON secrets pass through. shell-cassette doesn't decode. Add a custom rule if your test surface includes them.
 - **Binary output.** `BinaryOutputError` blocks recording when the subprocess emits non-UTF-8.
 - **`cwd` values.** Credentials in working-directory paths are vanishingly rare; not redacted.
-- **Subprocess `stdin`.** Not captured; nothing on disk to redact.
+- **Subprocess `stdin`.** Captured and redacted via the same pipeline as args/stdout/stderr (bundled patterns, custom rules, suppress list). The same residual gaps above (AWS Secret Access Keys, JWTs, encoded credentials) apply to stdin.
 
 Each gap has a workaround: long-value warning catches length anomalies, custom rules cover project-specific shapes, suppress patterns silence known fixtures, and `useCassette({ redact: false })` disables the pipeline for cassettes that legitimately need raw values (DO NOT commit those).
 
