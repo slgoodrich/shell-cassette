@@ -329,6 +329,132 @@ describe('runScan: --json + --quiet interaction', () => {
   })
 })
 
+describe('runScan: stdin source', () => {
+  test('stdin with credential: finding produced with source=stdin and 0:<col> position', async () => {
+    const tmp = await mkdtemp(path.join(tmpdir(), 'scan-stdin-'))
+    try {
+      const cassettePath = path.join(tmp, 'stdin.json')
+      // Match begins at col 7 within "Token: ghp_..."
+      await writeFile(
+        cassettePath,
+        JSON.stringify({
+          version: 2,
+          _recorded_by: { name: 'shell-cassette', version: '0.6.0' },
+          recordings: [
+            {
+              call: {
+                command: 'curl',
+                args: [],
+                cwd: null,
+                env: {},
+                stdin: `Token: ${SAMPLE_GITHUB_PAT_CLASSIC}`,
+              },
+              result: {
+                stdoutLines: [],
+                stderrLines: [],
+                allLines: null,
+                exitCode: 0,
+                signal: null,
+                durationMs: 0,
+                aborted: false,
+              },
+              _redactions: [],
+            },
+          ],
+        }),
+        'utf8',
+      )
+      captureOutput()
+      const code = await runScan([cassettePath, '--json', '--include-match'])
+      expect(code).toBe(1)
+      const parsed = JSON.parse(stdoutBuf)
+      expect(parsed.cassettes[0].findings).toHaveLength(1)
+      const finding = parsed.cassettes[0].findings[0]
+      expect(finding.source).toBe('stdin')
+      expect(finding.rule).toBe('github-pat-classic')
+      expect(finding.match).toBe(SAMPLE_GITHUB_PAT_CLASSIC)
+      expect(finding.matchHash).toBe(matchHash(SAMPLE_GITHUB_PAT_CLASSIC))
+      expect(finding.id).toBe('rec0-stdin-0:7-github-pat-classic')
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
+
+  test('stdin null: no stdin findings', async () => {
+    const tmp = await mkdtemp(path.join(tmpdir(), 'scan-stdin-null-'))
+    try {
+      const cassettePath = path.join(tmp, 'stdin-null.json')
+      await writeFile(
+        cassettePath,
+        JSON.stringify({
+          version: 2,
+          _recorded_by: { name: 'shell-cassette', version: '0.6.0' },
+          recordings: [
+            {
+              call: { command: 'echo', args: [], cwd: null, env: {}, stdin: null },
+              result: {
+                stdoutLines: [],
+                stderrLines: [],
+                allLines: null,
+                exitCode: 0,
+                signal: null,
+                durationMs: 0,
+                aborted: false,
+              },
+              _redactions: [],
+            },
+          ],
+        }),
+        'utf8',
+      )
+      captureOutput()
+      const code = await runScan([cassettePath, '--json'])
+      expect(code).toBe(0)
+      const parsed = JSON.parse(stdoutBuf)
+      expect(parsed.cassettes[0].status).toBe('clean')
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
+
+  test('stdin empty string: no findings (no patterns can match an empty string)', async () => {
+    const tmp = await mkdtemp(path.join(tmpdir(), 'scan-stdin-empty-'))
+    try {
+      const cassettePath = path.join(tmp, 'stdin-empty.json')
+      await writeFile(
+        cassettePath,
+        JSON.stringify({
+          version: 2,
+          _recorded_by: { name: 'shell-cassette', version: '0.6.0' },
+          recordings: [
+            {
+              call: { command: 'echo', args: [], cwd: null, env: {}, stdin: '' },
+              result: {
+                stdoutLines: [],
+                stderrLines: [],
+                allLines: null,
+                exitCode: 0,
+                signal: null,
+                durationMs: 0,
+                aborted: false,
+              },
+              _redactions: [],
+            },
+          ],
+        }),
+        'utf8',
+      )
+      captureOutput()
+      const code = await runScan([cassettePath, '--json'])
+      expect(code).toBe(0)
+      const parsed = JSON.parse(stdoutBuf)
+      expect(parsed.cassettes[0].status).toBe('clean')
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('runScan: isSuppressed g-flag lastIndex bug (closes #62)', () => {
   test('g-flagged suppress pattern suppresses all three consecutive matching recordings', async () => {
     // Without resetting lastIndex before each .test() call, a g-flagged suppress
