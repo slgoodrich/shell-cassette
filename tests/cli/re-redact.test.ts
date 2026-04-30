@@ -234,6 +234,84 @@ describe('runReRedact: --quiet', () => {
   })
 })
 
+describe('runReRedact: stdin source', () => {
+  test('re-redacts a credential in call.stdin into a placeholder', async () => {
+    const target = path.join(tmpDir.ref(), 'stdin.json')
+    const cassette = {
+      version: 2,
+      _warning: 'REVIEW',
+      _recorded_by: { name: 'shell-cassette', version: '0.5.0' },
+      recordings: [
+        {
+          call: {
+            command: 'curl',
+            args: [],
+            cwd: null,
+            env: {},
+            stdin: `Bearer ${SAMPLE_GITHUB_PAT_CLASSIC}`,
+          },
+          result: {
+            stdoutLines: [],
+            stderrLines: [],
+            allLines: null,
+            exitCode: 0,
+            signal: null,
+            durationMs: 0,
+            aborted: false,
+          },
+          _redactions: [],
+        },
+      ],
+    }
+    await writeFile(target, `${JSON.stringify(cassette, null, 2)}\n`)
+
+    captureOutput()
+    const code = await runReRedact([target, '--no-color'])
+    expect(code).toBe(1)
+
+    const after = JSON.parse(await readFile(target, 'utf8'))
+    expect(after.recordings[0].call.stdin).toBe('Bearer <redacted:stdin:github-pat-classic:1>')
+    expect(after.recordings[0]._redactions).toContainEqual({
+      rule: 'github-pat-classic',
+      source: 'stdin',
+      count: 1,
+    })
+  })
+
+  test('cassette with stdin: null is unchanged by re-redact', async () => {
+    const target = path.join(tmpDir.ref(), 'stdin-null.json')
+    const cassette = {
+      version: 2,
+      _warning: 'REVIEW',
+      _recorded_by: { name: 'shell-cassette', version: '0.5.0' },
+      recordings: [
+        {
+          call: { command: 'echo', args: ['hi'], cwd: null, env: {}, stdin: null },
+          result: {
+            stdoutLines: ['hi'],
+            stderrLines: [],
+            allLines: null,
+            exitCode: 0,
+            signal: null,
+            durationMs: 0,
+            aborted: false,
+          },
+          _redactions: [],
+        },
+      ],
+    }
+    const before = `${JSON.stringify(cassette, null, 2)}\n`
+    await writeFile(target, before)
+
+    captureOutput()
+    const code = await runReRedact([target, '--no-color'])
+    expect(code).toBe(0)
+
+    const after = await readFile(target, 'utf8')
+    expect(after).toBe(before)
+  })
+})
+
 describe('runReRedact: --config <path>', () => {
   test('--config <path> loads explicit config and custom rules apply', async () => {
     const target = path.join(tmpDir.ref(), 'cassette.json')
