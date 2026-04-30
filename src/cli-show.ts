@@ -220,6 +220,8 @@ function printRecording(rec: Recording, index: number, total: number, flags: Sho
     stdout('  env: (none redacted)')
   }
 
+  printStdin(rec.call.stdin, flags)
+
   const exitColor = rec.result.exitCode === 0 ? color.green : color.red
   stdout(`  exit: ${exitColor(String(rec.result.exitCode))}  duration: ${rec.result.durationMs}ms`)
 
@@ -232,6 +234,18 @@ function printRecording(rec: Recording, index: number, total: number, flags: Sho
   const redactionCount = rec.redactions.reduce((s, e) => s + e.count, 0)
   stdout(`  redactions: ${redactionCount}`)
   stdout('')
+}
+
+/**
+ * Prints the call's stdin section. Skipped when stdin is null (no `input:`
+ * passed to execa). Stdin is a single string, not an array of lines, so this
+ * is a small variant of printLines rather than reusing it.
+ */
+function printStdin(value: string | null, flags: ShowFlags): void {
+  if (value === null) return
+  stdout(`  stdin (${value.length} chars):`)
+  const truncated = flags.full ? value : applyTruncation(value, 80)
+  stdout(`    ${highlightPlaceholders(truncated)}`)
 }
 
 function printLines(name: string, lines: readonly string[], flags: ShowFlags): void {
