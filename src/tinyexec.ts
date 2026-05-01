@@ -75,7 +75,7 @@ function captureResult(raw: unknown, durationMs: number): CassetteResult {
   //
   // tinyexec exposes only `killed: boolean`, not the actual signal name (SIGINT,
   // SIGKILL, etc.). We unconditionally record SIGTERM on kill; the real signal is
-  // lost. Tracked in backlog: "preserve exact signal for tinyexec recording".
+  // lost. Known limitation; tinyexec does not expose the signal name.
   return {
     stdoutLines: typeof r.stdout === 'string' ? r.stdout.split('\n') : [''],
     stderrLines: typeof r.stderr === 'string' ? r.stderr.split('\n') : [''],
