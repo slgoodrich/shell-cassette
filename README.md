@@ -168,7 +168,7 @@ shell-cassette refuses to record without `SHELL_CASSETTE_ACK_REDACTION=true`. Th
 
 ### Redacted by default
 
-shell-cassette provides **25 bundled credential patterns**, applied to env values, args, stdout lines, stderr lines, and `allLines`. Each pattern is anchored, character-class-locked, and length-bounded by the issuer's published format:
+shell-cassette provides **25 bundled credential patterns**, applied to env values, args, stdin, stdout lines, stderr lines, and `allLines`. Each pattern is anchored, character-class-locked, and length-bounded by the issuer's published format:
 
 - **GitHub** (`ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`, `github_pat_`)
 - **AWS access key IDs** (`AKIA`, `ASIA`, `AROA`, `AIDA`, `AGPA`, `ANPA`, `ANVA`, `APKA`, `ABIA`, `ACCA`)
@@ -383,10 +383,9 @@ npm test  # CI=true is set by your CI provider
 
 Run `shell-cassette --help` for the full subcommand list, or `shell-cassette <command> --help` for per-subcommand flags.
 
-## Adapter quirks
+## Adapter specifics
 
-A few v0.4 specifics:
-
+- **`shell-cassette/execa` exports `execa` and `execaNode`.** Both mirror real execa's named exports and accept the same options. `execaNode(file, args)` is equivalent to `execa(file, args, { node: true })`; recordings made via either form are interchangeable on replay (the `node` flag is not stored in the cassette).
 - **`shell-cassette/tinyexec` exports `exec` as an alias for `x`.** Mirrors tinyexec's own dual export so `import { exec } from 'tinyexec'` redirects to `import { exec } from 'shell-cassette/tinyexec'` without renaming.
 - **`shell-cassette/tinyexec.xSync` throws.** Sync subprocess wrapping is not supported. Use async `x` (recommended), or import `xSync` directly from `tinyexec` (those calls bypass shell-cassette).
 - **`result.process` on tinyexec replay throws** a clear `ShellCassetteError`. Tests reading `result.process.stdout` / `.stderr` / `.stdin` should switch to the buffered `result.stdout` / `result.stderr` fields, or run with `SHELL_CASSETTE_MODE=passthrough`.
@@ -533,6 +532,8 @@ If you hit one of these, see [docs/troubleshooting.md](docs/troubleshooting.md):
 - `NoActiveSessionError` -> in CI=true replay mode without a session bound; wrap with `useCassette` or import the vitest plugin
 - `NoActiveSessionError` from `beforeAll` / `beforeEach` -> setup runs outside the per-test session; use real `tinyexec` / `execa` in setup, or `SHELL_CASSETTE_MODE=passthrough` for setup-only flows
 - `AckRequiredError` with "auto mode: no recording matched..." -> matcher missed; check cassette
+- `BinaryInputError` -> `inputFile` points at a non-UTF-8 file. shell-cassette stores stdin as UTF-8; for binary stdin tests, use `SHELL_CASSETTE_MODE=passthrough`
+- `UnsupportedOptionError: input and inputFile cannot be combined` -> pass exactly one. Any non-undefined `input` (including `null` and `''`) combined with `inputFile` triggers this
 - `__cassettes__/` showing up as a test fixture -> exclude alongside `__snapshots__/`
 - `vi.mock('tinyexec')` infinite loop -> redirect at the import level, or use `shellCassetteAlias` from `shell-cassette/vite-plugin`
 - Naive `resolve.alias: { tinyexec: 'shell-cassette/tinyexec' }` self-loops -> use `shellCassetteAlias` instead (importer guard included)

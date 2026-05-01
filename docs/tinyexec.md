@@ -67,7 +67,7 @@ tinyexec returns a richer object than `Promise<Result>` - it's structurally `Pro
 
 | Interaction | Replay behavior | Reason |
 |---|---|---|
-| `result.process` | `null` | No live `ChildProcess` to expose |
+| `result.process` | Throws `ShellCassetteError` on read | No live `ChildProcess` to expose; the throwing getter surfaces a clear error rather than letting downstream `.stdout`/`.stderr`/`.stdin` accesses fail with confusing TypeErrors |
 | `result.pipe(...)` | Throws `UnsupportedOptionError` | Pipe chaining requires a live subprocess to receive stdin |
 | `result.kill()` | No-op | The subprocess never spawned; nothing to kill |
 | `for await (line of result)` | Throws `UnsupportedOptionError` | Interleaving order between stdout and stderr is lost in storage |
@@ -97,6 +97,18 @@ The cassette schema is narrower than tinyexec's runtime result. One mapping stil
 
 Rejected options throw `UnsupportedOptionError` at the wrapper entry.
 
-## What's NOT redacted
+## Named exports
 
-shell-cassette only redacts curated env-key values. stdout, stderr, args, and non-curated env vars are not scrubbed. See [troubleshooting → What shell-cassette does NOT redact](troubleshooting.md#what-shell-cassette-does-not-redact). Always review cassettes before committing.
+- **`x`** is the canonical entry point.
+- **`exec`** is an alias for `x`. tinyexec exports both names; shell-cassette mirrors that so `import { exec } from 'tinyexec'` redirects to `import { exec } from 'shell-cassette/tinyexec'` without renaming at every call site.
+- **`xSync`** is a stub that throws a clear error pointing to async `x`. Sync subprocess wrapping requires synchronous lazy-load support, which shell-cassette does not currently provide. Either refactor to async `x` (gets cassette coverage), or import `xSync` directly from `tinyexec` (those calls bypass shell-cassette).
+
+## Redaction
+
+By default, shell-cassette redacts:
+
+- **Bundled credential patterns.** 25 prefix-anchored shapes applied to env values, args, stdin, stdout, stderr, and `allLines`. Reference: [docs/redact-patterns.md](redact-patterns.md).
+- **Curated env-key values.** Whole-value redacted when the env-var KEY contains `TOKEN`, `SECRET`, `PASSWORD`, `APIKEY`, etc.
+- **User-supplied custom rules** (`config.redact.customPatterns`) applied to the same six sources.
+
+What is NOT redacted by default: AWS Secret Access Keys (no documented prefix), JWTs (opt-in), encoded credentials, `cwd` values, binary output. See [troubleshooting → Residual risks](troubleshooting.md#residual-risks-and-gaps-in-redaction). Always review cassettes before committing. `npx shell-cassette scan` reports what would be flagged.

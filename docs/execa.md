@@ -127,6 +127,12 @@ When the wrapper synthesizes a result on replay, it produces the same shape exec
 
 `isCanceled` is preserved through record/replay (captured from execa's field, stored as `aborted` in the cassette schema, synthesized back to `isCanceled` on replay). `durationMs` is wall-clock measured by shell-cassette's wrapper around the real subprocess.
 
-## What's NOT redacted
+## Redaction
 
-shell-cassette only redacts curated env-key values by default. **stdout, stderr, args, and non-curated env vars are not scrubbed.** See [troubleshooting → What shell-cassette does NOT redact](troubleshooting.md#what-shell-cassette-does-not-redact). Always review cassettes before committing.
+By default, shell-cassette redacts:
+
+- **Bundled credential patterns.** 25 prefix-anchored shapes (GitHub, AWS access key IDs, Stripe, OpenAI, Anthropic, Slack, npm, etc.) applied to env values, args, stdin, stdout, stderr, and `allLines`. Reference: [docs/redact-patterns.md](redact-patterns.md).
+- **Curated env-key values.** Whole-value redacted when the env-var KEY contains `TOKEN`, `SECRET`, `PASSWORD`, `APIKEY`, etc. (substring match, case-insensitive).
+- **User-supplied custom rules** (`config.redact.customPatterns`) applied to the same six sources.
+
+What is NOT redacted by default: AWS Secret Access Keys (no documented prefix), JWTs (opt-in via custom rule), encoded credentials (`Authorization: Basic ...`), `cwd` values, binary output (blocked by `BinaryOutputError`). See [troubleshooting → Residual risks](troubleshooting.md#residual-risks-and-gaps-in-redaction). Always review cassettes before committing. `npx shell-cassette scan` reports what would be flagged.

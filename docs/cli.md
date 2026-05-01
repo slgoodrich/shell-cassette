@@ -281,7 +281,7 @@ Pre-scans the cassette for un-redacted findings using the same regex rules as `s
 | ----- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `(a)` | accept  | Apply default redaction. The match becomes `<redacted:source:rule:N>` (counter-tagged).                                                                  |
 | `(s)` | skip    | Leave the match in body. Persists a `SuppressedEntry` so the match is not re-flagged on subsequent runs of `review` or `re-redact`.                     |
-| `(r)` | replace | Substitute a user-provided string. Not available for `args` (canonicalize-incompatible). Recorded as `rule: 'custom'` in the redaction summary.          |
+| `(r)` | replace | Substitute a user-provided string. Not available for `args` or `stdin` (both participate in the canonicalize-then-match path; replacing them would invalidate the recording). Recorded as `rule: 'custom'` in the redaction summary. |
 | `(d)` | delete  | Remove the entire recording from the cassette. Confirms before adding the decision.                                                                      |
 | `(b)` | back    | Revisit the previous finding. Removes the prior decision (the user must re-decide). Unwinds multi-step jumps from `(d)elete`.                            |
 | `(q)` | quit    | Discard all decisions and exit without writing.                                                                                                          |
@@ -354,6 +354,7 @@ With `--include-match`, each finding gains a `match` field with the raw matched 
 - `<line>:<col>` for stdout, stderr, allLines.
 - `<argIndex>:<col>` for args.
 - `<KEY>:0` for env values (env-key-match findings) or `<KEY>:<col>` for env values matched by regex.
+- `0:<col>` for stdin (single-value source; the `0` segment exists for shape symmetry with the others).
 
 ### Skip semantics
 

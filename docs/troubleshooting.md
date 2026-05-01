@@ -64,7 +64,7 @@ The test expected to replay from a cassette but shell-cassette tried to record i
 
 > auto mode: no recording matched `git status --porcelain`, attempted to record but ack gate not set.
 
-**Most common cause:** the matcher missed. shell-cassette's default matcher is `command + deep-equal args`. If a recording captured `git status --porcelain` and the test now calls `git status -uall`, the matcher fails. In auto mode (default), failure falls through to the record path. The record path requires the ack gate.
+**Most common cause:** the matcher missed. shell-cassette's default matcher is `command + deep-equal args + stdin`. If a recording captured `git status --porcelain` and the test now calls `git status -uall`, the matcher fails. Same applies if the recorded call had `input: 'foo'` and the replay call has `input: 'bar'`. In auto mode (default), failure falls through to the record path. The record path requires the ack gate.
 
 **Fix paths:**
 
@@ -151,6 +151,24 @@ await x('ffmpeg', ['-i', 'input.mp4', '-y', 'output.mp4'])
 
 If you need binary stdout/stderr support, [open an issue](https://github.com/slgoodrich/shell-cassette/issues/new).
 
+## `BinaryInputError`
+
+Thrown when `inputFile` (execa) points at a file with non-UTF-8 bytes. shell-cassette stores stdin as UTF-8 in the cassette so the bytes can flow through redaction alongside args, stdout, and stderr; binary stdin can't round-trip.
+
+The check fires inside `buildCall` BEFORE the matcher runs, so a fixture-swap that turns a previously-UTF-8 file into a binary one throws here even on replay (rather than producing a confusing `ReplayMissError`).
+
+**Options:**
+
+- **Use `SHELL_CASSETTE_MODE=passthrough` for that test.** Bypasses cassette mode; the real subprocess receives the binary file directly.
+- **Read the file yourself and pass `input: 'string'`** if the content is actually text. The validator accepts `input: 'string'`; the bytes go through redaction normally.
+- **Refactor the test** to feed binary input via a different route (write to a temp file the subprocess reads on its own, rather than via stdin).
+
+## `UnsupportedOptionError`: `input` and `inputFile` cannot be combined
+
+Thrown when both `input` and `inputFile` are passed to execa. The check fires for any non-undefined `input` value (including `null` and `''`) combined with a set `inputFile`; this is intentional, since user code passing both is ambiguous about which is the source of truth.
+
+**Fix:** pass exactly one. Use `input: 'string'` for inline content; use `inputFile: '/path'` for file-backed content. If your call site conditionally picks one, build the options object with only the chosen field present (omit the other entirely rather than setting it to `undefined`).
+
 ## "How do I redact a secret that isn't in the curated list?"
 
 Add the env var name to your `shell-cassette.config.js`:
@@ -206,7 +224,7 @@ Exit codes:
 - `1` - at least one cassette has findings (commit should be blocked)
 - `2` - error (missing path, malformed cassette, conflicting flags)
 
-The scanner reports what `record` mode would have redacted. A clean exit means: every env value with a curated key name is already a placeholder, every bundled pattern that fires on a value in env/args/stdout/stderr/allLines is already a placeholder, and every custom rule you've configured is already applied.
+The scanner reports what `record` mode would have redacted. A clean exit means: every env value with a curated key name is already a placeholder, every bundled pattern that fires on a value in env/args/stdin/stdout/stderr/allLines is already a placeholder, and every custom rule you've configured is already applied.
 
 Useful flags:
 
