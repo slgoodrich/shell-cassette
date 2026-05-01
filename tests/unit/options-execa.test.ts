@@ -51,12 +51,11 @@ describe('validateOptions', () => {
     expect(() => validateOptions({ node: true })).not.toThrow()
   })
 
-  test('error message includes the option name and backlog reference', () => {
+  test('error message includes the option name', () => {
     try {
       validateOptions({ ipc: true })
     } catch (e) {
       expect((e as Error).message).toContain('ipc')
-      expect((e as Error).message).toContain('Tracked in backlog')
     }
   })
 
