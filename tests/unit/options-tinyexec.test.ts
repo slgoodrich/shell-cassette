@@ -15,14 +15,13 @@ describe('validateOptions (tinyexec)', () => {
     expect(() => validateOptions({ persist: true })).toThrow(UnsupportedOptionError)
   })
 
-  test('error message for persist:true mentions persist and backlog', () => {
+  test('error message for persist:true mentions persist', () => {
     try {
       validateOptions({ persist: true })
       throw new Error('should have thrown')
     } catch (e) {
       expect(e).toBeInstanceOf(UnsupportedOptionError)
       expect((e as Error).message).toContain('persist')
-      expect((e as Error).message).toContain('backlog')
     }
   })
 

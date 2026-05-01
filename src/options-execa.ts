@@ -4,12 +4,10 @@ export function validateOptions(options: Record<string, unknown> | undefined): v
   if (!options) return
 
   if (options.buffer === false) {
-    throw new UnsupportedOptionError(
-      'execa option `buffer: false` (streaming) not supported. Tracked in backlog.',
-    )
+    throw new UnsupportedOptionError('execa option `buffer: false` (streaming) not supported.')
   }
   if (options.ipc === true) {
-    throw new UnsupportedOptionError('execa option `ipc: true` not supported. Tracked in backlog.')
+    throw new UnsupportedOptionError('execa option `ipc: true` not supported.')
   }
   // `input` accepts strings only. Uint8Array and Readable are rejected because
   // shell-cassette stores stdin as UTF-8 in the cassette; binary or streaming
@@ -18,7 +16,7 @@ export function validateOptions(options: Record<string, unknown> | undefined): v
   if (options.input !== undefined && options.input !== null && typeof options.input !== 'string') {
     throw new UnsupportedOptionError(
       'execa option `input` as Uint8Array or Readable not supported. ' +
-        'shell-cassette currently accepts `input: string` only. Tracked in backlog.',
+        'shell-cassette currently accepts `input: string` only.',
     )
   }
   // `input` and `inputFile` together is ambiguous: execa would silently prefer

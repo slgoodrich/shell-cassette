@@ -42,13 +42,12 @@ describe('tinyexec error paths', () => {
     }
   })
 
-  test('UnsupportedOptionError message contains option name and backlog reference', async () => {
+  test('UnsupportedOptionError message contains the option name', async () => {
     try {
       await x('echo', [], { persist: true })
       throw new Error('should have thrown')
     } catch (e) {
       expect((e as Error).message).toContain('persist')
-      expect((e as Error).message).toContain('backlog')
     }
   })
 
