@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { ReplayMissError } from '../../src/errors.js'
+import { ReplayMissError, ShellCassetteError } from '../../src/errors.js'
 import { execa } from '../../src/execa.js'
 import { writeCassetteFile } from '../../src/io.js'
 import { serialize } from '../../src/serialize.js'
@@ -54,6 +54,7 @@ describe('canonicalize limitations - documented current behavior', () => {
       await execa('node', ['-e', '../../tmp/foo'])
     })
     await expect(result).rejects.toBeInstanceOf(ReplayMissError)
+    await expect(result).rejects.toBeInstanceOf(ShellCassetteError)
     // Error message includes 'canonical' so users see what was compared.
     await expect(result).rejects.toThrow(/canonical/)
   })
@@ -71,5 +72,6 @@ describe('canonicalize limitations - documented current behavior', () => {
       await execa('node', ['-e', '/scratch/REPLAY/foo'])
     })
     await expect(result).rejects.toBeInstanceOf(ReplayMissError)
+    await expect(result).rejects.toBeInstanceOf(ShellCassetteError)
   })
 })

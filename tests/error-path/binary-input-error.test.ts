@@ -57,6 +57,7 @@ describe('BinaryInputError on inputFile', () => {
       throw new Error('should not reach')
     } catch (e) {
       expect(e).toBeInstanceOf(BinaryInputError)
+      expect(e).toBeInstanceOf(ShellCassetteError)
       expect((e as Error).message).toContain(fixture)
     } finally {
       process.env.SHELL_CASSETTE_MODE = 'auto'

@@ -37,6 +37,7 @@ describe('input + inputFile conflict (validator)', () => {
       throw new Error('should not reach')
     } catch (e) {
       expect(e).toBeInstanceOf(UnsupportedOptionError)
+      expect(e).toBeInstanceOf(ShellCassetteError)
     }
   })
 
@@ -47,6 +48,7 @@ describe('input + inputFile conflict (validator)', () => {
       throw new Error('should not reach')
     } catch (e) {
       expect(e).toBeInstanceOf(UnsupportedOptionError)
+      expect(e).toBeInstanceOf(ShellCassetteError)
     }
   })
 

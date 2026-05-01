@@ -106,6 +106,7 @@ describe('readInputFile', () => {
       caught = e
     }
     expect(caught).toBeInstanceOf(CassetteIOError)
+    expect(caught).toBeInstanceOf(ShellCassetteError)
     expect((caught as Error).message).toContain(target)
     const cause = (caught as { cause: NodeJS.ErrnoException }).cause
     expect(cause).toBeDefined()

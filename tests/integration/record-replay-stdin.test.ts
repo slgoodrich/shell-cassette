@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { ReplayMissError } from '../../src/errors.js'
+import { ReplayMissError, ShellCassetteError } from '../../src/errors.js'
 import { execa } from '../../src/execa.js'
 import { x } from '../../src/tinyexec.js'
 import { useCassette } from '../../src/use-cassette.js'
@@ -53,6 +53,7 @@ describe('e2e record + replay with input: string', () => {
           throw new Error('should not reach')
         } catch (e) {
           expect(e).toBeInstanceOf(ReplayMissError)
+          expect(e).toBeInstanceOf(ShellCassetteError)
         }
       })
     } finally {
@@ -100,6 +101,7 @@ describe('tinyexec stdin', () => {
           throw new Error('should not reach')
         } catch (e) {
           expect(e).toBeInstanceOf(ReplayMissError)
+          expect(e).toBeInstanceOf(ShellCassetteError)
         }
       })
     } finally {

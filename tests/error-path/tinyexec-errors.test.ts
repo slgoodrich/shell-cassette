@@ -56,6 +56,7 @@ describe('tinyexec error paths', () => {
     delete process.env.SHELL_CASSETTE_ACK_REDACTION
 
     await expect(x('echo', ['hi'])).rejects.toBeInstanceOf(AckRequiredError)
+    await expect(x('echo', ['hi'])).rejects.toBeInstanceOf(ShellCassetteError)
     expect(realXMock).not.toHaveBeenCalled()
   })
 
@@ -64,6 +65,7 @@ describe('tinyexec error paths', () => {
     process.env.SHELL_CASSETTE_MODE = 'replay'
 
     await expect(x('echo', ['unrecorded'])).rejects.toBeInstanceOf(ReplayMissError)
+    await expect(x('echo', ['unrecorded'])).rejects.toBeInstanceOf(ShellCassetteError)
   })
 
   test('ReplayMissError message includes the call signature', async () => {
@@ -75,6 +77,7 @@ describe('tinyexec error paths', () => {
       throw new Error('should have thrown')
     } catch (e) {
       expect(e).toBeInstanceOf(ReplayMissError)
+      expect(e).toBeInstanceOf(ShellCassetteError)
       expect((e as Error).message).toContain('git status --porcelain')
       expect((e as Error).message).toContain('To re-record')
     }

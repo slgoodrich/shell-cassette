@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { CassetteIOError } from '../../src/errors.js'
+import { CassetteIOError, ShellCassetteError } from '../../src/errors.js'
 import { cassettePath, sanitizeName } from '../../src/paths.js'
 
 describe('sanitizeName', () => {
@@ -73,5 +73,8 @@ describe('cassettePath', () => {
   test('throws CassetteIOError if total path > 240 chars (Windows safe)', () => {
     const longTestPath = `/repo/${'a'.repeat(300)}/foo.test.ts`
     expect(() => cassettePath(longTestPath, [], 'test', '__cassettes__')).toThrow(CassetteIOError)
+    expect(() => cassettePath(longTestPath, [], 'test', '__cassettes__')).toThrow(
+      ShellCassetteError,
+    )
   })
 })
