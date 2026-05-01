@@ -25,14 +25,16 @@ describe('loadCassette', () => {
   test('throws CassetteCorruptError on bad JSON', async () => {
     const target = path.join(tmpDir.ref(), 'bad.json')
     await writeFile(target, '{ not json', 'utf8')
-    await expect(loadCassette(target)).rejects.toThrow(CassetteCorruptError)
-    await expect(loadCassette(target)).rejects.toThrow(ShellCassetteError)
+    const result = loadCassette(target)
+    await expect(result).rejects.toThrow(CassetteCorruptError)
+    await expect(result).rejects.toThrow(ShellCassetteError)
   })
 
   test('throws CassetteCorruptError on unknown version', async () => {
     const target = path.join(tmpDir.ref(), 'unknown.json')
     await writeFile(target, JSON.stringify({ version: 99 }), 'utf8')
-    await expect(loadCassette(target)).rejects.toThrow(CassetteCorruptError)
-    await expect(loadCassette(target)).rejects.toThrow(ShellCassetteError)
+    const result = loadCassette(target)
+    await expect(result).rejects.toThrow(CassetteCorruptError)
+    await expect(result).rejects.toThrow(ShellCassetteError)
   })
 })
