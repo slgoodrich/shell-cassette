@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { requireAckGate } from '../../src/ack.js'
-import { AckRequiredError } from '../../src/errors.js'
+import { AckRequiredError, ShellCassetteError } from '../../src/errors.js'
 
 const originalEnv = process.env.SHELL_CASSETTE_ACK_REDACTION
 
@@ -19,16 +19,19 @@ afterEach(() => {
 describe('requireAckGate', () => {
   test('throws AckRequiredError when env var unset', () => {
     expect(() => requireAckGate()).toThrow(AckRequiredError)
+    expect(() => requireAckGate()).toThrow(ShellCassetteError)
   })
 
   test('throws when env var is empty string', () => {
     process.env.SHELL_CASSETTE_ACK_REDACTION = ''
     expect(() => requireAckGate()).toThrow(AckRequiredError)
+    expect(() => requireAckGate()).toThrow(ShellCassetteError)
   })
 
   test('throws when env var is "false"', () => {
     process.env.SHELL_CASSETTE_ACK_REDACTION = 'false'
     expect(() => requireAckGate()).toThrow(AckRequiredError)
+    expect(() => requireAckGate()).toThrow(ShellCassetteError)
   })
 
   test('passes when env var is "true"', () => {
@@ -107,5 +110,6 @@ describe('requireAckGate', () => {
     expect(() => requireAckGate()).not.toThrow()
     delete process.env.SHELL_CASSETTE_ACK_REDACTION
     expect(() => requireAckGate()).toThrow(AckRequiredError)
+    expect(() => requireAckGate()).toThrow(ShellCassetteError)
   })
 })

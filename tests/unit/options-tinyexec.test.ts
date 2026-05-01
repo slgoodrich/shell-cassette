@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { UnsupportedOptionError } from '../../src/errors.js'
+import { ShellCassetteError, UnsupportedOptionError } from '../../src/errors.js'
 import { validateOptions } from '../../src/options-tinyexec.js'
 
 describe('validateOptions (tinyexec)', () => {
@@ -13,6 +13,7 @@ describe('validateOptions (tinyexec)', () => {
 
   test('throws UnsupportedOptionError for persist:true', () => {
     expect(() => validateOptions({ persist: true })).toThrow(UnsupportedOptionError)
+    expect(() => validateOptions({ persist: true })).toThrow(ShellCassetteError)
   })
 
   test('error message for persist:true mentions persist', () => {
@@ -21,6 +22,7 @@ describe('validateOptions (tinyexec)', () => {
       throw new Error('should have thrown')
     } catch (e) {
       expect(e).toBeInstanceOf(UnsupportedOptionError)
+      expect(e).toBeInstanceOf(ShellCassetteError)
       expect((e as Error).message).toContain('persist')
     }
   })
@@ -32,6 +34,7 @@ describe('validateOptions (tinyexec)', () => {
   test('throws UnsupportedOptionError for stdin as object (Result piping)', () => {
     const fakeResult = { stdout: 'foo', stderr: '', exitCode: 0 }
     expect(() => validateOptions({ stdin: fakeResult })).toThrow(UnsupportedOptionError)
+    expect(() => validateOptions({ stdin: fakeResult })).toThrow(ShellCassetteError)
   })
 
   test('error message for stdin-as-object mentions stdin and string', () => {
@@ -40,6 +43,7 @@ describe('validateOptions (tinyexec)', () => {
       throw new Error('should have thrown')
     } catch (e) {
       expect(e).toBeInstanceOf(UnsupportedOptionError)
+      expect(e).toBeInstanceOf(ShellCassetteError)
       expect((e as Error).message).toContain('stdin')
       expect((e as Error).message).toContain('string')
     }
