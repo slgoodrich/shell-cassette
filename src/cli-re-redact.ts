@@ -21,7 +21,13 @@ import {
   seedCountersFromCassette,
 } from './redact-pipeline.js'
 import { serialize } from './serialize.js'
-import type { CassetteFile, Recording, RedactConfig, RedactionEntry } from './types.js'
+import type {
+  CassetteFile,
+  Recording,
+  RedactConfig,
+  RedactionEntry,
+  RedactSource,
+} from './types.js'
 import { RECORDED_BY } from './version.js'
 
 const RE_REDACT_HELP = `\
@@ -231,6 +237,13 @@ function reRedactRecording(
   counters: Map<string, number>,
   suppressedHashes: ReadonlySet<string>,
 ): { recording: Recording; newCountInRecording: number } {
+  // Compile-time exhaustiveness: each source is redacted explicitly below.
+  // The type-level assertion fails compilation if a new RedactSource variant
+  // is added without a corresponding redact() call here.
+  type _CoveredSources = 'env' | 'args' | 'stdin' | 'stdout' | 'stderr' | 'allLines'
+  const _exhaustive: Exclude<RedactSource, _CoveredSources> extends never ? true : never = true
+  void _exhaustive
+
   const newEntries: RedactionEntry[] = []
   let newCount = 0
 

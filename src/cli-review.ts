@@ -98,6 +98,13 @@ function scanRecording(
   config: Readonly<RedactConfig>,
   skipSet: ReadonlySet<string>,
 ): Finding[] {
+  // Compile-time exhaustiveness: each source is scanned explicitly below.
+  // The type-level assertion fails compilation if a new RedactSource variant
+  // is added without a corresponding scan block here.
+  type _CoveredSources = 'env' | 'args' | 'stdin' | 'stdout' | 'stderr' | 'allLines'
+  const _exhaustive: Exclude<RedactSource, _CoveredSources> extends never ? true : never = true
+  void _exhaustive
+
   const findings: Finding[] = []
 
   for (const [key, value] of Object.entries(rec.call.env)) {
@@ -481,6 +488,14 @@ export function applyDecisions(
       return r.output
     }
 
+    // Compile-time exhaustiveness: each source is dispatched explicitly
+    // below. The type-level assertion here fails compilation if a new
+    // RedactSource variant is added without a corresponding redactValue()
+    // call in this block.
+    type _CoveredSources = 'env' | 'args' | 'stdin' | 'stdout' | 'stderr' | 'allLines'
+    const _exhaustive: Exclude<RedactSource, _CoveredSources> extends never ? true : never = true
+    void _exhaustive
+
     const env: Record<string, string> = {}
     for (const [key, value] of Object.entries(rec.call.env)) {
       env[key] = redactValue('env', value, key)
@@ -529,56 +544,62 @@ export function applyDecisions(
  * interactive loop (canonicalize-incompatible), but applyReplace handles both
  * defensively in case the user's --json mode bypasses the dispatcher.
  *
- * The cascading-if pattern below has no compile-time exhaustiveness guarantee
- * over RedactSource members; conversion to a switch with `never` exhaustion
- * is tracked separately in #101.
+ * Switch+`never` exhaustiveness: adding a new RedactSource variant without a
+ * case here fails compilation at the `default` arm.
  */
 function applyReplace(rec: Recording, finding: Finding, replacement: string): Recording {
   const { source } = finding
-  if (source === 'env') {
-    const key = finding.position.split(':')[0] ?? ''
-    const env = { ...rec.call.env, [key]: replacement }
-    return { ...rec, call: { ...rec.call, env } }
-  }
-  if (source === 'args') {
-    const argIdx = Number.parseInt(finding.position.split(':')[0] ?? '0', 10)
+  // Local helper used by the line-shaped sources (stdout / stderr / allLines).
+  // Hoisted to function scope so each case body is a flat single-source
+  // expression, keeping the switch's variant-to-action mapping obvious.
+  const replaceInLines = (lines: readonly string[]): string[] => {
+    const lineNumber = Number.parseInt(finding.position.split(':')[0] ?? '1', 10)
     const col = Number.parseInt(finding.position.split(':')[1] ?? '0', 10)
-    const args = [...rec.call.args]
-    // biome-ignore lint/style/noNonNullAssertion: argIdx in range when reached
-    const arg = args[argIdx]!
-    args[argIdx] = arg.slice(0, col) + replacement + arg.slice(col + finding.matchLength)
-    return { ...rec, call: { ...rec.call, args } }
-  }
-  if (source === 'stdin') {
-    // Whole-value replacement; stdin is a single string. Defensive parallel to
-    // env's branch. Should not be reached in normal flow because readNextAction
-    // gates 'r' for stdin findings.
-    return { ...rec, call: { ...rec.call, stdin: replacement } }
-  }
-  const lineNumber = Number.parseInt(finding.position.split(':')[0] ?? '1', 10)
-  const col = Number.parseInt(finding.position.split(':')[1] ?? '0', 10)
-  const lineIdx = lineNumber - 1
-  const replaceInLines = (lines: string[]): string[] => {
+    const lineIdx = lineNumber - 1
     const out = [...lines]
     // biome-ignore lint/style/noNonNullAssertion: lineIdx in range when reached
     const line = out[lineIdx]!
     out[lineIdx] = line.slice(0, col) + replacement + line.slice(col + finding.matchLength)
     return out
   }
-  if (source === 'stdout') {
-    return {
-      ...rec,
-      result: { ...rec.result, stdoutLines: replaceInLines(rec.result.stdoutLines) },
+  switch (source) {
+    case 'env': {
+      const key = finding.position.split(':')[0] ?? ''
+      const env = { ...rec.call.env, [key]: replacement }
+      return { ...rec, call: { ...rec.call, env } }
+    }
+    case 'args': {
+      const argIdx = Number.parseInt(finding.position.split(':')[0] ?? '0', 10)
+      const col = Number.parseInt(finding.position.split(':')[1] ?? '0', 10)
+      const args = [...rec.call.args]
+      // biome-ignore lint/style/noNonNullAssertion: argIdx in range when reached
+      const arg = args[argIdx]!
+      args[argIdx] = arg.slice(0, col) + replacement + arg.slice(col + finding.matchLength)
+      return { ...rec, call: { ...rec.call, args } }
+    }
+    case 'stdin':
+      // Whole-value replacement; stdin is a single string. Defensive parallel
+      // to env's branch. Should not be reached in normal flow because
+      // readNextAction gates 'r' for stdin findings.
+      return { ...rec, call: { ...rec.call, stdin: replacement } }
+    case 'stdout':
+      return {
+        ...rec,
+        result: { ...rec.result, stdoutLines: replaceInLines(rec.result.stdoutLines) },
+      }
+    case 'stderr':
+      return {
+        ...rec,
+        result: { ...rec.result, stderrLines: replaceInLines(rec.result.stderrLines) },
+      }
+    case 'allLines':
+      if (rec.result.allLines === null) return rec
+      return { ...rec, result: { ...rec.result, allLines: replaceInLines(rec.result.allLines) } }
+    default: {
+      const _exhaustive: never = source
+      throw new CassetteInternalError(`unhandled redact source: ${String(_exhaustive)}`)
     }
   }
-  if (source === 'stderr') {
-    return {
-      ...rec,
-      result: { ...rec.result, stderrLines: replaceInLines(rec.result.stderrLines) },
-    }
-  }
-  if (rec.result.allLines === null) return rec
-  return { ...rec, result: { ...rec.result, allLines: replaceInLines(rec.result.allLines) } }
 }
 
 const REVIEW_VERSION = 1
