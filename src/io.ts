@@ -4,6 +4,16 @@ import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { BinaryInputError, CassetteIOError } from './errors.js'
 
+/**
+ * Wraps a native fs error in CassetteIOError preserving cause. The action is
+ * a complete phrase including the verb, noun, and preposition (e.g.
+ * 'write cassette to' or 'read inputFile from'); it slots in directly between
+ * 'failed to' and the target path.
+ */
+function wrapFsError(action: string, target: string | URL, err: NodeJS.ErrnoException): never {
+  throw new CassetteIOError(`failed to ${action} ${String(target)}: ${err.message}`, err)
+}
+
 export async function writeCassetteFile(target: string, content: string): Promise<void> {
   const dir = path.dirname(target)
   await mkdir(dir, { recursive: true })
@@ -19,10 +29,7 @@ export async function writeCassetteFile(target: string, content: string): Promis
     } catch {
       // ignore
     }
-    throw new CassetteIOError(
-      `failed to write cassette to ${target}: ${(e as Error).message}`,
-      e as Error,
-    )
+    wrapFsError('write cassette to', target, e as NodeJS.ErrnoException)
   }
 }
 
@@ -32,7 +39,7 @@ export async function readCassetteFile(target: string): Promise<string | null> {
   } catch (e) {
     const err = e as NodeJS.ErrnoException
     if (err.code === 'ENOENT') return null
-    throw new CassetteIOError(`failed to read cassette from ${target}: ${err.message}`, err)
+    wrapFsError('read cassette from', target, err)
   }
 }
 
@@ -50,11 +57,7 @@ export async function readInputFile(target: string | URL): Promise<string> {
   try {
     buf = await readFile(target)
   } catch (e) {
-    const err = e as NodeJS.ErrnoException
-    throw new CassetteIOError(
-      `failed to read inputFile from ${String(target)}: ${err.message}`,
-      err,
-    )
+    wrapFsError('read inputFile from', target, e as NodeJS.ErrnoException)
   }
   if (!isUtf8(buf)) {
     throw new BinaryInputError(
