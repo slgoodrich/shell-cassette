@@ -18,7 +18,7 @@ import { applyTruncation, color, formatBytes, setupCliColor, stderr, stdout } fr
 import { CassetteConfigError, CassetteNotFoundError } from './errors.js'
 import { loadCassette } from './loader.js'
 import { REDACTION_PLACEHOLDER_PATTERN } from './redact-pipeline.js'
-import type { CassetteFile, Recording } from './types.js'
+import type { CassetteFile, Recording, RedactSource } from './types.js'
 
 const SHOW_VERSION = 1
 
@@ -205,6 +205,15 @@ function printTerminal(cassette: CassetteFile, summary: ShowSummary, flags: Show
 }
 
 function printRecording(rec: Recording, index: number, total: number, flags: ShowFlags): void {
+  // Compile-time exhaustiveness: every RedactSource has a printer site below
+  // ('args' is printed in the header line; 'env' / 'stdin' / 'stdout' /
+  // 'stderr' / 'allLines' have their own sections). The type-level assertion
+  // fails compilation if a new RedactSource variant is added without a
+  // corresponding printer site here.
+  type _CoveredSources = 'env' | 'args' | 'stdin' | 'stdout' | 'stderr' | 'allLines'
+  const _exhaustive: Exclude<RedactSource, _CoveredSources> extends never ? true : never = true
+  void _exhaustive
+
   stdout(color.bold(`[${index + 1}/${total}] ${rec.call.command} ${rec.call.args.join(' ')}`))
   stdout(`  cwd: ${rec.call.cwd ?? '(null)'}`)
 
