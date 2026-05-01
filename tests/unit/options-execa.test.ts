@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { UnsupportedOptionError } from '../../src/errors.js'
+import { ShellCassetteError, UnsupportedOptionError } from '../../src/errors.js'
 import { validateOptions } from '../../src/options-execa.js'
 
 describe('validateOptions', () => {
@@ -17,11 +17,13 @@ describe('validateOptions', () => {
 
   test('throws on buffer:false', () => {
     expect(() => validateOptions({ buffer: false })).toThrow(UnsupportedOptionError)
+    expect(() => validateOptions({ buffer: false })).toThrow(ShellCassetteError)
     expect(() => validateOptions({ buffer: false })).toThrow(/buffer/)
   })
 
   test('throws on ipc:true', () => {
     expect(() => validateOptions({ ipc: true })).toThrow(UnsupportedOptionError)
+    expect(() => validateOptions({ ipc: true })).toThrow(ShellCassetteError)
   })
 
   test('accepts inputFile as a string path', () => {
@@ -37,6 +39,7 @@ describe('validateOptions', () => {
     expect(() => validateOptions({ input: new Uint8Array([1, 2, 3]) })).toThrow(
       UnsupportedOptionError,
     )
+    expect(() => validateOptions({ input: new Uint8Array([1, 2, 3]) })).toThrow(ShellCassetteError)
     expect(() => validateOptions({ input: new Uint8Array([1, 2, 3]) })).toThrow(/input/)
   })
 
@@ -45,6 +48,7 @@ describe('validateOptions', () => {
     // (object, number, boolean, ...) hits the same path. A bare object stands in
     // for a Readable here without pulling node:stream into the test.
     expect(() => validateOptions({ input: { read: () => null } })).toThrow(UnsupportedOptionError)
+    expect(() => validateOptions({ input: { read: () => null } })).toThrow(ShellCassetteError)
   })
 
   test('accepts node:true (execaNode is supported)', () => {
@@ -65,6 +69,7 @@ describe('validateOptions', () => {
       throw new Error('should not reach')
     } catch (e) {
       expect(e).toBeInstanceOf(UnsupportedOptionError)
+      expect(e).toBeInstanceOf(ShellCassetteError)
       expect((e as Error).message).not.toMatch(/v0\.\d/)
     }
   })
@@ -78,6 +83,9 @@ describe('validateOptions', () => {
       expect(() => validateOptions({ input: 'foo', inputFile: '/tmp/x' })).toThrow(
         UnsupportedOptionError,
       )
+      expect(() => validateOptions({ input: 'foo', inputFile: '/tmp/x' })).toThrow(
+        ShellCassetteError,
+      )
       expect(() => validateOptions({ input: 'foo', inputFile: '/tmp/x' })).toThrow(/inputFile/)
     })
 
@@ -85,11 +93,15 @@ describe('validateOptions', () => {
       expect(() => validateOptions({ input: '', inputFile: '/tmp/x' })).toThrow(
         UnsupportedOptionError,
       )
+      expect(() => validateOptions({ input: '', inputFile: '/tmp/x' })).toThrow(ShellCassetteError)
     })
 
     test('input: null with inputFile rejects (null is still defined)', () => {
       expect(() => validateOptions({ input: null, inputFile: '/tmp/x' })).toThrow(
         UnsupportedOptionError,
+      )
+      expect(() => validateOptions({ input: null, inputFile: '/tmp/x' })).toThrow(
+        ShellCassetteError,
       )
     })
   })

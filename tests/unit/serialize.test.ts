@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, test } from 'vitest'
-import { BinaryOutputError, CassetteCorruptError } from '../../src/errors.js'
+import { BinaryOutputError, CassetteCorruptError, ShellCassetteError } from '../../src/errors.js'
 import { deserialize, serialize } from '../../src/serialize.js'
 import type { CassetteFile } from '../../src/types.js'
 import { makeRecording } from '../helpers/recording.js'
@@ -24,14 +24,17 @@ describe('deserialize', () => {
 
   test('throws CassetteCorruptError on missing version', () => {
     expect(() => deserialize(fixture('no-version'))).toThrow(CassetteCorruptError)
+    expect(() => deserialize(fixture('no-version'))).toThrow(ShellCassetteError)
   })
 
   test('throws CassetteCorruptError on unknown version', () => {
     expect(() => deserialize(fixture('unknown-version'))).toThrow(CassetteCorruptError)
+    expect(() => deserialize(fixture('unknown-version'))).toThrow(ShellCassetteError)
   })
 
   test('throws CassetteCorruptError on malformed JSON', () => {
     expect(() => deserialize(fixture('malformed'))).toThrow(CassetteCorruptError)
+    expect(() => deserialize(fixture('malformed'))).toThrow(ShellCassetteError)
   })
 })
 
@@ -157,5 +160,6 @@ describe('serialize', () => {
       ],
     } as CassetteFile
     expect(() => serialize(bad)).toThrow(BinaryOutputError)
+    expect(() => serialize(bad)).toThrow(ShellCassetteError)
   })
 })

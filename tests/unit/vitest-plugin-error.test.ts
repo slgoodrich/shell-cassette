@@ -34,12 +34,14 @@ describe('wrapRegistrationError', () => {
   test('non-Error throws are coerced to Error before wrapping', () => {
     const wrapped = wrapRegistrationError('a string was thrown')
     expect(wrapped).toBeInstanceOf(VitestPluginRegistrationError)
+    expect(wrapped).toBeInstanceOf(ShellCassetteError)
     expect(wrapped.message).toContain('a string was thrown')
   })
 
   test('undefined throw still produces a wrapped message with deps.inline guidance', () => {
     const wrapped = wrapRegistrationError(undefined)
     expect(wrapped).toBeInstanceOf(VitestPluginRegistrationError)
+    expect(wrapped).toBeInstanceOf(ShellCassetteError)
     // No dead-end message when the original "error" was undefined.
     expect(wrapped.message).toContain('deps: { inline:')
   })
