@@ -133,15 +133,20 @@ describe('record + replay with node: true and execaNode', () => {
     const script = path.join(tmp.ref(), 'no-hint.mjs')
     await writeFile(script, 'console.log("recorded")', 'utf8')
 
+    // Invoke `node` explicitly rather than spawning the .mjs file directly.
+    // On Linux, .mjs files are not executable without a shebang and the
+    // exec bit; passing `node` as the command works cross-platform. The
+    // hint logic checks `options.node === true`, not the command name, so
+    // this still exercises the "no node flag" path.
     await useCassette(cp, async () => {
-      await execa(script, ['recorded-arg'])
+      await execa('node', [script, 'recorded-arg'])
     })
 
     process.env.SHELL_CASSETTE_MODE = 'replay'
     try {
       await useCassette(cp, async () => {
         try {
-          await execa(script, ['different-arg'])
+          await execa('node', [script, 'different-arg'])
           throw new Error('should not reach')
         } catch (e) {
           expect(e).toBeInstanceOf(ReplayMissError)
