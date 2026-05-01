@@ -52,30 +52,13 @@ function redactCall(call: Call, session: CassetteSession): Call {
     }
   }
 
-  const args = call.args.map((arg) => {
-    const r = redact({ source: 'args', value: arg }, session.redactConfig, {
-      counted: true,
-      counters: session.redactCounters,
-    })
-    session.redactionEntries.push(...r.entries)
-    session.warnings.push(...r.warnings)
-    return r.output
-  })
+  const args = call.args.map((arg) => redactLine('args', arg, session))
 
   // Stdin can carry credentials (raw API responses with embedded tokens,
   // hand-typed credentials, etc.) that no env-key match would catch.
   // Run the bundled + custom regex pipeline against the raw stdin string
   // when present; skip entirely for null stdin (no input was supplied).
-  let stdin: string | null = null
-  if (call.stdin !== null) {
-    const r = redact({ source: 'stdin', value: call.stdin }, session.redactConfig, {
-      counted: true,
-      counters: session.redactCounters,
-    })
-    session.redactionEntries.push(...r.entries)
-    session.warnings.push(...r.warnings)
-    stdin = r.output
-  }
+  const stdin = call.stdin === null ? null : redactLine('stdin', call.stdin, session)
 
   return { ...call, env, args, stdin }
 }
