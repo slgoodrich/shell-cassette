@@ -1,5 +1,6 @@
 import type { Options, ResultPromise } from 'execa'
 import { MissingPeerDependencyError } from './errors.js'
+import { readInputFile } from './io.js'
 import { validateOptions } from './options-execa.js'
 import type { Call, Recording, Result } from './types.js'
 import { type RunnerHooks, runWrapped } from './wrapper.js'
@@ -31,6 +32,19 @@ export function execa(
   return runWrapped(file, args ?? [], options ?? {}, execaHooks) as ResultPromise<Options>
 }
 
+// Mirrors real execa's `execaNode`: runs the script under the current Node
+// runtime by forcing `node: true`. The user-provided file is preserved as
+// `Call.command` (e.g. `'script.mjs'`, not `'node script.mjs'`), and the
+// `node` flag is not stored in the cassette. So `execaNode(f)` and
+// `execa(f, [], { node: true })` share recordings via canonical form.
+export function execaNode(
+  file: string,
+  args?: readonly string[],
+  options?: Options,
+): ResultPromise<Options> {
+  return execa(file, args, { ...options, node: true })
+}
+
 const execaHooks: RunnerHooks<Options, unknown> = {
   validate: (opts) => validateOptions(opts as Record<string, unknown> | undefined),
   buildCall,
@@ -40,12 +54,24 @@ const execaHooks: RunnerHooks<Options, unknown> = {
 }
 
 async function buildCall(file: string, args: readonly string[], options: Options): Promise<Call> {
+  // Validator already rejected the invalid shapes (Uint8Array/Readable input,
+  // input+inputFile conflict). At this point `input` is either undefined,
+  // null, or a string; `inputFile` is either undefined or a string-like.
+  let stdin: string | null = null
+  if (typeof options.input === 'string') {
+    stdin = options.input
+  } else if (options.inputFile !== undefined) {
+    // Strict-read: failure here propagates as BinaryInputError or
+    // CassetteIOError. Reading before the matcher runs means binary input
+    // throws before producing a misleading ReplayMissError.
+    stdin = await readInputFile(options.inputFile as string | URL)
+  }
   return {
     command: file,
     args: [...args],
     cwd: (options.cwd as string | undefined) ?? null,
     env: (options.env as Record<string, string> | undefined) ?? {},
-    stdin: null,
+    stdin,
   }
 }
 

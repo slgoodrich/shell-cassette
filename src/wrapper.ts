@@ -78,7 +78,8 @@ export async function runWrapped<Opts, ResultShape>(
     }
     const recording = loaded.matcher.findMatch(call)
     if (recording === null) {
-      throw buildReplayMissError(call, loaded)
+      const hint = hasNodeFlag(options) ? `\n\n${NODE_FLAG_HINT}` : ''
+      throw buildReplayMissError(call, loaded, hint)
     }
     return hooks.synthesize(recording, options)
   }
@@ -176,7 +177,23 @@ function captureAndRecord<Opts, ResultShape>(
 
 const REPLAY_MISS_DIAGNOSTIC_LIMIT = 10
 
-function buildReplayMissError(call: Call, session: LoadedSession): ReplayMissError {
+// Adapter-specific hint helpers. Kept here at one instance; refactor to a
+// hooks-based design (e.g., `RunnerHooks.buildMissHints`) at the third hint.
+function hasNodeFlag(options: unknown): boolean {
+  return (
+    typeof options === 'object' && options !== null && (options as { node?: unknown }).node === true
+  )
+}
+
+const NODE_FLAG_HINT = `(canonical forms ignore the \`node\` flag. \`execaNode(f)\` and \`execa(f, [], { node: true })\` share recordings with calls made without the flag. If you mix node-mode and non-node-mode for the same command in one test, the cassette may serve the wrong recording.)`
+
+/**
+ * Constructs a `ReplayMissError` for an in-session matcher miss. The `hint`
+ * parameter is required (no default) so callers must compute it deliberately;
+ * a silent empty default would drop hint content at refactor time without any
+ * compile-time signal. Pass `''` when no hint applies.
+ */
+function buildReplayMissError(call: Call, session: LoadedSession, hint: string): ReplayMissError {
   const canonical = session.canonicalize(call, session.redactConfig)
   const recordings = session.loadedFile?.recordings ?? []
   const shown = recordings.slice(0, REPLAY_MISS_DIAGNOSTIC_LIMIT)
@@ -204,7 +221,7 @@ Recorded calls in this cassette:
 Recorded canonical forms:
   - ${recordedCanonical}
 
-To re-record: delete the cassette file and run tests again.`,
+To re-record: delete the cassette file and run tests again.${hint}`,
   )
 }
 
