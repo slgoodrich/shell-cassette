@@ -34,7 +34,7 @@ For ambiguous credential shapes (AWS Secret Access Keys, JWTs, generic 32-hex to
 | `discord-bot-token` | Discord | `[MN]` | 23 + `.` + 6 + `.` + 27+ | https://docs.discord.com/developers/reference |
 | `square-production-token` | Square | `EAAA` | 60+ | https://developer.squareup.com/docs/build-basics/access-tokens |
 
-Patterns apply to env values, args, stdout lines, stderr lines, and `allLines`. The same pattern is shared across all five sources; the placeholder records which source it fired in: `<redacted:source:rule-name:N>`.
+Patterns apply to env values, args, stdin, stdout lines, stderr lines, and `allLines`. The same pattern is shared across all six sources; the placeholder records which source it fired in: `<redacted:source:rule-name:N>`.
 
 ## Adding a custom rule
 
@@ -60,7 +60,7 @@ Notes:
 - The `g` flag is normalized internally; supplying a regex with or without `g` works the same.
 - `name` must be lowercase kebab-case (`/^[a-z][a-z0-9-]*$/`). It appears in placeholder strings: `<redacted:source:my-internal-token:N>`.
 - `pattern` may also be a function `(s: string) => string` for advanced cases (e.g., conditional replacement). Function-typed patterns can NOT be position-scanned by `shell-cassette scan`; prefer regex when possible.
-- Custom rules apply to the same five sources as bundled rules.
+- Custom rules apply to the same six sources as bundled rules.
 
 ## Suppressing false positives
 
