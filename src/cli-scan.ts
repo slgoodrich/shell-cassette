@@ -247,6 +247,13 @@ function findingsForRecording(
   config: Readonly<RedactConfig>,
   includeMatch: boolean,
 ): Finding[] {
+  // Compile-time exhaustiveness: each source is scanned explicitly below.
+  // The type-level assertion fails compilation if a new RedactSource variant
+  // is added without a corresponding scan block here.
+  type _CoveredSources = 'env' | 'args' | 'stdin' | 'stdout' | 'stderr' | 'allLines'
+  const _exhaustive: Exclude<RedactSource, _CoveredSources> extends never ? true : never = true
+  void _exhaustive
+
   const findings: Finding[] = []
 
   // env: env-key-match check first, then pattern scan on non-matching keys

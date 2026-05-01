@@ -5,6 +5,14 @@ import { aggregateEntries, ENV_KEY_MATCH_RULE, formatPlaceholder } from './redac
 import type { Call, CassetteSession, Recording, RedactSource, Result } from './types.js'
 
 export function record(call: Call, result: Result, session: CassetteSession): void {
+  // Compile-time exhaustiveness: redactCall covers env+args+stdin and
+  // redactResult covers stdout+stderr+allLines. Adding a new RedactSource
+  // variant must extend one of those two. This assertion fires in both
+  // subfunctions if a variant goes unhandled here.
+  type _CoveredSources = 'env' | 'args' | 'stdin' | 'stdout' | 'stderr' | 'allLines'
+  const _exhaustive: Exclude<RedactSource, _CoveredSources> extends never ? true : never = true
+  void _exhaustive
+
   if (!session.redactEnabled) {
     // Per-cassette override: bypass the redact pipeline entirely.
     session.newRecordings.push({ call, result, redactions: [], suppressed: [] })
