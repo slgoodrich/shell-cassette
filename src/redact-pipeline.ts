@@ -294,6 +294,14 @@ function walkStringsForPlaceholders(
   rec: CassetteFile['recordings'][number],
   visit: (source: string, rule: string, n: number) => void,
 ): void {
+  // Compile-time exhaustiveness: the values array below must spread every
+  // RedactSource field on the recording. Counter seeding from existing
+  // placeholders depends on it; missing a source means the per-(source,rule)
+  // ceiling for that source resets to 0 on auto-additive append.
+  type _CoveredSources = 'env' | 'args' | 'stdin' | 'stdout' | 'stderr' | 'allLines'
+  const _exhaustive: Exclude<RedactSource, _CoveredSources> extends never ? true : never = true
+  void _exhaustive
+
   // Construct the regex once per function call. String.prototype.matchAll
   // does not mutate the pattern's lastIndex, so reusing re across multiple
   // matchAll calls is safe.
