@@ -49,4 +49,35 @@ describe('public redact() wraps pipeline', () => {
     expect(names).toContain('aws-access-key-id')
     expect(names).toContain('openai-api-key')
   })
+
+  test('source: "stdin" routes through the bundle pipeline', () => {
+    const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
+    const r = redact({ source: 'stdin', value: SAMPLE_GITHUB_PAT_CLASSIC }, config, {
+      counted: false,
+    })
+    expect(r.output).toBe('<redacted:stdin:github-pat-classic>')
+  })
+
+  test('source: "stdin", counted: true — counter is per (stdin, rule)', () => {
+    const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
+    const counters = new Map<string, number>()
+    const r = redact({ source: 'stdin', value: SAMPLE_GITHUB_PAT_CLASSIC }, config, {
+      counted: true,
+      counters,
+    })
+    expect(r.output).toBe('<redacted:stdin:github-pat-classic:1>')
+    expect(counters.get('stdin:github-pat-classic')).toBe(1)
+  })
+
+  test('source: "stdin" — custom regex rule fires', () => {
+    const config: RedactConfig = {
+      ...baseConfig,
+      customPatterns: [{ name: 'my-secret', pattern: /SECRET-[A-Z0-9]+/ }],
+    }
+    const r = redact({ source: 'stdin', value: 'wrap SECRET-ABC123 wrap' }, config, {
+      counted: false,
+    })
+    expect(r.output).toBe('wrap <redacted:stdin:my-secret> wrap')
+    expect(r.entries).toEqual([{ rule: 'my-secret', source: 'stdin', count: 1 }])
+  })
 })

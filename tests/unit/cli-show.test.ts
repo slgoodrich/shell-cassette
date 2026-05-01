@@ -179,3 +179,88 @@ describe('runShow --json', () => {
     expect(outBuf.join('')).toContain('Usage:')
   })
 })
+
+describe('runShow terminal: stdin section', () => {
+  let tmp: string
+  let outBuf: string[]
+  const origStdout = process.stdout.write.bind(process.stdout)
+  const origStderr = process.stderr.write.bind(process.stderr)
+
+  beforeEach(async () => {
+    tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-show-stdin-'))
+    outBuf = []
+    process.stdout.write = ((s: string) => {
+      outBuf.push(s)
+      return true
+    }) as typeof process.stdout.write
+    process.stderr.write = (() => true) as typeof process.stderr.write
+  })
+  afterEach(async () => {
+    process.stdout.write = origStdout
+    process.stderr.write = origStderr
+    await rm(tmp, { recursive: true, force: true })
+  })
+
+  test('non-null stdin: terminal output includes a stdin section', async () => {
+    const cassette = {
+      version: 2,
+      _warning: '',
+      _recorded_by: { name: 'shell-cassette', version: '0.6.0' },
+      recordings: [
+        {
+          call: { command: 'curl', args: [], cwd: null, env: {}, stdin: 'hello world' },
+          result: {
+            stdoutLines: [],
+            stderrLines: [],
+            allLines: null,
+            exitCode: 0,
+            signal: null,
+            durationMs: 5,
+            aborted: false,
+          },
+          _redactions: [],
+        },
+      ],
+    }
+    const fixturePath = path.join(tmp, 'stdin.json')
+    await writeFile(fixturePath, `${JSON.stringify(cassette, null, 2)}\n`)
+
+    const exit = await runShow([fixturePath, '--no-color'])
+    expect(exit).toBe(0)
+    const out = outBuf.join('')
+    expect(out).toContain('stdin (11 chars):')
+    expect(out).toContain('hello world')
+  })
+
+  test('null stdin: terminal output omits the stdin section entirely', async () => {
+    const cassette = {
+      version: 2,
+      _warning: '',
+      _recorded_by: { name: 'shell-cassette', version: '0.6.0' },
+      recordings: [
+        {
+          call: { command: 'echo', args: ['hi'], cwd: null, env: {}, stdin: null },
+          result: {
+            stdoutLines: ['hi'],
+            stderrLines: [],
+            allLines: null,
+            exitCode: 0,
+            signal: null,
+            durationMs: 5,
+            aborted: false,
+          },
+          _redactions: [],
+        },
+      ],
+    }
+    const fixturePath = path.join(tmp, 'stdin-null.json')
+    await writeFile(fixturePath, `${JSON.stringify(cassette, null, 2)}\n`)
+
+    const exit = await runShow([fixturePath, '--no-color'])
+    expect(exit).toBe(0)
+    const out = outBuf.join('')
+    // The stdin section header is `  stdin (<N> chars):`; assert that exact
+    // shape is absent. Substring 'stdin' alone would match 'stdout'.
+    expect(out).not.toMatch(/^\s+stdin\s*\(/m)
+  })
+})

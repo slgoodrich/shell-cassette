@@ -276,6 +276,11 @@ function findingsForRecording(
     findings.push(...scanValue(arg, 'args', argIdx.toString(), index, rules, config, includeMatch))
   }
 
+  // stdin: single string source. Position label is '0' (no line/index dimension).
+  if (rec.call.stdin !== null) {
+    findings.push(...scanValue(rec.call.stdin, 'stdin', '0', index, rules, config, includeMatch))
+  }
+
   // stdout lines: use 1-based line number as position label
   for (const [lineIdx, line] of rec.result.stdoutLines.entries()) {
     findings.push(

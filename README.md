@@ -220,7 +220,7 @@ shell-cassette redacts what it can detect reliably and warns on suspicious-looki
 - **Encoded credentials.** `Authorization: Basic <base64>` headers, base64-encoded YAML/JSON secrets. shell-cassette doesn't decode. Add a custom rule if relevant.
 - **Binary output.** `BinaryOutputError` blocks recording when the subprocess emits non-UTF-8.
 - **`cwd` values.** Credentials in working-directory paths are vanishingly rare; not redacted.
-- **Subprocess `stdin`.** Not captured.
+- **Subprocess `stdin`.** Captured and redacted via the same pipeline as args/stdout/stderr (bundled patterns, custom rules, suppress list). The bundle catches well-shaped credentials passed on stdin; the same residual gaps above (AWS Secret Access Keys, JWTs, encoded credentials) apply.
 
 Workarounds for each gap are in [docs/troubleshooting.md](docs/troubleshooting.md#residual-risks-and-gaps-in-redaction).
 
@@ -448,8 +448,9 @@ export default {
   },
 
   // Custom canonicalize fn (default: defaultCanonicalize, command exact +
-  // args with absolute mkdtemp paths normalized to <tmp>; cwd, env, stdin
-  // omitted from the canonical form so cassettes are portable across machines)
+  // args with absolute mkdtemp paths normalized to <tmp>; cwd, env omitted
+  // from the canonical form so cassettes are portable across machines;
+  // stdin is included by default; opt out via custom canonicalize if needed)
   canonicalize: (call) => ({
     ...defaultCanonicalize(call),
     command: basenameCommand(call.command),  // /usr/bin/git matches git
@@ -459,9 +460,25 @@ export default {
 
 Full reference for the redact config is in [docs/redact-patterns.md](docs/redact-patterns.md).
 
+## What's in the match-tuple
+
+The default matcher compares a call to a recording by deep-equality of their canonical forms. By default the canonical form is:
+
+| Field | Matched? | Notes |
+|---|---|---|
+| `command` | yes | exact (use `basenameCommand` for cross-machine portability) |
+| `args` | yes | absolute mkdtemp paths normalized to `<tmp>`; counter-tagged placeholders stripped |
+| `stdin` | yes | redaction-normalized so a redacted cassette stdin matches a fresh call carrying the raw value |
+| `cwd` | no | recorded for diagnostic display, not part of the tuple |
+| `env` | no | recorded (with redaction applied) for diagnostic display, not part of the tuple |
+
+For execa, `node: true` and `execaNode(...)` produce identical `Call` shapes: the user-provided file is stored as `Call.command`, and the `node` flag itself is not stored in the cassette. A recording made via `execa(file, args, { node: true })` replays a call made via `execaNode(file, args)` and vice versa.
+
+If you need cwd or env in the match-tuple, or want to drop stdin, write a custom `canonicalize` function.
+
 ## Customizing matching
 
-shell-cassette matches a call to a recording by deep-equality of their canonical forms. The default canonical form covers the common case (command + tmp-normalized args). For everything else, write a `canonicalize` function.
+shell-cassette matches a call to a recording by deep-equality of their canonical forms. The default canonical form covers the common case (command + tmp-normalized args + stdin). For everything else, write a `canonicalize` function.
 
 ```ts
 import { basenameCommand, defaultCanonicalize, useCassette } from 'shell-cassette'

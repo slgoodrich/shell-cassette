@@ -257,6 +257,20 @@ function reRedactRecording(
     return r.output
   })
 
+  // stdin: single string source. Re-redact mirrors the args block's shape but
+  // skips entirely when the call had no stdin.
+  let stdin: string | null = rec.call.stdin
+  if (stdin !== null) {
+    const r = redact({ source: 'stdin', value: stdin }, config, {
+      counted: true,
+      counters,
+      suppressedHashes,
+    })
+    newEntries.push(...r.entries)
+    newCount += r.entries.reduce((s, e) => s + e.count, 0)
+    stdin = r.output
+  }
+
   const stdoutLines = rec.result.stdoutLines.map((line) => {
     const r = redact({ source: 'stdout', value: line }, config, {
       counted: true,
@@ -298,7 +312,7 @@ function reRedactRecording(
 
   return {
     recording: {
-      call: { ...rec.call, env, args },
+      call: { ...rec.call, env, args, stdin },
       result: { ...rec.result, stdoutLines, stderrLines, allLines },
       redactions: aggregated,
       // suppressed is user intent; never mutated by re-redact.

@@ -625,6 +625,42 @@ describe('seedCountersFromCassette', () => {
     expect(counters.get('allLines:r')).toBe(5)
   })
 
+  test('walks call.stdin when non-null', () => {
+    const cassette: CassetteFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [
+        {
+          ...emptyRec(),
+          call: {
+            command: 'curl',
+            args: [],
+            cwd: null,
+            env: {},
+            stdin: 'token: <redacted:stdin:github-pat-classic:8>',
+          },
+        },
+      ],
+    }
+    const counters = seedCountersFromCassette(cassette)
+    expect(counters.get('stdin:github-pat-classic')).toBe(8)
+  })
+
+  test('null stdin does not contribute to seeded counters', () => {
+    const cassette: CassetteFile = {
+      version: 2,
+      recordedBy: null,
+      recordings: [
+        {
+          ...emptyRec(),
+          call: { command: 'curl', args: [], cwd: null, env: {}, stdin: null },
+        },
+      ],
+    }
+    const counters = seedCountersFromCassette(cassette)
+    expect(counters.size).toBe(0)
+  })
+
   test('multiple recordings: counts accumulate (sum) across recordings', () => {
     const cassette: CassetteFile = {
       version: 2,
