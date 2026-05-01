@@ -5,7 +5,9 @@ export type Call = {
   args: readonly string[]
   cwd: string | null
   env: Record<string, string>
-  stdin: null // v0.1: stdin not supported
+  // String when the call passed `input: 'literal'`; null when no stdin
+  // was supplied. Buffer/stream inputs are rejected at the wrapper layer.
+  stdin: string | null
 }
 
 export type Result = {

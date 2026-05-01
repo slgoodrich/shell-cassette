@@ -27,6 +27,10 @@ export class BinaryOutputError extends ShellCassetteError {
   static override code = 'CASSETTE_BINARY_OUTPUT'
 }
 
+export class BinaryInputError extends ShellCassetteError {
+  static override code = 'CASSETTE_BINARY_INPUT'
+}
+
 export class CassetteCorruptError extends ShellCassetteError {
   static override code = 'CASSETTE_CORRUPT'
 }

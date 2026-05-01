@@ -11,14 +11,39 @@ describe('defaultCanonicalize', () => {
     expect(canonical.args).toEqual(['status'])
   })
 
-  test('omits cwd, env, stdin from canonical form', () => {
+  test('omits cwd, env from canonical form', () => {
     const canonical = defaultCanonicalize(
       callOf('git', ['status'], { cwd: '/some/dir', env: { FOO: 'bar' } }),
       DEFAULT_CONFIG.redact,
     )
     expect(canonical.cwd).toBeUndefined()
     expect(canonical.env).toBeUndefined()
-    expect(canonical.stdin).toBeUndefined()
+  })
+
+  test('includes stdin in canonical form when stdin is a string', () => {
+    const canonical = defaultCanonicalize(
+      callOf('cat', [], { stdin: 'hello world' }),
+      DEFAULT_CONFIG.redact,
+    )
+    expect(canonical.stdin).toBe('hello world')
+  })
+
+  test('includes stdin in canonical form when stdin is null (field present, not omitted)', () => {
+    const canonical = defaultCanonicalize(callOf('cat', []), DEFAULT_CONFIG.redact)
+    expect('stdin' in canonical).toBe(true)
+    expect(canonical.stdin).toBeNull()
+  })
+
+  test('different stdin produces non-equal canonical forms', () => {
+    const a = defaultCanonicalize(callOf('cat', [], { stdin: 'one' }), DEFAULT_CONFIG.redact)
+    const b = defaultCanonicalize(callOf('cat', [], { stdin: 'two' }), DEFAULT_CONFIG.redact)
+    expect(a).not.toEqual(b)
+  })
+
+  test('empty-string stdin and null stdin are distinct canonical forms', () => {
+    const empty = defaultCanonicalize(callOf('cat', [], { stdin: '' }), DEFAULT_CONFIG.redact)
+    const nullish = defaultCanonicalize(callOf('cat', [], { stdin: null }), DEFAULT_CONFIG.redact)
+    expect(empty).not.toEqual(nullish)
   })
 
   test('normalizes mkdtemp paths in args', () => {

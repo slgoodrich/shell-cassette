@@ -39,7 +39,7 @@ const execaHooks: RunnerHooks<Options, unknown> = {
   synthesize,
 }
 
-function buildCall(file: string, args: readonly string[], options: Options): Call {
+async function buildCall(file: string, args: readonly string[], options: Options): Promise<Call> {
   return {
     command: file,
     args: [...args],

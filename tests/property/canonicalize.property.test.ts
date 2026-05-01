@@ -96,13 +96,12 @@ describe('defaultCanonicalize properties', () => {
     )
   })
 
-  test('omits cwd, env, stdin from canonical form', () => {
+  test('omits cwd, env from canonical form', () => {
     fc.assert(
       fc.property(genCall, (call) => {
         const c = defaultCanonicalize(call, DEFAULT_CONFIG.redact)
         expect(c.cwd).toBeUndefined()
         expect(c.env).toBeUndefined()
-        expect(c.stdin).toBeUndefined()
       }),
       { numRuns: 100 },
     )
