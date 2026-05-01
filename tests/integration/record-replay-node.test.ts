@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { ReplayMissError } from '../../src/errors.js'
+import { ReplayMissError, ShellCassetteError } from '../../src/errors.js'
 import { execa, execaNode } from '../../src/execa.js'
 import { useCassette } from '../../src/use-cassette.js'
 import { useRecordingEnv } from '../helpers/recording-env.js'
@@ -107,6 +107,7 @@ describe('record + replay with node: true and execaNode', () => {
           throw new Error('should not reach')
         } catch (e) {
           expect(e).toBeInstanceOf(ReplayMissError)
+          expect(e).toBeInstanceOf(ShellCassetteError)
           const msg = (e as Error).message
           expect(msg).toContain('canonical forms ignore the `node` flag')
           expect(msg).toContain('execaNode(f)')
@@ -139,6 +140,7 @@ describe('record + replay with node: true and execaNode', () => {
           throw new Error('should not reach')
         } catch (e) {
           expect(e).toBeInstanceOf(ReplayMissError)
+          expect(e).toBeInstanceOf(ShellCassetteError)
           const msg = (e as Error).message
           expect(msg).not.toContain('canonical forms ignore the `node` flag')
         }

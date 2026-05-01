@@ -56,6 +56,7 @@ describe('all error classes are instanceof ShellCassetteError', () => {
       throw new Error('should not reach')
     } catch (e) {
       expect(e).toBeInstanceOf(UnsupportedOptionError)
+      expect(e).toBeInstanceOf(ShellCassetteError)
     }
   })
 
@@ -76,6 +77,7 @@ describe('all error classes are instanceof ShellCassetteError', () => {
         throw new Error('should not reach')
       } catch (e) {
         expect(e).toBeInstanceOf(ReplayMissError)
+        expect(e).toBeInstanceOf(ShellCassetteError)
       }
     } finally {
       delete process.env.SHELL_CASSETTE_MODE
@@ -84,7 +86,7 @@ describe('all error classes are instanceof ShellCassetteError', () => {
   })
 
   test('ConcurrencyError', () => {
-    expect(() =>
+    const trigger = () =>
       deriveCassettePathFromTask(
         {
           name: 'x',
@@ -92,12 +94,14 @@ describe('all error classes are instanceof ShellCassetteError', () => {
           concurrent: true,
         } as never,
         '__cassettes__',
-      ),
-    ).toThrow(ConcurrencyError)
+      )
+    expect(trigger).toThrow(ConcurrencyError)
+    expect(trigger).toThrow(ShellCassetteError)
   })
 
   test('CassetteCorruptError', () => {
     expect(() => deserialize('{ bad json')).toThrow(CassetteCorruptError)
+    expect(() => deserialize('{ bad json')).toThrow(ShellCassetteError)
   })
 
   test('CassetteCollisionError', async () => {
@@ -118,6 +122,7 @@ describe('all error classes are instanceof ShellCassetteError', () => {
           /* swallow */
         })
         expect(e).toBeInstanceOf(CassetteCollisionError)
+        expect(e).toBeInstanceOf(ShellCassetteError)
       }
     } finally {
       await rm(tmp, { recursive: true, force: true })
@@ -127,6 +132,7 @@ describe('all error classes are instanceof ShellCassetteError', () => {
   test('CassetteIOError on long path', () => {
     const longPath = `/repo/${'a'.repeat(300)}/test.ts`
     expect(() => cassettePath(longPath, [], 'test', '__cassettes__')).toThrow(CassetteIOError)
+    expect(() => cassettePath(longPath, [], 'test', '__cassettes__')).toThrow(ShellCassetteError)
   })
 
   test('CassetteNotFoundError carries the missing path', () => {

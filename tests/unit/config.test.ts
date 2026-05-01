@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { DEFAULT_CONFIG, mergeWithDefaults, validateConfig } from '../../src/config.js'
-import { CassetteConfigError } from '../../src/errors.js'
+import { CassetteConfigError, ShellCassetteError } from '../../src/errors.js'
 
 describe('DEFAULT_CONFIG', () => {
   test('has cassetteDir = __cassettes__', () => {
@@ -46,16 +46,21 @@ describe('validateConfig', () => {
 
   test('throws CassetteConfigError on non-object', () => {
     expect(() => validateConfig(null)).toThrow(CassetteConfigError)
+    expect(() => validateConfig(null)).toThrow(ShellCassetteError)
     expect(() => validateConfig('string')).toThrow(CassetteConfigError)
+    expect(() => validateConfig('string')).toThrow(ShellCassetteError)
     expect(() => validateConfig(42)).toThrow(CassetteConfigError)
+    expect(() => validateConfig(42)).toThrow(ShellCassetteError)
   })
 
   test('throws if cassetteDir is not string', () => {
     expect(() => validateConfig({ cassetteDir: 42 })).toThrow(CassetteConfigError)
+    expect(() => validateConfig({ cassetteDir: 42 })).toThrow(ShellCassetteError)
   })
 
   test('throws if canonicalize is not function', () => {
     expect(() => validateConfig({ canonicalize: 'foo' })).toThrow(CassetteConfigError)
+    expect(() => validateConfig({ canonicalize: 'foo' })).toThrow(ShellCassetteError)
   })
 })
 
@@ -192,11 +197,12 @@ describe('validateConfig: redact field', () => {
   })
 
   test('rejects custom rule with empty name', () => {
-    expect(() =>
+    const trigger = () =>
       validateConfig({
         redact: { customPatterns: [{ name: '', pattern: /A/ }] },
-      }),
-    ).toThrow(CassetteConfigError)
+      })
+    expect(trigger).toThrow(CassetteConfigError)
+    expect(trigger).toThrow(ShellCassetteError)
   })
 
   test('rejects duplicate custom rule names', () => {

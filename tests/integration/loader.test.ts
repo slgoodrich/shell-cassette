@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { CassetteCorruptError } from '../../src/errors.js'
+import { CassetteCorruptError, ShellCassetteError } from '../../src/errors.js'
 import { loadCassette } from '../../src/loader.js'
 import { useTmpDir } from '../helpers/tmp-dir.js'
 
@@ -26,11 +26,13 @@ describe('loadCassette', () => {
     const target = path.join(tmpDir.ref(), 'bad.json')
     await writeFile(target, '{ not json', 'utf8')
     await expect(loadCassette(target)).rejects.toThrow(CassetteCorruptError)
+    await expect(loadCassette(target)).rejects.toThrow(ShellCassetteError)
   })
 
   test('throws CassetteCorruptError on unknown version', async () => {
     const target = path.join(tmpDir.ref(), 'unknown.json')
     await writeFile(target, JSON.stringify({ version: 99 }), 'utf8')
     await expect(loadCassette(target)).rejects.toThrow(CassetteCorruptError)
+    await expect(loadCassette(target)).rejects.toThrow(ShellCassetteError)
   })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { CassetteCorruptError } from '../../src/errors.js'
+import { CassetteCorruptError, ShellCassetteError } from '../../src/errors.js'
 import { deserialize, serialize } from '../../src/serialize.js'
 import type { CassetteFile } from '../../src/types.js'
 
@@ -168,25 +168,30 @@ describe('deserialize: version rejection', () => {
   test('version 3 throws CassetteCorruptError', () => {
     const json = JSON.stringify({ version: 3, recordings: [] })
     expect(() => deserialize(json)).toThrow(CassetteCorruptError)
+    expect(() => deserialize(json)).toThrow(ShellCassetteError)
   })
 
   test('version 0 throws CassetteCorruptError', () => {
     const json = JSON.stringify({ version: 0, recordings: [] })
     expect(() => deserialize(json)).toThrow(CassetteCorruptError)
+    expect(() => deserialize(json)).toThrow(ShellCassetteError)
   })
 
   test('version "1" (string) throws CassetteCorruptError (must be numeric)', () => {
     const json = JSON.stringify({ version: '1', recordings: [] })
     expect(() => deserialize(json)).toThrow(CassetteCorruptError)
+    expect(() => deserialize(json)).toThrow(ShellCassetteError)
   })
 
   test('missing version field throws CassetteCorruptError', () => {
     const json = JSON.stringify({ recordings: [] })
     expect(() => deserialize(json)).toThrow(CassetteCorruptError)
+    expect(() => deserialize(json)).toThrow(ShellCassetteError)
   })
 
   test('malformed JSON throws CassetteCorruptError', () => {
     expect(() => deserialize('{not valid')).toThrow(CassetteCorruptError)
+    expect(() => deserialize('{not valid')).toThrow(ShellCassetteError)
   })
 
   test('version 3 error message instructs to upgrade', () => {

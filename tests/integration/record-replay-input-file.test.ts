@@ -1,7 +1,7 @@
 import { readFile, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { CassetteIOError, ReplayMissError } from '../../src/errors.js'
+import { CassetteIOError, ReplayMissError, ShellCassetteError } from '../../src/errors.js'
 import { execa } from '../../src/execa.js'
 import { useCassette } from '../../src/use-cassette.js'
 import { useRecordingEnv } from '../helpers/recording-env.js'
@@ -54,6 +54,7 @@ describe('e2e record + replay with inputFile', () => {
           throw new Error('should not reach')
         } catch (e) {
           expect(e).toBeInstanceOf(ReplayMissError)
+          expect(e).toBeInstanceOf(ShellCassetteError)
         }
       })
     } finally {
@@ -81,6 +82,7 @@ describe('e2e record + replay with inputFile', () => {
           throw new Error('should not reach')
         } catch (e) {
           expect(e).toBeInstanceOf(CassetteIOError)
+          expect(e).toBeInstanceOf(ShellCassetteError)
           expect((e as Error).message).toContain(fixture)
         }
       })

@@ -3,6 +3,7 @@ import {
   AckRequiredError,
   NoActiveSessionError,
   ReplayMissError,
+  ShellCassetteError,
   UnsupportedOptionError,
 } from '../../src/errors.js'
 import { _resetForTesting, clearActiveCassette, setActiveCassette } from '../../src/state.js'
@@ -77,6 +78,7 @@ describe('runWrapped (envelope)', () => {
       throw new Error('should not reach')
     } catch (e) {
       expect(e).toBeInstanceOf(NoActiveSessionError)
+      expect(e).toBeInstanceOf(ShellCassetteError)
       const msg = (e as Error).message
       expect(msg).toContain('replay mode')
       expect(msg).toContain('useCassette')
@@ -89,9 +91,14 @@ describe('runWrapped (envelope)', () => {
   test('NoActiveSessionError when SHELL_CASSETTE_MODE=replay and no session is bound', async () => {
     process.env.SHELL_CASSETTE_MODE = 'replay'
     const realCall = vi.fn()
-    await expect(
-      runWrapped('echo', ['hi'], {}, baseHooks(realCall as never)),
-    ).rejects.toBeInstanceOf(NoActiveSessionError)
+    let caught: unknown
+    try {
+      await runWrapped('echo', ['hi'], {}, baseHooks(realCall as never))
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(NoActiveSessionError)
+    expect(caught).toBeInstanceOf(ShellCassetteError)
     expect(realCall).not.toHaveBeenCalled()
   })
 
@@ -113,7 +120,14 @@ describe('runWrapped (envelope)', () => {
       ...baseHooks(realCall as never),
       validate,
     }
-    await expect(runWrapped('echo', [], {}, hooks)).rejects.toBeInstanceOf(UnsupportedOptionError)
+    let caught: unknown
+    try {
+      await runWrapped('echo', [], {}, hooks)
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(UnsupportedOptionError)
+    expect(caught).toBeInstanceOf(ShellCassetteError)
     expect(validate).toHaveBeenCalledOnce()
     expect(realCall).not.toHaveBeenCalled()
   })
@@ -122,9 +136,14 @@ describe('runWrapped (envelope)', () => {
     const session = makeSession({ scopeDefault: 'auto', loadedFile: null })
     setActiveCassette(session)
     const realCall = vi.fn(async () => ({ stdout: 'x', exitCode: 0 }))
-    await expect(runWrapped('echo', [], {}, baseHooks(realCall))).rejects.toBeInstanceOf(
-      AckRequiredError,
-    )
+    let caught: unknown
+    try {
+      await runWrapped('echo', [], {}, baseHooks(realCall))
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(AckRequiredError)
+    expect(caught).toBeInstanceOf(ShellCassetteError)
     expect(realCall).not.toHaveBeenCalled()
     clearActiveCassette()
   })
@@ -155,9 +174,14 @@ describe('runWrapped (envelope)', () => {
     process.env.SHELL_CASSETTE_MODE = 'replay'
 
     const realCall = vi.fn()
-    await expect(
-      runWrapped('echo', ['hi'], {}, baseHooks(realCall as never)),
-    ).rejects.toBeInstanceOf(ReplayMissError)
+    let caught: unknown
+    try {
+      await runWrapped('echo', ['hi'], {}, baseHooks(realCall as never))
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ReplayMissError)
+    expect(caught).toBeInstanceOf(ShellCassetteError)
     clearActiveCassette()
   })
 
@@ -213,6 +237,7 @@ describe('runWrapped (envelope)', () => {
       throw new Error('should not reach')
     } catch (e) {
       expect(e).toBeInstanceOf(AckRequiredError)
+      expect(e).toBeInstanceOf(ShellCassetteError)
       const msg = (e as Error).message
       expect(msg).toContain('auto mode')
       expect(msg).toContain('no recording matched')
@@ -237,6 +262,7 @@ describe('runWrapped (envelope)', () => {
       throw new Error('should not reach')
     } catch (e) {
       expect(e).toBeInstanceOf(AckRequiredError)
+      expect(e).toBeInstanceOf(ShellCassetteError)
       const msg = (e as Error).message
       // Positive assertion: explicit-record path returns the unmodified ack
       // help text from src/ack.ts, which starts with "shell-cassette is about".

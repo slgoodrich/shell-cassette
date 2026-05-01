@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest'
-import { CassetteCollisionError } from '../../src/errors.js'
+import { CassetteCollisionError, ShellCassetteError } from '../../src/errors.js'
 import {
   clearActiveCassette,
   getActiveCassette,
@@ -71,6 +71,7 @@ describe('CassetteCollisionError detection via path map', () => {
   test('registering same path twice throws', () => {
     registerSessionPath('/tmp/foo.json', 'opener-a')
     expect(() => registerSessionPath('/tmp/foo.json', 'opener-b')).toThrow(CassetteCollisionError)
+    expect(() => registerSessionPath('/tmp/foo.json', 'opener-b')).toThrow(ShellCassetteError)
     unregisterSessionPath('/tmp/foo.json')
   })
 

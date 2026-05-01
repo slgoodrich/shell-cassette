@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { loadConfigFromDir } from '../../src/config.js'
-import { CassetteConfigError } from '../../src/errors.js'
+import { CassetteConfigError, ShellCassetteError } from '../../src/errors.js'
 import { useTmpDir } from '../helpers/tmp-dir.js'
 
 describe('loadConfigFromDir', () => {
@@ -37,6 +37,7 @@ describe('loadConfigFromDir', () => {
       'export default { syntax error here',
     )
     await expect(loadConfigFromDir(tmpDir.ref())).rejects.toThrow(CassetteConfigError)
+    await expect(loadConfigFromDir(tmpDir.ref())).rejects.toThrow(ShellCassetteError)
   })
 
   test('throws CassetteConfigError on invalid config shape', async () => {
@@ -45,6 +46,7 @@ describe('loadConfigFromDir', () => {
       'export default { cassetteDir: 42 }',
     )
     await expect(loadConfigFromDir(tmpDir.ref())).rejects.toThrow(CassetteConfigError)
+    await expect(loadConfigFromDir(tmpDir.ref())).rejects.toThrow(ShellCassetteError)
   })
 
   test('walks up parent directories looking for config', async () => {
