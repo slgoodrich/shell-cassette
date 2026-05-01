@@ -101,7 +101,7 @@ function synthesize(rec: Recording, options: Partial<Options>): TinyResult {
     killed,
     pipe: () => {
       throw new UnsupportedOptionError(
-        'tinyexec result.pipe() not supported on replay (no live subprocess). Tracked in backlog.',
+        'tinyexec result.pipe() not supported on replay (no live subprocess).',
       )
     },
     kill: () => {
@@ -109,7 +109,7 @@ function synthesize(rec: Recording, options: Partial<Options>): TinyResult {
     },
     [Symbol.asyncIterator]: () => {
       throw new UnsupportedOptionError(
-        'tinyexec async iteration `for await (line of result)` not supported on replay. Tracked in backlog.',
+        'tinyexec async iteration `for await (line of result)` not supported on replay.',
       )
     },
   }
