@@ -101,13 +101,57 @@ function toLines(input: string | string[] | undefined): string[] {
   return input.split('\n')
 }
 
+// Resolve execa's `lines` option to per-stream booleans. The object form lets
+// users set `lines` independently per fd, e.g. `{ stdout: true, stderr: false }`.
+// Precedence matches execa's own resolution (see node_modules/execa/types/
+// arguments/specific.d.ts FdNumberToFromOption): for fd1, `stdout` wins over
+// `fd1` wins over `all`; for fd2, `stderr` wins over `fd2` wins over `all`.
+// The `??` cascade matches that semantics: the first non-nullish key in the
+// chain decides the value. The OR-form (`a === true || b === true`) was
+// rejected because it gives the wrong shape on conflicting keys (e.g.
+// `{ stdout: false, all: true }` should yield string stdout, not array).
+function resolveLines(lines: Options['lines']): { stdout: boolean; stderr: boolean; all: boolean } {
+  if (lines === true) return { stdout: true, stderr: true, all: true }
+  if (lines === false || lines === undefined || typeof lines !== 'object' || lines === null) {
+    return { stdout: false, stderr: false, all: false }
+  }
+  // execa's lines object type is structurally complex (FdGenericOption<boolean>);
+  // cast to a uniform key→bool map for the ?? cascade.
+  const o = lines as Record<string, boolean | undefined>
+  const stdout = o.stdout ?? o.fd1 ?? o.all ?? false
+  const stderr = o.stderr ?? o.fd2 ?? o.all ?? false
+  const all = o.all ?? false
+  return { stdout, stderr, all }
+}
+
+// The cassette format does not encode whether a recording's stdout/stderr was
+// originally a string or an array. `toLines` on capture appends '' as a
+// trailing marker only when the source was an array OR a string that ended in
+// '\n' (split('\n') leaves a trailing '' in that case). A plain string without
+// a trailing newline records as `['foo']` (no marker). On replay under
+// `lines: true`, unconditionally trimming the last element over-trims that
+// case. Conditional slice: only drop the last element when it actually IS the
+// '' marker. Handles both old and new cassettes.
+function dropTrailingMarker(lines: readonly string[]): string[] {
+  return lines.length > 0 && lines[lines.length - 1] === '' ? lines.slice(0, -1) : lines.slice()
+}
+
 function synthesize(rec: Recording, options: Options): unknown {
-  const stdout = rec.result.stdoutLines.join('\n')
-  const stderr = rec.result.stderrLines.join('\n')
+  const linesByStream = resolveLines(options.lines)
+  const stdoutAsString = rec.result.stdoutLines.join('\n')
+  const stderrAsString = rec.result.stderrLines.join('\n')
+  const stdout = linesByStream.stdout ? dropTrailingMarker(rec.result.stdoutLines) : stdoutAsString
+  const stderr = linesByStream.stderr ? dropTrailingMarker(rec.result.stderrLines) : stderrAsString
   const all =
-    options.all === true ? (rec.result.allLines?.join('\n') ?? stdout + stderr) : undefined
+    options.all === true
+      ? linesByStream.all
+        ? rec.result.allLines
+          ? dropTrailingMarker(rec.result.allLines)
+          : []
+        : (rec.result.allLines?.join('\n') ?? stdoutAsString + stderrAsString)
+      : undefined
   const result = {
-    stdout: options.lines === true ? rec.result.stdoutLines.slice(0, -1) : stdout,
+    stdout,
     stderr,
     exitCode: rec.result.exitCode,
     signal: rec.result.signal,
