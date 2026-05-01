@@ -88,6 +88,10 @@ describe('record + replay with node: true and execaNode', () => {
     }
   })
 
+  // Both ReplayMissError node-flag-hint tests spawn a real `node` subprocess
+  // for the record cycle. Under full-suite load with concurrent fs writes,
+  // the default 5s vitest timeout occasionally trips. 10s leaves plenty of
+  // headroom without masking a real perf regression. See #116.
   test('ReplayMissError appends node-flag hint when call passed node:true', async () => {
     const cp = path.join(tmp.ref(), 'miss.json')
     const script = path.join(tmp.ref(), 'miss.mjs')
@@ -116,7 +120,7 @@ describe('record + replay with node: true and execaNode', () => {
     } finally {
       process.env.SHELL_CASSETTE_MODE = 'auto'
     }
-  })
+  }, 10000)
 
   test('ReplayMissError omits node-flag hint when call did NOT pass node:true', async () => {
     const cp = path.join(tmp.ref(), 'no-hint.json')
@@ -143,5 +147,5 @@ describe('record + replay with node: true and execaNode', () => {
     } finally {
       process.env.SHELL_CASSETTE_MODE = 'auto'
     }
-  })
+  }, 10000)
 })
