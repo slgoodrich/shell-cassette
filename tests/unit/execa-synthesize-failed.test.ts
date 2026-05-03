@@ -1,6 +1,8 @@
 import type { Options } from 'execa'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { _resetForTesting, clearActiveCassette, setActiveCassette } from '../../src/state.js'
+import type { Result } from '../../src/types.js'
+import { restoreEnv } from '../helpers/env.js'
 import { makeRecording } from '../helpers/recording.js'
 import { makeSession } from '../helpers/session.js'
 
@@ -9,10 +11,9 @@ vi.mock('execa', () => ({ execa: vi.fn() }))
 const { execa: realExecaMock } = await import('execa')
 const { execa } = await import('../../src/execa.js')
 
-async function replayWith(
-  options: Options,
-  resultOverrides: Parameters<typeof makeRecording>[0] extends { result?: infer R } ? R : never,
-): Promise<unknown> {
+const originalMode = process.env.SHELL_CASSETTE_MODE
+
+async function replayWith(options: Options, resultOverrides: Partial<Result>): Promise<unknown> {
   const recording = makeRecording({
     call: { command: 'cmd', args: [], cwd: null, env: {}, stdin: null },
     result: resultOverrides,
@@ -37,6 +38,7 @@ describe('execa synthesize: failed resolution', () => {
   afterEach(() => {
     _resetForTesting()
     clearActiveCassette()
+    restoreEnv('SHELL_CASSETTE_MODE', originalMode)
   })
 
   test('explicit failed: true throws when reject not false', async () => {
