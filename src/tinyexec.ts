@@ -125,7 +125,16 @@ function synthesize(rec: Recording, options: Partial<Options>): TinyResult {
     },
   }
 
-  if ((options as { throwOnError?: boolean }).throwOnError === true && rec.result.exitCode !== 0) {
+  // Resolve failed via fallback derivation: stored value when present;
+  // otherwise derived from exit/signal/abort state. The fallback covers
+  // signal kill and aborted cases the old `exitCode !== 0` check missed
+  // and lets cassettes recorded before the field was added auto-upgrade
+  // their replay correctness without re-recording.
+  const failed =
+    rec.result.failed ??
+    (rec.result.exitCode !== 0 || rec.result.signal !== null || rec.result.aborted)
+
+  if ((options as { throwOnError?: boolean }).throwOnError === true && failed) {
     throw Object.assign(
       new Error(
         `Process exited with non-zero code: ${rec.result.exitCode} (command: ${rec.call.command})`,
