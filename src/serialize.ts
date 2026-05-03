@@ -53,6 +53,17 @@ function orderRecording(rec: Recording) {
       signal: rec.result.signal,
       durationMs: rec.result.durationMs,
       aborted: rec.result.aborted,
+      // Optional v0.7 flag fields. Each emitted only when defined so legacy
+      // in-memory recordings produce the same JSON shape as before.
+      ...(rec.result.failed !== undefined && { failed: rec.result.failed }),
+      ...(rec.result.timedOut !== undefined && { timedOut: rec.result.timedOut }),
+      ...(rec.result.isMaxBuffer !== undefined && { isMaxBuffer: rec.result.isMaxBuffer }),
+      ...(rec.result.isForcefullyTerminated !== undefined && {
+        isForcefullyTerminated: rec.result.isForcefullyTerminated,
+      }),
+      ...(rec.result.isGracefullyCanceled !== undefined && {
+        isGracefullyCanceled: rec.result.isGracefullyCanceled,
+      }),
     },
     _redactions: rec.redactions,
     ...(rec.suppressed.length > 0 ? { _suppressed: rec.suppressed } : {}),
