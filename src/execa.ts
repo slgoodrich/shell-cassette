@@ -179,12 +179,27 @@ function synthesize(rec: Recording, options: Options): unknown {
     exitCode: rec.result.exitCode,
     signal: rec.result.signal,
     durationMs: rec.result.durationMs,
-    failed,
-    timedOut: false,
-    isCanceled: rec.result.aborted,
-    killed: rec.result.signal !== null,
     command: `${rec.call.command} ${rec.call.args.join(' ')}`,
     escapedCommand: rec.call.command,
+
+    // All execa Result boolean flags. Stored values when available;
+    // sane defaults when absent (legacy cassettes or runner did not
+    // expose them).
+    failed,
+    timedOut: rec.result.timedOut ?? false,
+    isCanceled: rec.result.aborted,
+    isMaxBuffer: rec.result.isMaxBuffer ?? false,
+    isTerminated: rec.result.signal !== null,
+    isForcefullyTerminated: rec.result.isForcefullyTerminated ?? false,
+    isGracefullyCanceled: rec.result.isGracefullyCanceled ?? false,
+    killed: rec.result.signal !== null,
+
+    // Empty arrays for unsupported features. pipedFrom only meaningful
+    // with .pipe() (stubbed as throw in the next change); ipcOutput only
+    // with ipc: true (rejected at validation).
+    pipedFrom: [],
+    ipcOutput: [],
+
     ...(all !== undefined && { all }),
   }
 
