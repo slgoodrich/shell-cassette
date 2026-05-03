@@ -1,5 +1,5 @@
 import type { Options, ResultPromise } from 'execa'
-import { MissingPeerDependencyError, ShellCassetteError } from './errors.js'
+import { MissingPeerDependencyError, UnsupportedOptionError } from './errors.js'
 import { readInputFile } from './io.js'
 import { validateOptions } from './options-execa.js'
 import type { Call, Recording, Result } from './types.js'
@@ -205,18 +205,18 @@ function synthesize(rec: Recording, options: Options): unknown {
 
     // Subprocess-API stubs. kill() returns false to mirror real execa's
     // "did not signal" return (no live subprocess). pipe() and async
-    // iteration throw ShellCassetteError with actionable messages.
+    // iteration throw UnsupportedOptionError with actionable messages.
     // Stream methods (iterable/readable/writable/duplex) are not
     // stubbed; calls produce TypeError.
     kill: (): boolean => false,
     pipe: (): never => {
-      throw new ShellCassetteError(
+      throw new UnsupportedOptionError(
         'execa result.pipe() not supported on replay (no live subprocess). ' +
           'Use SHELL_CASSETTE_MODE=passthrough for tests that pipe subprocesses.',
       )
     },
     [Symbol.asyncIterator]: (): never => {
-      throw new ShellCassetteError(
+      throw new UnsupportedOptionError(
         'execa async iteration `for await (line of subprocess)` not supported on replay. ' +
           'Read result.stdout (string or array form via lines option) instead.',
       )

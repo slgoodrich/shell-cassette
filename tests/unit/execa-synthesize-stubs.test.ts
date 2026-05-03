@@ -1,6 +1,6 @@
 import type { Options } from 'execa'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { ShellCassetteError } from '../../src/errors.js'
+import { UnsupportedOptionError } from '../../src/errors.js'
 import { _resetForTesting, clearActiveCassette, setActiveCassette } from '../../src/state.js'
 import type { Result } from '../../src/types.js'
 import { restoreEnv } from '../helpers/env.js'
@@ -56,17 +56,17 @@ describe('execa synthesize: subprocess-API stubs', () => {
     expect(r.kill('SIGTERM')).toBe(false)
   })
 
-  test('result.pipe() throws ShellCassetteError with passthrough hint', async () => {
+  test('result.pipe() throws UnsupportedOptionError with passthrough hint', async () => {
     const r = (await replayWith({}, {})) as { pipe: () => unknown }
-    expect(() => r.pipe()).toThrow(ShellCassetteError)
+    expect(() => r.pipe()).toThrow(UnsupportedOptionError)
     expect(() => r.pipe()).toThrow(/passthrough/i)
   })
 
-  test('result[Symbol.asyncIterator]() throws ShellCassetteError with read-result hint', async () => {
+  test('result[Symbol.asyncIterator]() throws UnsupportedOptionError with read-result hint', async () => {
     const r = (await replayWith({}, {})) as Record<string | symbol, unknown> & {
       [Symbol.asyncIterator]: () => unknown
     }
-    expect(() => r[Symbol.asyncIterator]()).toThrow(ShellCassetteError)
+    expect(() => r[Symbol.asyncIterator]()).toThrow(UnsupportedOptionError)
     expect(() => r[Symbol.asyncIterator]()).toThrow(/result\.stdout/i)
   })
 
@@ -85,7 +85,7 @@ describe('execa synthesize: subprocess-API stubs', () => {
     }
     expect(typeof err.kill).toBe('function')
     expect(err.kill()).toBe(false)
-    expect(() => err.pipe()).toThrow(ShellCassetteError)
-    expect(() => err[Symbol.asyncIterator]()).toThrow(ShellCassetteError)
+    expect(() => err.pipe()).toThrow(UnsupportedOptionError)
+    expect(() => err[Symbol.asyncIterator]()).toThrow(UnsupportedOptionError)
   })
 })
