@@ -4,6 +4,14 @@ All notable changes to shell-cassette are documented here. The format is based o
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-05-03
+
+Metadata-only refresh: the npm package description now reads "Snapshot testing for subprocess output", matching the repo description on GitHub. The previous Polly.js-comparison tagline was changed on the GitHub side via the web UI but never synced into `package.json`, so the npm-published description stayed stale through v0.6.0 and v0.6.1. No code, schema, or behavior changes.
+
+### Changed
+
+- **`package.json` description**: now `Snapshot testing for subprocess output`. Aligns the npm metadata with the repo description for downstream package scanners and registry consumers.
+
 ## [0.6.1] - 2026-05-03
 
 Replay shape now matches real execa/tinyexec behavior on failure paths, plus a record-side perf cleanup that retires the `inputFile` double-read deferral noted in v0.6.0. Cassette schema stays at version 2; new `Result` fields are JSON-additive.
