@@ -5,6 +5,27 @@ import { validateOptions } from './options-execa.js'
 import type { Call, Recording, Result } from './types.js'
 import { type RunnerHooks, runWrapped } from './wrapper.js'
 
+// Reused across every synth call. `pipe` and async iteration always
+// throw the same error; `kill` always returns false; the empty arrays
+// are frozen so callers can't mutate them between replays.
+const FROZEN_EMPTY_ARRAY: readonly never[] = Object.freeze([])
+
+const REPLAY_KILL_STUB = (): boolean => false
+
+const REPLAY_PIPE_STUB = (): never => {
+  throw new UnsupportedOptionError(
+    'execa result.pipe() not supported on replay (no live subprocess). ' +
+      'Use SHELL_CASSETTE_MODE=passthrough for tests that pipe subprocesses.',
+  )
+}
+
+const REPLAY_ASYNC_ITER_STUB = (): never => {
+  throw new UnsupportedOptionError(
+    'execa async iteration `for await (line of subprocess)` not supported on replay. ' +
+      'Read result.stdout (string or array form via lines option) instead.',
+  )
+}
+
 // Resolve execa via dynamic import so we can wrap "Cannot find module" with
 // an actionable error. Top-level await here means consumers importing
 // shell-cassette/execa wait for this resolution. If execa isn't installed,
@@ -173,6 +194,8 @@ function synthesize(rec: Recording, options: Options): unknown {
     rec.result.failed ??
     (rec.result.exitCode !== 0 || rec.result.signal !== null || rec.result.aborted)
 
+  const isTerminated = rec.result.signal !== null
+
   const result = {
     stdout,
     stderr,
@@ -181,46 +204,29 @@ function synthesize(rec: Recording, options: Options): unknown {
     durationMs: rec.result.durationMs,
     command: `${rec.call.command} ${rec.call.args.join(' ')}`,
     escapedCommand: rec.call.command,
-
-    // All execa Result boolean flags. Stored values when available;
-    // sane defaults when absent (legacy cassettes or runner did not
-    // expose them).
     failed,
     timedOut: rec.result.timedOut ?? false,
     isCanceled: rec.result.aborted,
     isMaxBuffer: rec.result.isMaxBuffer ?? false,
-    isTerminated: rec.result.signal !== null,
+    isTerminated,
     isForcefullyTerminated: rec.result.isForcefullyTerminated ?? false,
     isGracefullyCanceled: rec.result.isGracefullyCanceled ?? false,
-    killed: rec.result.signal !== null,
+    killed: isTerminated, // NOTE: tracked as semantic bug in #129 — preserves current behavior
 
-    // Always empty arrays. `pipedFrom` records the upstream
-    // subprocesses of a piped chain; replay synthesizes single results
-    // and never chains. `ipcOutput` collects IPC messages; `ipc: true`
+    // pipedFrom: no chained subprocess on replay. ipcOutput: ipc: true
     // is rejected at validation.
-    pipedFrom: [],
-    ipcOutput: [],
+    pipedFrom: FROZEN_EMPTY_ARRAY,
+    ipcOutput: FROZEN_EMPTY_ARRAY,
 
     ...(all !== undefined && { all }),
 
-    // Subprocess-API stubs. kill() returns false to mirror real execa's
-    // "did not signal" return (no live subprocess). pipe() and async
-    // iteration throw UnsupportedOptionError with actionable messages.
-    // Stream methods (iterable/readable/writable/duplex) are not
-    // stubbed; calls produce TypeError.
-    kill: (): boolean => false,
-    pipe: (): never => {
-      throw new UnsupportedOptionError(
-        'execa result.pipe() not supported on replay (no live subprocess). ' +
-          'Use SHELL_CASSETTE_MODE=passthrough for tests that pipe subprocesses.',
-      )
-    },
-    [Symbol.asyncIterator]: (): never => {
-      throw new UnsupportedOptionError(
-        'execa async iteration `for await (line of subprocess)` not supported on replay. ' +
-          'Read result.stdout (string or array form via lines option) instead.',
-      )
-    },
+    // No live subprocess on replay. kill() returns false (mirrors
+    // execa's "did not signal" return); pipe() and async iteration
+    // throw with actionable messages. Stream methods (iterable,
+    // readable, writable, duplex) are not stubbed.
+    kill: REPLAY_KILL_STUB,
+    pipe: REPLAY_PIPE_STUB,
+    [Symbol.asyncIterator]: REPLAY_ASYNC_ITER_STUB,
   }
 
   if (options.reject !== false && failed) {

@@ -5,11 +5,10 @@ import { execa } from '../../src/execa.js'
 import { useCassette } from '../../src/use-cassette.js'
 import { restoreEnv } from '../helpers/env.js'
 import { useRecordingEnv } from '../helpers/recording-env.js'
+import { SLEEP_5S } from '../helpers/subprocess-targets.js'
 import { useTmpDir } from '../helpers/tmp-dir.js'
 
 useRecordingEnv()
-
-const SLEEP_5S = ['-e', 'setTimeout(() => {}, 5000)']
 
 // Tinyexec coverage for aborted-call record/replay is tracked in #126.
 // tinyexec's awaited Output drops the OutputApi getters (aborted, killed)
