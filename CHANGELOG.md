@@ -4,6 +4,30 @@ All notable changes to shell-cassette are documented here. The format is based o
 
 ## [Unreleased]
 
+Replay shape now matches real execa/tinyexec behavior on failure paths. Three bug fixes plus subprocess-API stubs on execa replay. Cassette schema stays at version 2; the new `Result` fields are JSON-additive.
+
+### Added
+
+- **Optional flag fields on `Result`.** `failed`, `timedOut`, `isMaxBuffer`, `isForcefullyTerminated`, `isGracefullyCanceled` are stored on capture (execa) and derived where the runner does not expose them (tinyexec derives `failed` from exit code, kill, abort).
+- **Full execa flag completeness on synth.** Replay populates every documented execa `Result` boolean: `isTerminated`, `isMaxBuffer`, `isForcefullyTerminated`, `isGracefullyCanceled`, plus the empty `pipedFrom` and `ipcOutput` arrays. Tests asserting on these now reach reachable values instead of `undefined`.
+- **Subprocess-API stubs on execa replay.** The synth result attaches `kill()` (no-op returning `false`), `pipe()` (throws `UnsupportedOptionError`), and `Symbol.asyncIterator` (throws `UnsupportedOptionError`). Mirrors tinyexec's existing pattern.
+
+### Fixed
+
+- **Replay no longer drops `timedOut`.** Recordings capture the flag; synth surfaces it. Tests asserting on `result.timedOut === true` after a recorded timeout now pass.
+- **Aborted, signal-killed, and maxBuffer-exceeded calls no longer replay as success.** Synth resolves `failed` via fallback derivation (`exitCode !== 0 || signal !== null || aborted`) and the reject branch keys on the resolved value. Cassettes recorded before the `failed` field was added auto-upgrade their replay correctness without re-recording.
+- **`result.kill()`, `result.pipe()`, and `for await (line of result)` on execa replay no longer raise `TypeError`.** They now have stub implementations consistent with tinyexec's existing behavior.
+
+### Changed
+
+- **Cassette schema stays at version 2.** The five new `Result` fields are JSON-additive. Older cassettes parse with them absent and synth resolves missing values via fallback derivation.
+
+### Notes
+
+- Tinyexec does not expose `timedOut`, `isMaxBuffer`, `isForcefullyTerminated`, or `isGracefullyCanceled`; synth defaults each to `false` on tinyexec replay.
+- Stream methods (`iterable()`, `readable()`, `writable()`, `duplex()`) and stream-property getters on execa replay are not stubbed; calls produce `TypeError`. Tests using these patterns must run with `SHELL_CASSETTE_MODE=passthrough`.
+- Tinyexec's record path drops `aborted`/`killed` from the awaited `Output` (those getters live on the pre-await `ExecProcess`). Cassettes recorded by tinyexec currently store `aborted: false` regardless of whether the call was canceled. Replay-side handling is correct. Tracked in [#126](https://github.com/slgoodrich/shell-cassette/issues/126).
+
 ## [0.6.0] - 2026-04-30
 
 Surface coverage for stdin and the previously-rejected execa input options. The cassette schema stays at version 2; v0.5 cassettes load and replay unchanged. v0.5 cassettes have `stdin: null` and continue to match calls that pass no input option.

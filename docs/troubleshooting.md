@@ -390,6 +390,23 @@ shell-cassette/tinyexec's `xSync` is a stub that throws a clear error pointing t
 - **Use async `x`** (recommended). Refactor sync call sites to async; you get cassette coverage.
 - **Import `xSync` directly from `tinyexec`.** Those calls bypass shell-cassette and run real subprocess. Acceptable for pre-flight version checks and similar non-determinism-sensitive paths.
 
+## `result.pipe()` or `for await (line of subprocess)` throws on execa replay
+
+shell-cassette synthesizes the execa result from the cassette; there is no live subprocess to pipe or stream. The synth result includes stub methods that throw `UnsupportedOptionError`:
+
+```ts
+// On replay, this throws:
+const result = await execa('node', ['-v'])
+result.pipe(otherProcess) // UnsupportedOptionError
+
+// Same for async iteration:
+for await (const line of execa('node', ['script.js'])) { ... } // UnsupportedOptionError
+```
+
+For tests that genuinely need to pipe subprocesses or stream output line-by-line as it arrives, run that test (or its describe block) with `SHELL_CASSETTE_MODE=passthrough`. The wrapper then calls real execa with no recording involvement and the live subprocess API works as expected.
+
+`result.kill()` on replay returns `false` (no-op) rather than throwing, mirroring real execa's "did not signal" return value.
+
 ## `result.process` throws on tinyexec replay
 
 Tests that read `result.process.stdout` (streaming) or `result.process.stderr` (sync inspection) on replay get a clear error:
