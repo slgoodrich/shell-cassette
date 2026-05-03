@@ -1,9 +1,9 @@
 /**
  * Property test: scan vs record symmetry.
  *
- * The load-bearing security guarantee: if record mode would have redacted a
- * value, scan must report that value as a finding. These tests verify the
- * forward direction of that guarantee for every bundled rule and for the
+ * Core security guarantee: if record mode would have redacted a value, scan
+ * must report that value as a finding. These tests verify the forward
+ * direction of that guarantee for every bundled rule and for the
  * env-key-match path.
  */
 import path from 'node:path'

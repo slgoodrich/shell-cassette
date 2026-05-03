@@ -1,7 +1,8 @@
 import type { Options, Result as TinyResult } from 'tinyexec'
 import { MissingPeerDependencyError, ShellCassetteError, UnsupportedOptionError } from './errors.js'
 import { validateOptions } from './options-tinyexec.js'
-import type { Call, Result as CassetteResult, Recording } from './types.js'
+import { captureResult } from './tinyexec-capture.js'
+import type { Call, Recording } from './types.js'
 import { type RunnerHooks, runWrapped } from './wrapper.js'
 
 export type { Options, Result } from 'tinyexec'
@@ -37,12 +38,35 @@ export function x(
 const tinyexecHooks: RunnerHooks<Partial<Options>, TinyResult> = {
   validate: (opts) => validateOptions(opts as Record<string, unknown> | undefined),
   buildCall,
-  // tinyexec's Result is structurally a PromiseLike & OutputApi, not Promise<Result>;
-  // double-cast through unknown is needed to satisfy the hook's Promise<ResultShape> signature
-  realCall: (file, args, options) =>
-    realX(file, [...args], options) as unknown as Promise<TinyResult>,
+  realCall,
   captureResult,
   synthesize,
+}
+
+// tinyexec's Result is `PromiseLike<Output> & OutputApi`. Awaiting it resolves
+// to Output (`{ stdout, stderr, exitCode }`) and drops the OutputApi getters
+// (`aborted`, `killed`). To capture those on the record path we snapshot them
+// from the ExecProcess before the await resolves, then return an enriched
+// plain object the cassette captureResult can read.
+//
+// The fourth parameter is part of RunnerHooks.realCall's signature for the
+// execa adapter's inputFile optimization; tinyexec has no `inputFile`
+// option and ignores it (underscore prefix per biome's
+// noUnusedFunctionParameters).
+async function realCall(
+  file: string,
+  args: readonly string[],
+  options: Partial<Options>,
+  _resolvedStdin: string | null | undefined,
+): Promise<TinyResult> {
+  const proc = realX(file, [...args], options)
+  const output = await proc
+  const enriched = { ...output, aborted: proc.aborted, killed: proc.killed }
+  // Cast: the enriched plain object lacks tinyexec's full Result shape (no
+  // OutputApi methods, no PromiseLike). The wrapper passes this to
+  // captureResult and (on record path) returns it to the user. Live ProcessApi
+  // calls post-await are a known replay limitation, see synthesize() comment.
+  return enriched as unknown as TinyResult
 }
 
 async function buildCall(
@@ -61,47 +85,12 @@ async function buildCall(
   }
 }
 
-function captureResult(raw: unknown, durationMs: number): CassetteResult {
-  const r = raw as {
-    stdout?: string
-    stderr?: string
-    exitCode?: number
-    killed?: boolean
-    aborted?: boolean
-  }
-  // tinyexec.stdout/stderr is always a string per its type contract; the [''] fallback
-  // exists only for defensive narrowing on `unknown` raw input (e.g., a thrown error
-  // shape that happens to lack stdout/stderr fields).
-  //
-  // tinyexec exposes only `killed: boolean`, not the actual signal name (SIGINT,
-  // SIGKILL, etc.). We unconditionally record SIGTERM on kill; the real signal is
-  // lost. Known limitation; tinyexec does not expose the signal name.
-  const exitCode = r.exitCode ?? 0
-  const killed = r.killed === true
-  const aborted = r.aborted === true
-  return {
-    stdoutLines: typeof r.stdout === 'string' ? r.stdout.split('\n') : [''],
-    stderrLines: typeof r.stderr === 'string' ? r.stderr.split('\n') : [''],
-    allLines: null,
-    exitCode,
-    signal: killed ? 'SIGTERM' : null,
-    durationMs,
-    aborted,
-    // Derived because tinyexec does not expose a `failed` boolean. Covers
-    // the three known failure shapes (non-zero exit, signal kill, abort).
-    // timedOut and isMaxBuffer are intentionally not stored: tinyexec
-    // exposes neither; synth defaults each to false on replay.
-    failed: exitCode !== 0 || killed || aborted,
-  }
-}
-
-// Test-only export. See execa.ts for the same pattern.
-export const _captureResultForTesting = captureResult
-
 function synthesize(rec: Recording, options: Partial<Options>): TinyResult {
   const stdout = rec.result.stdoutLines.join('\n')
   const stderr = rec.result.stderrLines.join('\n')
-  const killed = rec.result.signal !== null
+  // Stored value when present; fall back to signal-derived for legacy cassettes
+  // recorded before `killed` was captured separately.
+  const killed = rec.result.killed ?? rec.result.signal !== null
 
   const result = {
     stdout,

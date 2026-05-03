@@ -269,7 +269,7 @@ export function seedCountersFromCassette(cassette: CassetteFile): Map<string, nu
 
   // Source 1: per-recording _redactions metadata. Each entry.count is the
   // number of placeholder occurrences within that single recording. The
-  // cassette-wide ceiling is the SUM across recordings — counters are
+  // cassette-wide ceiling is the SUM across recordings; counters are
   // monotonic and per-(source, rule) globally.
   for (const rec of cassette.recordings) {
     for (const entry of rec.redactions) {
@@ -326,7 +326,7 @@ function walkStringsForPlaceholders(
 /**
  * Synthetic rule name for the recorder's curated env-key-match path
  * (env values whose key name matches the CURATED_ENV_KEYS or user-supplied
- * envKeys list). Not in BUNDLED_PATTERNS — the env-key pathway bypasses the
+ * envKeys list). Not in BUNDLED_PATTERNS; the env-key pathway bypasses the
  * regex pipeline since the whole value is sensitive.
  */
 export const ENV_KEY_MATCH_RULE = 'env-key-match'

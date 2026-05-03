@@ -310,8 +310,8 @@ describe('applyAction', () => {
     state = applyAction(state, { kind: 'back' })
     // Cursor returns to 0 (where the user actually was when they pressed delete).
     expect(state.cursor).toBe(0)
-    // The delete decision is gone — user must re-decide. b never had a
-    // decision, but verifying both are clear ensures the unwound range is
+    // The delete decision is gone, so the user must re-decide. b never had
+    // a decision, but verifying both are clear ensures the unwound range is
     // correctly cleared.
     expect(state.decisions.has('a')).toBe(false)
     expect(state.decisions.has('b')).toBe(false)
@@ -564,9 +564,9 @@ describe('runReview interactive (driven via fake reader)', () => {
   beforeEach(async () => {
     tmp = await mkdtemp(path.join(tmpdir(), 'shell-cassette-review-int-'))
     outBuf = []
-    // renderFinding emits the match preview, hash, and surrounding context lines —
-    // for a fixture with a real-looking PAT, that means secrets land in the
-    // vitest reporter unless stdout is captured.
+    // renderFinding emits the match preview, hash, and surrounding context
+    // lines. For a fixture with a real-looking PAT that means secrets reach
+    // the vitest reporter unless stdout is captured.
     process.stdout.write = ((s: string) => {
       outBuf.push(s)
       return true

@@ -98,6 +98,85 @@ describe('wrapped execa', () => {
     }
   })
 
+  test('synth: legacy cassette without killed field falls back to signal-derived (#129)', async () => {
+    const tmp = await mkdtemp(path.join(tmpdir(), 'sc-test-'))
+    try {
+      const cassettePath = path.join(tmp, 'cassette.json')
+      // Hand-crafted: signal is set, killed is absent. Pre-#129 behavior
+      // (signal-derived) is the only source of truth, so synth must report
+      // killed: true to keep legacy cassettes replaying as before.
+      const legacy = {
+        version: 2,
+        recordings: [
+          {
+            call: { command: 'node', args: ['-v'], cwd: null, env: {}, stdin: null },
+            result: {
+              stdoutLines: [''],
+              stderrLines: [''],
+              allLines: null,
+              exitCode: 0,
+              signal: 'SIGTERM',
+              durationMs: 1,
+              aborted: false,
+            },
+          },
+        ],
+      }
+      await writeFile(cassettePath, JSON.stringify(legacy), 'utf8')
+
+      const session = sessionAt(cassettePath)
+      setActiveCassette(session)
+      const replayed = (await wrappedExeca('node', ['-v'], { reject: false })) as {
+        killed: boolean
+        signal: string | null
+      }
+      expect(replayed.killed).toBe(true)
+      expect(replayed.signal).toBe('SIGTERM')
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
+
+  test('synth: new cassette with killed:false, signal:SIGTERM reports killed:false (#129)', async () => {
+    const tmp = await mkdtemp(path.join(tmpdir(), 'sc-test-'))
+    try {
+      const cassettePath = path.join(tmp, 'cassette.json')
+      // External SIGTERM (not via subprocess.kill()): execa would surface
+      // signal !== null but killed === false. Pre-#129 synth conflated the
+      // two and reported killed:true; the fix preserves the distinction.
+      const cassette = {
+        version: 2,
+        recordings: [
+          {
+            call: { command: 'node', args: ['-v'], cwd: null, env: {}, stdin: null },
+            result: {
+              stdoutLines: [''],
+              stderrLines: [''],
+              allLines: null,
+              exitCode: 0,
+              signal: 'SIGTERM',
+              durationMs: 1,
+              aborted: false,
+              killed: false,
+            },
+          },
+        ],
+      }
+      await writeFile(cassettePath, JSON.stringify(cassette), 'utf8')
+
+      const session = sessionAt(cassettePath)
+      setActiveCassette(session)
+      const replayed = (await wrappedExeca('node', ['-v'], { reject: false })) as {
+        killed: boolean
+        signal: string | null
+      }
+      expect(replayed.killed).toBe(false)
+      expect(replayed.signal).toBe('SIGTERM')
+    } finally {
+      await rm(tmp, { recursive: true, force: true })
+    }
+  })
+
   test('legacy cassette (no allLines) still replays all via stdout+stderr concat', async () => {
     const tmp = await mkdtemp(path.join(tmpdir(), 'sc-test-'))
     try {

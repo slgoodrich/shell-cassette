@@ -21,7 +21,22 @@ CI=true forces replay mode by default; without a session shell-cassette refuses 
 export type RunnerHooks<Opts, ResultShape> = {
   validate: (options: Opts | undefined) => void
   buildCall: (file: string, args: readonly string[], options: Opts) => Promise<Call>
-  realCall: (file: string, args: readonly string[], options: Opts) => Promise<ResultShape>
+  /**
+   * Invokes the real runner. `resolvedStdin` carries `call.stdin` when
+   * `buildCall` already ran (record path); it is `undefined` on the
+   * passthrough/no-session paths where `buildCall` is skipped.
+   *
+   * Adapters use it to avoid duplicating side effects buildCall already
+   * performed. The execa adapter swaps `options.inputFile` for
+   * `input: resolvedStdin` when both are present, so real execa does not
+   * re-read the file (#102).
+   */
+  realCall: (
+    file: string,
+    args: readonly string[],
+    options: Opts,
+    resolvedStdin: string | null | undefined,
+  ) => Promise<ResultShape>
   // The wrapper measures elapsed time around realCall and passes it here.
   // Adapters use this value rather than reading runner-provided fields so
   // the measurement is uniform across runners (execa exposes durationMs;
@@ -53,7 +68,7 @@ export async function runWrapped<Opts, ResultShape>(
     if (mode === 'replay') {
       throw new NoActiveSessionError(NO_ACTIVE_SESSION_HELP)
     }
-    return hooks.realCall(file, args, options)
+    return hooks.realCall(file, args, options, undefined)
   }
 
   const loaded = await ensureSessionLoaded(session)
@@ -65,7 +80,7 @@ export async function runWrapped<Opts, ResultShape>(
   )
 
   if (mode === 'passthrough') {
-    return hooks.realCall(file, args, options)
+    return hooks.realCall(file, args, options, undefined)
   }
 
   const call = await hooks.buildCall(file, args, options)
@@ -111,7 +126,7 @@ export async function runWrapped<Opts, ResultShape>(
   }
   const start = performance.now()
   try {
-    const result = await hooks.realCall(file, args, options)
+    const result = await hooks.realCall(file, args, options, call.stdin)
     captureAndRecord(call, result, performance.now() - start, hooks, loaded)
     return result
   } catch (err) {

@@ -102,14 +102,16 @@ describe('tinyexec adapter', () => {
     const session = makeSession({ loadedFile: null })
     setActiveCassette(session)
 
-    vi.mocked(realXMock).mockResolvedValueOnce({
-      stdout: '',
-      stderr: '',
-      exitCode: 1,
-      pid: 1,
-      aborted: true,
-      killed: true,
-    } as never)
+    // Real tinyexec exposes aborted/killed as OutputApi getters on the
+    // pre-await ExecProcess, not on the resolved Output. The wrapper
+    // snapshots them via `proc.aborted` / `proc.killed` before await
+    // resolves (#126). Mock that shape: a Promise carrying the OutputApi
+    // fields as own properties.
+    const fakeProc = Object.assign(
+      Promise.resolve({ stdout: '', stderr: '', exitCode: 1, pid: 1 }),
+      { aborted: true, killed: true },
+    )
+    vi.mocked(realXMock).mockReturnValueOnce(fakeProc as never)
 
     await x('sleep', ['10'])
     expect(session.newRecordings[0]?.result.aborted).toBe(true)
@@ -139,14 +141,12 @@ describe('tinyexec adapter', () => {
     const session = makeSession({ loadedFile: null })
     setActiveCassette(session)
 
-    vi.mocked(realXMock).mockResolvedValueOnce({
-      stdout: '',
-      stderr: '',
-      exitCode: 143,
-      pid: 1,
-      aborted: false,
-      killed: true,
-    } as never)
+    // Same pre-await snapshot contract as the aborted test above.
+    const fakeProc = Object.assign(
+      Promise.resolve({ stdout: '', stderr: '', exitCode: 143, pid: 1 }),
+      { aborted: false, killed: true },
+    )
+    vi.mocked(realXMock).mockReturnValueOnce(fakeProc as never)
 
     await x('sleep', ['10'])
     expect(session.newRecordings[0]?.result.signal).toBe('SIGTERM')

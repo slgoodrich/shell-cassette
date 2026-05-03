@@ -31,6 +31,15 @@ export type Result = {
   isMaxBuffer?: boolean
   isForcefullyTerminated?: boolean
   isGracefullyCanceled?: boolean
+  /**
+   * True when `subprocess.kill()` was called (execa's `r.killed`, tinyexec's
+   * `proc.killed`). Distinct from `signal !== null`: a process terminated by
+   * an external signal has `signal !== null` but `killed === false`. Stored
+   * separately rather than derived because the two states are semantically
+   * different. Optional for backward compat with cassettes recorded before
+   * the field existed.
+   */
+  killed?: boolean
 }
 
 export type Recording = {

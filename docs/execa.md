@@ -130,11 +130,11 @@ When the wrapper synthesizes a result on replay, it populates every documented `
 | `isTerminated` | Derived: `signal !== null` |
 | `isForcefullyTerminated` | Stored on capture; defaults to `false` when absent |
 | `isGracefullyCanceled` | Stored on capture; defaults to `false` when absent |
-| `killed` | Derived: `signal !== null` |
+| `killed` | Stored on capture from execa's `r.killed`; if absent (older cassettes), derived from `signal !== null` |
 | `pipedFrom` | Always `[]` (`.pipe()` is stubbed; see below) |
 | `ipcOutput` | Always `[]` (`ipc: true` is rejected at validation) |
 
-Other fields (`stdout`, `stderr`, `exitCode`, `signal`, `command`, `escapedCommand`, `durationMs`, optional `all`) round-trip as before. The reject branch throws synthesized `ExecaError` when the resolved `failed` is `true` and `reject !== false` (matching execa's default). The fallback derivation lets cassettes recorded before the `failed` field was added auto-upgrade their replay correctness — aborted and signal-killed calls now throw on replay even when the cassette was recorded before the flag existed.
+Other fields (`stdout`, `stderr`, `exitCode`, `signal`, `command`, `escapedCommand`, `durationMs`, optional `all`) round-trip as before. The reject branch throws synthesized `ExecaError` when the resolved `failed` is `true` and `reject !== false` (matching execa's default). The fallback derivations let cassettes recorded before the `failed` and `killed` fields were stored auto-upgrade their replay correctness; aborted and signal-killed calls throw on replay even when the cassette predates the flag.
 
 `durationMs` is wall-clock measured by shell-cassette's wrapper around the real subprocess.
 
