@@ -1,7 +1,7 @@
 {
   "name": "shell-cassette",
   "version": "0.6.1",
-  "description": "Polly.js, but for shell commands. Record subprocess calls once, replay them deterministically forever.",
+  "description": "Snapshot testing for subprocess output",
   "keywords": [
     "subprocess",
     "spawn",
