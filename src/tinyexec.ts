@@ -76,16 +76,27 @@ function captureResult(raw: unknown, durationMs: number): CassetteResult {
   // tinyexec exposes only `killed: boolean`, not the actual signal name (SIGINT,
   // SIGKILL, etc.). We unconditionally record SIGTERM on kill; the real signal is
   // lost. Known limitation; tinyexec does not expose the signal name.
+  const exitCode = r.exitCode ?? 0
+  const killed = r.killed === true
+  const aborted = r.aborted === true
   return {
     stdoutLines: typeof r.stdout === 'string' ? r.stdout.split('\n') : [''],
     stderrLines: typeof r.stderr === 'string' ? r.stderr.split('\n') : [''],
     allLines: null,
-    exitCode: r.exitCode ?? 0,
-    signal: r.killed === true ? 'SIGTERM' : null,
+    exitCode,
+    signal: killed ? 'SIGTERM' : null,
     durationMs,
-    aborted: r.aborted === true,
+    aborted,
+    // Derived because tinyexec does not expose a `failed` boolean. Covers
+    // the three known failure shapes (non-zero exit, signal kill, abort).
+    // timedOut and isMaxBuffer are intentionally not stored: tinyexec
+    // exposes neither; synth defaults each to false on replay.
+    failed: exitCode !== 0 || killed || aborted,
   }
 }
+
+// Test-only export. See execa.ts for the same pattern.
+export const _captureResultForTesting = captureResult
 
 function synthesize(rec: Recording, options: Partial<Options>): TinyResult {
   const stdout = rec.result.stdoutLines.join('\n')
