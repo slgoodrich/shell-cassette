@@ -3,6 +3,7 @@ import path from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { execa } from '../../src/execa.js'
 import { useCassette } from '../../src/use-cassette.js'
+import { restoreEnv } from '../helpers/env.js'
 import { useRecordingEnv } from '../helpers/recording-env.js'
 import { useTmpDir } from '../helpers/tmp-dir.js'
 
@@ -21,11 +22,7 @@ describe('record + replay: timeout (execa)', () => {
     let recordedTimedOut: boolean | undefined
     let recordedFailed: boolean | undefined
     await useCassette(cp, async () => {
-      try {
-        await execa('node', SLEEP_5S, { timeout: 200, reject: false })
-      } catch {
-        // reject:false: synth path returns the error-shaped result; no throw
-      }
+      await execa('node', SLEEP_5S, { timeout: 200, reject: false })
       const r = await execa('node', SLEEP_5S, { timeout: 200, reject: false })
       recordedTimedOut = (r as { timedOut: boolean }).timedOut
       recordedFailed = (r as { failed: boolean }).failed
@@ -41,6 +38,7 @@ describe('record + replay: timeout (execa)', () => {
     expect(recResult.failed).toBe(true)
 
     // Replay: same shape, throws on default reject
+    const prevMode = process.env.SHELL_CASSETTE_MODE
     process.env.SHELL_CASSETTE_MODE = 'replay'
     try {
       await useCassette(cp, async () => {
@@ -51,7 +49,7 @@ describe('record + replay: timeout (execa)', () => {
         await expect(execa('node', SLEEP_5S, { timeout: 200 })).rejects.toThrow(/Command failed/)
       })
     } finally {
-      process.env.SHELL_CASSETTE_MODE = 'auto'
+      restoreEnv('SHELL_CASSETTE_MODE', prevMode)
     }
   })
 })
