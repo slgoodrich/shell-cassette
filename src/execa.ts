@@ -164,13 +164,22 @@ function synthesize(rec: Recording, options: Options): unknown {
           : []
         : (rec.result.allLines?.join('\n') ?? stdoutAsString + stderrAsString)
       : undefined
+  // Resolve failed: stored value when present; otherwise derive from
+  // exit/signal/abort state. The fallback covers signal kill and aborted
+  // cases the old `exitCode !== 0` check missed and lets cassettes
+  // recorded before the field was added auto-upgrade their replay
+  // correctness without re-recording.
+  const failed =
+    rec.result.failed ??
+    (rec.result.exitCode !== 0 || rec.result.signal !== null || rec.result.aborted)
+
   const result = {
     stdout,
     stderr,
     exitCode: rec.result.exitCode,
     signal: rec.result.signal,
     durationMs: rec.result.durationMs,
-    failed: rec.result.exitCode !== 0,
+    failed,
     timedOut: false,
     isCanceled: rec.result.aborted,
     killed: rec.result.signal !== null,
@@ -179,7 +188,7 @@ function synthesize(rec: Recording, options: Options): unknown {
     ...(all !== undefined && { all }),
   }
 
-  if (options.reject !== false && rec.result.exitCode !== 0) {
+  if (options.reject !== false && failed) {
     const err = Object.assign(
       new Error(`Command failed with exit code ${rec.result.exitCode}: ${result.command}`),
       result,
