@@ -22,9 +22,10 @@ export type Result = {
   // tinyexec: r.aborted). Defaults to false on legacy cassettes that
   // predate the field; deserializer normalizes.
   aborted: boolean
-  // Optional flag fields added in v0.7. Legacy cassettes parse with these
-  // absent; synth resolves via fallback derivation so older cassettes still
-  // throw correctly on replay for aborted/signal-killed calls.
+  // Optional flag fields. Legacy cassettes parse with these absent
+  // (the type permits `undefined`); synth resolves missing values via
+  // fallback derivation so older cassettes still throw correctly on
+  // replay for aborted/signal-killed calls.
   failed?: boolean
   timedOut?: boolean
   isMaxBuffer?: boolean

@@ -53,8 +53,8 @@ function orderRecording(rec: Recording) {
       signal: rec.result.signal,
       durationMs: rec.result.durationMs,
       aborted: rec.result.aborted,
-      // Optional v0.7 flag fields. Each emitted only when defined so legacy
-      // in-memory recordings produce the same JSON shape as before.
+      // Optional flag fields. Each emitted only when defined so recordings
+      // that predate this schema produce the same JSON shape as before.
       ...(rec.result.failed !== undefined && { failed: rec.result.failed }),
       ...(rec.result.timedOut !== undefined && { timedOut: rec.result.timedOut }),
       ...(rec.result.isMaxBuffer !== undefined && { isMaxBuffer: rec.result.isMaxBuffer }),
@@ -160,6 +160,9 @@ function normalizeRecording(rec: LegacyRecording): Recording {
   return {
     call: rec.call,
     result: {
+      // Spread first so fields added after LegacyRecording was defined
+      // (allLines, aborted, and the optional flag fields) pass through
+      // from disk. Explicit assignments below fill defaults.
       ...rec.result,
       allLines: rec.result.allLines ?? null,
       aborted: rec.result.aborted ?? false,
