@@ -1,6 +1,6 @@
 ## What Changed
 
-<!-- A short list of what landed in this PR. -->
+<!-- A short list of what changed in this PR. -->
 
 ## Why
 
@@ -12,10 +12,10 @@
 
 ## Test Plan
 
-- [ ] `npm run lint` — clean
-- [ ] `npm run typecheck` — clean
-- [ ] `npm test` — N passed, N skipped
-- [ ] `npm run build` — clean
+- [ ] `npm run lint`: clean
+- [ ] `npm run typecheck`: clean
+- [ ] `npm test`: N passed, N skipped
+- [ ] `npm run build`: clean
 
 ## Notes
 

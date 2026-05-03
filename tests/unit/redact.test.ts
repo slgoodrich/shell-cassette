@@ -14,7 +14,7 @@ const baseConfig: RedactConfig = {
 }
 
 describe('public redact() wraps pipeline', () => {
-  test('bundledPatterns: false — input unchanged for credential-shaped value', () => {
+  test('bundledPatterns: false leaves input unchanged for credential-shaped value', () => {
     const r = redact({ source: 'env', value: SAMPLE_GITHUB_PAT_CLASSIC }, baseConfig, {
       counted: false,
     })
@@ -23,7 +23,7 @@ describe('public redact() wraps pipeline', () => {
     expect(r.warnings).toEqual([])
   })
 
-  test('counted: false — emits placeholder without counter', () => {
+  test('counted: false emits placeholder without counter', () => {
     const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
     const r = redact({ source: 'env', value: SAMPLE_GITHUB_PAT_CLASSIC }, config, {
       counted: false,
@@ -31,7 +31,7 @@ describe('public redact() wraps pipeline', () => {
     expect(r.output).toBe('<redacted:env:github-pat-classic>')
   })
 
-  test('counted: true — increments counter and returns counted placeholder', () => {
+  test('counted: true increments counter and returns counted placeholder', () => {
     const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
     const counters = new Map<string, number>()
     const r = redact({ source: 'env', value: SAMPLE_GITHUB_PAT_CLASSIC }, config, {
@@ -58,7 +58,7 @@ describe('public redact() wraps pipeline', () => {
     expect(r.output).toBe('<redacted:stdin:github-pat-classic>')
   })
 
-  test('source: "stdin", counted: true — counter is per (stdin, rule)', () => {
+  test('source: "stdin", counted: true uses per-(stdin, rule) counter', () => {
     const config: RedactConfig = { ...baseConfig, bundledPatterns: true }
     const counters = new Map<string, number>()
     const r = redact({ source: 'stdin', value: SAMPLE_GITHUB_PAT_CLASSIC }, config, {
@@ -69,7 +69,7 @@ describe('public redact() wraps pipeline', () => {
     expect(counters.get('stdin:github-pat-classic')).toBe(1)
   })
 
-  test('source: "stdin" — custom regex rule fires', () => {
+  test('source: "stdin" custom regex rule fires', () => {
     const config: RedactConfig = {
       ...baseConfig,
       customPatterns: [{ name: 'my-secret', pattern: /SECRET-[A-Z0-9]+/ }],

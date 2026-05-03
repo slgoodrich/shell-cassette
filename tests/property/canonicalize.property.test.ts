@@ -5,7 +5,7 @@ import { defaultCanonicalize, MatcherState } from '../../src/matcher.js'
 import { normalizeTmpPath, TMP_TOKEN } from '../../src/normalize.js'
 import type { Call, Recording, Result } from '../../src/types.js'
 
-// Reuse generators (deliberate inline duplication — rule of three; two
+// Reuse generators (deliberate inline duplication; rule of three: two
 // property test files don't justify a shared helpers module yet)
 const genArg = fc.string({ minLength: 0, maxLength: 50 }).filter((s) => !s.includes('\n'))
 const genArgs = fc.array(genArg, { minLength: 0, maxLength: 5 })

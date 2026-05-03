@@ -81,13 +81,11 @@ The cassette schema is narrower than tinyexec's runtime result. One mapping stil
 
 - **`signal` (string vs boolean)**: tinyexec exposes `killed: boolean` but not the actual signal name. We unconditionally store `'SIGTERM'` on kill. The real signal name is lost.
 
-`aborted` is preserved through record/replay (captured from tinyexec's `aborted: true` when AbortSignal triggered, synthesized back to `aborted` on replay).
+`aborted` and `killed` are preserved through record/replay. Both fields live as getters on the pre-await `ExecProcess`; the adapter's `realCall` snapshots them before the `await` resolves so the cassette captures real values rather than `undefined` reads from the awaited `Output`.
 
 ## Failed flag
 
 Tinyexec's `Output` does not expose a `failed` boolean. shell-cassette derives `failed` on capture from `exitCode !== 0 || killed || aborted` and stores it in the cassette. Replay surfaces the stored value; older cassettes recorded before the field was stored re-derive at replay time via the same formula. The `throwOnError` reject branch keys on the resolved value, so signal-killed and aborted replays throw under `throwOnError: true` even when the cassette predates the field.
-
-Tinyexec's awaited `Output` also drops the `aborted` and `killed` getters that live on the pre-await `ExecProcess`. As a result, tinyexec cassettes currently record `aborted: false` regardless of whether the original call was canceled. Tracked in [#126](https://github.com/slgoodrich/shell-cassette/issues/126); replay-side handling is correct.
 
 ## Supported tinyexec options
 

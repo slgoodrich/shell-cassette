@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-// captureResult is internal — its module is intentionally not in
+// captureResult is internal: its module is intentionally not in
 // package.json's exports map, so imports go through the source path
 // directly. Pure-function unit test bypasses the wrapper layer entirely.
 import { captureResult } from '../../src/execa-capture.js'
@@ -68,7 +68,7 @@ describe('execa captureResult: killed (#129)', () => {
   })
 
   test('signal !== null without killed records killed=false (external signal)', () => {
-    // External SIGTERM (not via subprocess.kill()) — execa exposes
+    // External SIGTERM (not via subprocess.kill()): execa exposes
     // signal !== null but killed === false. The capture must preserve
     // that distinction so synth does not report killed=true.
     const r = captureResult(

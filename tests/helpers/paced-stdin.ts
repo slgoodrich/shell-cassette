@@ -5,9 +5,9 @@ import { Readable } from 'node:stream'
  * Required because Node's `readline.question` can drop a queued answer if
  * stdin EOFs before the next `question()` call is registered. The delay
  * gives the CLI time to render its prompt and re-register before the next
- * answer lands.
+ * answer arrives.
  *
- * Pacing is 250ms — 100ms was sufficient on Linux but flaky on Windows CI
+ * Pacing is 250ms; 100ms was sufficient on Linux but flaky on Windows CI
  * where readline event scheduling is slower. The added latency only affects
  * e2e tests (5 tests × 250ms × ~3 prompts each ≈ 4 seconds total), well
  * within the e2e budget.
@@ -22,7 +22,7 @@ export function pacedStdin(lines: readonly string[]): Readable {
   return new Readable({
     read() {
       if (i >= lines.length) {
-        // Delay EOF too so the final answer has time to land before stdin closes.
+        // Delay EOF too so the final answer has time to flush before stdin closes.
         setTimeout(() => this.push(null), PACE_MS)
         return
       }

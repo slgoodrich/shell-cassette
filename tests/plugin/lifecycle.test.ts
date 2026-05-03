@@ -36,5 +36,5 @@ describe('vitest plugin lifecycle (subprocess-driven)', () => {
       recursive: true,
       force: true,
     })
-  }, 60000) // 60s timeout — vitest subprocess startup is slow on Windows
+  }, 60000) // 60s timeout because vitest subprocess startup is slow on Windows
 })

@@ -12,7 +12,7 @@ const REVIEW_WARNING =
 
 /**
  * Serialize a CassetteFile to JSON. Always emits SCHEMA_VERSION (currently 2)
- * regardless of `file.version` — serialize is upgrade-on-write. A v1 cassette
+ * regardless of `file.version`; serialize is upgrade-on-write. A v1 cassette
  * passed in is materialized as v2 on disk; deserialize handles the inverse
  * by accepting v1 input and normalizing missing fields.
  *
@@ -145,7 +145,7 @@ export function deserialize(text: string): CassetteFile {
   }
 }
 
-// Fields added after the v2 schema landed are optional on disk;
+// Fields added after v2 schema initial release are optional on disk;
 // normalizeRecording fills defaults.
 type LegacyRecording = {
   call: Recording['call']

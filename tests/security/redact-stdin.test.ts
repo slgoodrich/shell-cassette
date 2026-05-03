@@ -222,7 +222,7 @@ describe('e2e: stdin credential round-trips redacted in cassette JSON', () => {
       await useCassette(cp, async () => {
         // The replayed result is whatever the cassette stored (the redacted
         // stdout), but the assertion that matters is that the call matched
-        // at all — no ReplayMissError thrown.
+        // at all (no ReplayMissError thrown).
         const r = await execa('node', NODE_ECHO_STDIN, { input: SAMPLE_GITHUB_PAT_CLASSIC })
         expect(r.exitCode).toBe(0)
         expect(r.stdout).toBe('<redacted:stdout:github-pat-classic:1>')

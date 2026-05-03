@@ -58,7 +58,7 @@ describe('defaultCanonicalize', () => {
     expect(canonical.args).toEqual(['remote', 'set-url', 'origin', '<tmp>/remote.git'])
   })
 
-  test('is deterministic — same input produces same output', () => {
+  test('is deterministic: same input produces same output', () => {
     const c = callOf('git', ['log'])
     expect(defaultCanonicalize(c, DEFAULT_CONFIG.redact)).toEqual(
       defaultCanonicalize(c, DEFAULT_CONFIG.redact),
@@ -105,7 +105,7 @@ describe('defaultCanonicalize', () => {
   })
 })
 
-describe('MatcherState — basic matching', () => {
+describe('MatcherState: basic matching', () => {
   test('returns null when no recordings', () => {
     const m = new MatcherState([], defaultCanonicalize, DEFAULT_CONFIG.redact)
     expect(m.findMatch(callOf('git', []))).toBeNull()
@@ -147,7 +147,7 @@ describe('MatcherState — basic matching', () => {
   })
 })
 
-describe('MatcherState — sequential consumption', () => {
+describe('MatcherState: sequential consumption', () => {
   test('first call gets first match, second call gets second match', () => {
     const recs = [recordingOf('git', ['status'], 'first'), recordingOf('git', ['status'], 'second')]
     const m = new MatcherState(recs, defaultCanonicalize, DEFAULT_CONFIG.redact)
@@ -175,7 +175,7 @@ describe('MatcherState — sequential consumption', () => {
   })
 })
 
-describe('MatcherState — ambiguity warning', () => {
+describe('MatcherState: ambiguity warning', () => {
   test('logs warning when multiple unconsumed recordings could match', () => {
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
     try {
@@ -192,7 +192,7 @@ describe('MatcherState — ambiguity warning', () => {
   })
 })
 
-describe('MatcherState — custom canonicalize', () => {
+describe('MatcherState: custom canonicalize', () => {
   test('uses provided canonicalize fn (e.g., command-only matching)', () => {
     const commandOnly: Canonicalize = (call) => ({ command: call.command })
     const recs = [recordingOf('git', ['status'])]

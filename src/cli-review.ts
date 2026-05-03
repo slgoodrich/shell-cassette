@@ -54,7 +54,7 @@ export type Finding = {
   rule: string
   /** Raw match (always populated; review --json without --include-match strips it before emit). */
   match: string
-  /** `sha256:<64 hex>` — used for skip-set membership across runs. */
+  /** `sha256:<64 hex>`. Used for skip-set membership across runs. */
   matchHash: string
   matchLength: number
   /** First-4 + ellipsis + last-4 if length >= 12, else full match. */
@@ -78,7 +78,7 @@ const CONTEXT_RADIUS = 2
  *   1. Each finding includes context lines surrounding the match for
  *      terminal display.
  *   2. Matches whose hash appears in any recording's `suppressed` array
- *      are skipped — the user already chose to skip them.
+ *      are skipped (the user already chose to skip them).
  */
 export function preScan(cassette: CassetteFile, config: Readonly<RedactConfig>): Finding[] {
   const skipSet = collectSuppressedHashes(cassette)
@@ -273,7 +273,7 @@ export type ReviewState = {
   /**
    * Stack of cursors saved before each forward advance. `back` pops from
    * here so multi-step jumps (e.g. `delete`'s contiguous-recording skip)
-   * unwind to the actual prior decision point — not just `cursor - 1`.
+   * unwind to the actual prior decision point, not just `cursor - 1`.
    */
   readonly history: readonly number[]
   readonly decisions: ReadonlyMap<string, Decision>
@@ -303,7 +303,7 @@ export type ReviewAction =
  *   - back: pop the prior cursor from history and rewind to it, removing
  *     every decision recorded in the unwound range so the user must
  *     re-decide. Empty history is a no-op (start of review or already
- *     fully unwound). Allowed from 'confirming' too — pops back to
+ *     fully unwound). Allowed from 'confirming' too; pops back to
  *     'reviewing' at the last decided finding.
  *   - quit: transition to 'aborted' (decisions discarded by caller).
  *
