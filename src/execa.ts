@@ -83,6 +83,11 @@ function captureResult(raw: unknown, durationMs: number): Result {
     exitCode?: number
     signal?: string | null
     isCanceled?: boolean
+    failed?: boolean
+    timedOut?: boolean
+    isMaxBuffer?: boolean
+    isForcefullyTerminated?: boolean
+    isGracefullyCanceled?: boolean
   }
   return {
     stdoutLines: toLines(r.stdout),
@@ -92,8 +97,17 @@ function captureResult(raw: unknown, durationMs: number): Result {
     signal: r.signal ?? null,
     durationMs,
     aborted: r.isCanceled === true,
+    failed: r.failed === true,
+    timedOut: r.timedOut === true,
+    isMaxBuffer: r.isMaxBuffer === true,
+    isForcefullyTerminated: r.isForcefullyTerminated === true,
+    isGracefullyCanceled: r.isGracefullyCanceled === true,
   }
 }
+
+// Test-only export so unit tests can drive captureResult without spawning
+// a real subprocess. Underscore prefix marks it as non-public API.
+export const _captureResultForTesting = captureResult
 
 function toLines(input: string | string[] | undefined): string[] {
   if (input === undefined) return ['']
