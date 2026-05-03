@@ -22,6 +22,15 @@ export type Result = {
   // tinyexec: r.aborted). Defaults to false on legacy cassettes that
   // predate the field; deserializer normalizes.
   aborted: boolean
+  // Optional flag fields. Legacy cassettes parse with these absent
+  // (the type permits `undefined`); synth resolves missing values via
+  // fallback derivation so older cassettes still throw correctly on
+  // replay for aborted/signal-killed calls.
+  failed?: boolean
+  timedOut?: boolean
+  isMaxBuffer?: boolean
+  isForcefullyTerminated?: boolean
+  isGracefullyCanceled?: boolean
 }
 
 export type Recording = {

@@ -76,16 +76,27 @@ function captureResult(raw: unknown, durationMs: number): CassetteResult {
   // tinyexec exposes only `killed: boolean`, not the actual signal name (SIGINT,
   // SIGKILL, etc.). We unconditionally record SIGTERM on kill; the real signal is
   // lost. Known limitation; tinyexec does not expose the signal name.
+  const exitCode = r.exitCode ?? 0
+  const killed = r.killed === true
+  const aborted = r.aborted === true
   return {
     stdoutLines: typeof r.stdout === 'string' ? r.stdout.split('\n') : [''],
     stderrLines: typeof r.stderr === 'string' ? r.stderr.split('\n') : [''],
     allLines: null,
-    exitCode: r.exitCode ?? 0,
-    signal: r.killed === true ? 'SIGTERM' : null,
+    exitCode,
+    signal: killed ? 'SIGTERM' : null,
     durationMs,
-    aborted: r.aborted === true,
+    aborted,
+    // Derived because tinyexec does not expose a `failed` boolean. Covers
+    // the three known failure shapes (non-zero exit, signal kill, abort).
+    // timedOut and isMaxBuffer are intentionally not stored: tinyexec
+    // exposes neither; synth defaults each to false on replay.
+    failed: exitCode !== 0 || killed || aborted,
   }
 }
+
+// Test-only export. See execa.ts for the same pattern.
+export const _captureResultForTesting = captureResult
 
 function synthesize(rec: Recording, options: Partial<Options>): TinyResult {
   const stdout = rec.result.stdoutLines.join('\n')
@@ -114,7 +125,16 @@ function synthesize(rec: Recording, options: Partial<Options>): TinyResult {
     },
   }
 
-  if ((options as { throwOnError?: boolean }).throwOnError === true && rec.result.exitCode !== 0) {
+  // Resolve failed via fallback derivation: stored value when present;
+  // otherwise derived from exit/signal/abort state. The fallback covers
+  // signal kill and aborted cases the old `exitCode !== 0` check missed
+  // and lets cassettes recorded before the field was added auto-upgrade
+  // their replay correctness without re-recording.
+  const failed =
+    rec.result.failed ??
+    (rec.result.exitCode !== 0 || rec.result.signal !== null || rec.result.aborted)
+
+  if ((options as { throwOnError?: boolean }).throwOnError === true && failed) {
     throw Object.assign(
       new Error(
         `Process exited with non-zero code: ${rec.result.exitCode} (command: ${rec.call.command})`,

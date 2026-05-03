@@ -1,9 +1,30 @@
 import type { Options, ResultPromise } from 'execa'
-import { MissingPeerDependencyError } from './errors.js'
+import { MissingPeerDependencyError, UnsupportedOptionError } from './errors.js'
 import { readInputFile } from './io.js'
 import { validateOptions } from './options-execa.js'
 import type { Call, Recording, Result } from './types.js'
 import { type RunnerHooks, runWrapped } from './wrapper.js'
+
+// Reused across every synth call. `pipe` and async iteration always
+// throw the same error; `kill` always returns false; the empty arrays
+// are frozen so callers can't mutate them between replays.
+const FROZEN_EMPTY_ARRAY: readonly never[] = Object.freeze([])
+
+const REPLAY_KILL_STUB = (): boolean => false
+
+const REPLAY_PIPE_STUB = (): never => {
+  throw new UnsupportedOptionError(
+    'execa result.pipe() not supported on replay (no live subprocess). ' +
+      'Use SHELL_CASSETTE_MODE=passthrough for tests that pipe subprocesses.',
+  )
+}
+
+const REPLAY_ASYNC_ITER_STUB = (): never => {
+  throw new UnsupportedOptionError(
+    'execa async iteration `for await (line of subprocess)` not supported on replay. ' +
+      'Read result.stdout (string or array form via lines option) instead.',
+  )
+}
 
 // Resolve execa via dynamic import so we can wrap "Cannot find module" with
 // an actionable error. Top-level await here means consumers importing
@@ -83,6 +104,11 @@ function captureResult(raw: unknown, durationMs: number): Result {
     exitCode?: number
     signal?: string | null
     isCanceled?: boolean
+    failed?: boolean
+    timedOut?: boolean
+    isMaxBuffer?: boolean
+    isForcefullyTerminated?: boolean
+    isGracefullyCanceled?: boolean
   }
   return {
     stdoutLines: toLines(r.stdout),
@@ -92,8 +118,17 @@ function captureResult(raw: unknown, durationMs: number): Result {
     signal: r.signal ?? null,
     durationMs,
     aborted: r.isCanceled === true,
+    failed: r.failed === true,
+    timedOut: r.timedOut === true,
+    isMaxBuffer: r.isMaxBuffer === true,
+    isForcefullyTerminated: r.isForcefullyTerminated === true,
+    isGracefullyCanceled: r.isGracefullyCanceled === true,
   }
 }
+
+// Test-only export so unit tests can drive captureResult without spawning
+// a real subprocess. Underscore prefix marks it as non-public API.
+export const _captureResultForTesting = captureResult
 
 function toLines(input: string | string[] | undefined): string[] {
   if (input === undefined) return ['']
@@ -150,22 +185,51 @@ function synthesize(rec: Recording, options: Options): unknown {
           : []
         : (rec.result.allLines?.join('\n') ?? stdoutAsString + stderrAsString)
       : undefined
+  // Resolve failed: stored value when present; otherwise derive from
+  // exit/signal/abort state. The fallback covers signal kill and aborted
+  // cases the old `exitCode !== 0` check missed and lets cassettes
+  // recorded before the field was added auto-upgrade their replay
+  // correctness without re-recording.
+  const failed =
+    rec.result.failed ??
+    (rec.result.exitCode !== 0 || rec.result.signal !== null || rec.result.aborted)
+
+  const isTerminated = rec.result.signal !== null
+
   const result = {
     stdout,
     stderr,
     exitCode: rec.result.exitCode,
     signal: rec.result.signal,
     durationMs: rec.result.durationMs,
-    failed: rec.result.exitCode !== 0,
-    timedOut: false,
-    isCanceled: rec.result.aborted,
-    killed: rec.result.signal !== null,
     command: `${rec.call.command} ${rec.call.args.join(' ')}`,
     escapedCommand: rec.call.command,
+    failed,
+    timedOut: rec.result.timedOut ?? false,
+    isCanceled: rec.result.aborted,
+    isMaxBuffer: rec.result.isMaxBuffer ?? false,
+    isTerminated,
+    isForcefullyTerminated: rec.result.isForcefullyTerminated ?? false,
+    isGracefullyCanceled: rec.result.isGracefullyCanceled ?? false,
+    killed: isTerminated, // NOTE: tracked as semantic bug in #129 — preserves current behavior
+
+    // pipedFrom: no chained subprocess on replay. ipcOutput: ipc: true
+    // is rejected at validation.
+    pipedFrom: FROZEN_EMPTY_ARRAY,
+    ipcOutput: FROZEN_EMPTY_ARRAY,
+
     ...(all !== undefined && { all }),
+
+    // No live subprocess on replay. kill() returns false (mirrors
+    // execa's "did not signal" return); pipe() and async iteration
+    // throw with actionable messages. Stream methods (iterable,
+    // readable, writable, duplex) are not stubbed.
+    kill: REPLAY_KILL_STUB,
+    pipe: REPLAY_PIPE_STUB,
+    [Symbol.asyncIterator]: REPLAY_ASYNC_ITER_STUB,
   }
 
-  if (options.reject !== false && rec.result.exitCode !== 0) {
+  if (options.reject !== false && failed) {
     const err = Object.assign(
       new Error(`Command failed with exit code ${rec.result.exitCode}: ${result.command}`),
       result,

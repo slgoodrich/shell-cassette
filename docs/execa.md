@@ -119,13 +119,36 @@ Rejected options throw `UnsupportedOptionError` at the record-mode wrapper entry
 
 ## Replay fidelity
 
-When the wrapper synthesizes a result on replay, it produces the same shape execa returns:
+When the wrapper synthesizes a result on replay, it populates every documented `Result` boolean flag so user assertions reach reachable values:
 
-- `stdout`, `stderr`, `exitCode`, `signal`, `command`, `escapedCommand`, `failed`, `timedOut`, `isCanceled`, `killed`, `durationMs`
-- `all` (when `all: true` was passed)
-- Throws synthesized `ExecaError` when exit code is non-zero AND `reject: false` not set (matching execa's default)
+| Field | Replay value |
+|---|---|
+| `failed` | Stored on capture; if absent (older cassettes), derived from `exitCode !== 0 \|\| signal !== null \|\| aborted` |
+| `timedOut` | Stored on capture; defaults to `false` when absent |
+| `isCanceled` | Mirrors the cassette's `aborted` field |
+| `isMaxBuffer` | Stored on capture; defaults to `false` when absent |
+| `isTerminated` | Derived: `signal !== null` |
+| `isForcefullyTerminated` | Stored on capture; defaults to `false` when absent |
+| `isGracefullyCanceled` | Stored on capture; defaults to `false` when absent |
+| `killed` | Derived: `signal !== null` |
+| `pipedFrom` | Always `[]` (`.pipe()` is stubbed; see below) |
+| `ipcOutput` | Always `[]` (`ipc: true` is rejected at validation) |
 
-`isCanceled` is preserved through record/replay (captured from execa's field, stored as `aborted` in the cassette schema, synthesized back to `isCanceled` on replay). `durationMs` is wall-clock measured by shell-cassette's wrapper around the real subprocess.
+Other fields (`stdout`, `stderr`, `exitCode`, `signal`, `command`, `escapedCommand`, `durationMs`, optional `all`) round-trip as before. The reject branch throws synthesized `ExecaError` when the resolved `failed` is `true` and `reject !== false` (matching execa's default). The fallback derivation lets cassettes recorded before the `failed` field was added auto-upgrade their replay correctness — aborted and signal-killed calls now throw on replay even when the cassette was recorded before the flag existed.
+
+`durationMs` is wall-clock measured by shell-cassette's wrapper around the real subprocess.
+
+### Subprocess-API methods on replay
+
+The synth result attaches a minimal subprocess API:
+
+| Method | Replay behavior |
+|---|---|
+| `kill(signal?)` | No-op; returns `false` (real execa returns `false` when no signal was sent) |
+| `pipe(...)` | Throws `UnsupportedOptionError`; use `SHELL_CASSETTE_MODE=passthrough` for tests that pipe |
+| `for await (line of subprocess)` | Throws `UnsupportedOptionError`; read `result.stdout` (string or `lines: true` array) |
+
+Stream methods (`iterable()`, `readable()`, `writable()`, `duplex()`) and stream-property getters (`stdin`, `stdout`, `stderr` as Node streams) are not stubbed; calls produce `TypeError`. Tests using these patterns must run with `SHELL_CASSETTE_MODE=passthrough`.
 
 ## Redaction
 
