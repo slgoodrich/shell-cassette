@@ -64,6 +64,7 @@ function orderRecording(rec: Recording) {
       ...(rec.result.isGracefullyCanceled !== undefined && {
         isGracefullyCanceled: rec.result.isGracefullyCanceled,
       }),
+      ...(rec.result.killed !== undefined && { killed: rec.result.killed }),
     },
     _redactions: rec.redactions,
     ...(rec.suppressed.length > 0 ? { _suppressed: rec.suppressed } : {}),

@@ -1,8 +1,9 @@
 import type { Options, ResultPromise } from 'execa'
 import { MissingPeerDependencyError, UnsupportedOptionError } from './errors.js'
+import { captureResult } from './execa-capture.js'
 import { readInputFile } from './io.js'
 import { validateOptions } from './options-execa.js'
-import type { Call, Recording, Result } from './types.js'
+import type { Call, Recording } from './types.js'
 import { type RunnerHooks, runWrapped } from './wrapper.js'
 
 // Reused across every synth call. `pipe` and async iteration always
@@ -69,9 +70,30 @@ export function execaNode(
 const execaHooks: RunnerHooks<Options, unknown> = {
   validate: (opts) => validateOptions(opts as Record<string, unknown> | undefined),
   buildCall,
-  realCall: (file, args, options) => realExeca(file, args, options) as unknown as Promise<unknown>,
+  realCall,
   captureResult,
   synthesize,
+}
+
+// When buildCall already resolved `inputFile` into `Call.stdin`, swap the
+// option so real execa consumes the resolved string via `input` instead of
+// re-reading the file. The branch only fires on the record path
+// (passthrough/no-session pass `resolvedStdin: undefined`). buildCall's
+// contract: when inputFile is defined, stdin is always a string (possibly
+// empty), never null — so a string-typeof check covers the optimization
+// case without a redundant null branch. Closes #102.
+function realCall(
+  file: string,
+  args: readonly string[],
+  options: Options,
+  resolvedStdin: string | null | undefined,
+): Promise<unknown> {
+  let opts = options
+  if (typeof resolvedStdin === 'string' && options.inputFile !== undefined) {
+    const { inputFile: _, ...rest } = options as Options & { inputFile?: unknown }
+    opts = { ...rest, input: resolvedStdin } as Options
+  }
+  return realExeca(file, args, opts) as unknown as Promise<unknown>
 }
 
 async function buildCall(file: string, args: readonly string[], options: Options): Promise<Call> {
@@ -94,46 +116,6 @@ async function buildCall(file: string, args: readonly string[], options: Options
     env: (options.env as Record<string, string> | undefined) ?? {},
     stdin,
   }
-}
-
-function captureResult(raw: unknown, durationMs: number): Result {
-  const r = raw as {
-    stdout?: string | string[]
-    stderr?: string | string[]
-    all?: string | string[]
-    exitCode?: number
-    signal?: string | null
-    isCanceled?: boolean
-    failed?: boolean
-    timedOut?: boolean
-    isMaxBuffer?: boolean
-    isForcefullyTerminated?: boolean
-    isGracefullyCanceled?: boolean
-  }
-  return {
-    stdoutLines: toLines(r.stdout),
-    stderrLines: toLines(r.stderr),
-    allLines: r.all === undefined ? null : toLines(r.all),
-    exitCode: r.exitCode ?? 0,
-    signal: r.signal ?? null,
-    durationMs,
-    aborted: r.isCanceled === true,
-    failed: r.failed === true,
-    timedOut: r.timedOut === true,
-    isMaxBuffer: r.isMaxBuffer === true,
-    isForcefullyTerminated: r.isForcefullyTerminated === true,
-    isGracefullyCanceled: r.isGracefullyCanceled === true,
-  }
-}
-
-// Test-only export so unit tests can drive captureResult without spawning
-// a real subprocess. Underscore prefix marks it as non-public API.
-export const _captureResultForTesting = captureResult
-
-function toLines(input: string | string[] | undefined): string[] {
-  if (input === undefined) return ['']
-  if (Array.isArray(input)) return [...input, '']
-  return input.split('\n')
 }
 
 // Resolve execa's `lines` option to per-stream booleans. The object form lets
@@ -211,7 +193,9 @@ function synthesize(rec: Recording, options: Options): unknown {
     isTerminated,
     isForcefullyTerminated: rec.result.isForcefullyTerminated ?? false,
     isGracefullyCanceled: rec.result.isGracefullyCanceled ?? false,
-    killed: isTerminated, // NOTE: tracked as semantic bug in #129 — preserves current behavior
+    // Stored value when present; fall back to isTerminated for legacy
+    // cassettes recorded before `killed` was captured separately.
+    killed: rec.result.killed ?? isTerminated,
 
     // pipedFrom: no chained subprocess on replay. ipcOutput: ipc: true
     // is rejected at validation.
