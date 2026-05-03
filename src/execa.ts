@@ -194,9 +194,10 @@ function synthesize(rec: Recording, options: Options): unknown {
     isGracefullyCanceled: rec.result.isGracefullyCanceled ?? false,
     killed: rec.result.signal !== null,
 
-    // Empty arrays for unsupported features. pipedFrom only meaningful
-    // with .pipe() (stubbed as throw in the next change); ipcOutput only
-    // with ipc: true (rejected at validation).
+    // Always empty arrays. `pipedFrom` records the upstream
+    // subprocesses of a piped chain; replay synthesizes single results
+    // and never chains. `ipcOutput` collects IPC messages; `ipc: true`
+    // is rejected at validation.
     pipedFrom: [],
     ipcOutput: [],
 
