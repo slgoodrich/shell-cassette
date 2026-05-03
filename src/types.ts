@@ -35,8 +35,8 @@ export type Result = {
    * True when `subprocess.kill()` was called (execa's `r.killed`, tinyexec's
    * `proc.killed`). Distinct from `signal !== null`: a process terminated by
    * an external signal has `signal !== null` but `killed === false`. Stored
-   * separately so synth doesn't have to derive (and get it wrong, as #129
-   * documented). Optional for backward compat with cassettes recorded before
+   * separately rather than derived because the two states are semantically
+   * different. Optional for backward compat with cassettes recorded before
    * the field existed.
    */
   killed?: boolean

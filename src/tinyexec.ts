@@ -46,12 +46,13 @@ const tinyexecHooks: RunnerHooks<Partial<Options>, TinyResult> = {
 // tinyexec's Result is `PromiseLike<Output> & OutputApi`. Awaiting it resolves
 // to Output (`{ stdout, stderr, exitCode }`) and drops the OutputApi getters
 // (`aborted`, `killed`). To capture those on the record path we snapshot them
-// from the ExecProcess BEFORE the await resolves, then return an enriched
-// plain object the cassette captureResult can read. Fixes #126.
+// from the ExecProcess before the await resolves, then return an enriched
+// plain object the cassette captureResult can read.
 //
-// `_resolvedStdin` is part of RunnerHooks.realCall's signature for the execa
-// adapter's #102 optimization; tinyexec has no `inputFile` option and ignores
-// it.
+// The fourth parameter is part of RunnerHooks.realCall's signature for the
+// execa adapter's inputFile optimization; tinyexec has no `inputFile`
+// option and ignores it (underscore prefix per biome's
+// noUnusedFunctionParameters).
 async function realCall(
   file: string,
   args: readonly string[],
@@ -88,7 +89,7 @@ function synthesize(rec: Recording, options: Partial<Options>): TinyResult {
   const stdout = rec.result.stdoutLines.join('\n')
   const stderr = rec.result.stderrLines.join('\n')
   // Stored value when present; fall back to signal-derived for legacy cassettes
-  // recorded before `killed` was captured separately. Closes #129.
+  // recorded before `killed` was captured separately.
   const killed = rec.result.killed ?? rec.result.signal !== null
 
   const result = {

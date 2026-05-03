@@ -134,7 +134,7 @@ describe('wrapper.realCall: resolvedStdin threading (#102)', () => {
   })
 
   test('passes resolvedStdin = undefined on no-active-session passthrough', async () => {
-    // No setActiveCassette() — wrapper falls through to realCall after the
+    // No setActiveCassette(): wrapper falls through to realCall after the
     // mode check (resolveMode defaults to passthrough when CI=false).
     const { hooks, realCall } = makeHooks()
     await runWrapped('node', ['-v'], { input: 'irrelevant' } satisfies Opts, hooks)

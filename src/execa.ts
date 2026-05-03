@@ -80,8 +80,8 @@ const execaHooks: RunnerHooks<Options, unknown> = {
 // re-reading the file. The branch only fires on the record path
 // (passthrough/no-session pass `resolvedStdin: undefined`). buildCall's
 // contract: when inputFile is defined, stdin is always a string (possibly
-// empty), never null — so a string-typeof check covers the optimization
-// case without a redundant null branch. Closes #102.
+// empty), never null, so a string-typeof check covers the optimization
+// case without a redundant null branch.
 function realCall(
   file: string,
   args: readonly string[],

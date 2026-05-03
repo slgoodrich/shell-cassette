@@ -49,9 +49,9 @@ describe('record + replay: aborted (execa)', () => {
   })
 })
 
-// Closes #126: tinyexec's awaited Output drops the OutputApi getters
-// (aborted, killed) that live on the pre-await ExecProcess. The adapter's
-// realCall snapshots them before await so captureResult sees real values.
+// tinyexec's awaited Output drops the OutputApi getters (aborted, killed)
+// that live on the pre-await ExecProcess. The adapter's realCall snapshots
+// them before await so captureResult sees real values.
 describe('record + replay: aborted (tinyexec)', () => {
   const tmp = useTmpDir('sc-aborted-tinyexec-')
 
